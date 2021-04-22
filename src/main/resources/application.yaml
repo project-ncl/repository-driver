@@ -1,0 +1,37 @@
+quarkus:
+  shutdown:
+    timeout: 30
+  log:
+    category:
+      "org.jboss.pnc":
+        level: DEBUG
+    console:
+      format: "%d{HH:mm:ss,SSS} %-5p [%c{3.}] (%t) %s%e mdc:[%X]%n"
+  oidc:
+    auth-server-url: https://keycloak-host/auth/realms/myrealm
+    client-id: client
+    credentials:
+      secret: secret
+    tls:
+      verification: none
+    keycloak:
+      policy-enforcer:
+        enable: false
+  oidc-client:
+    auth-server-url: http://localhost:8180/auth/realms/quarkus/
+    client-id: my-app
+    credentials:
+      secret: secret
+
+
+repository-driver:
+
+"%test":
+  quarkus:
+    oidc:
+      enabled: false
+  repository-driver:
+    http-client:
+      connect-timeout: 1
+      request-timeout: 3
+
