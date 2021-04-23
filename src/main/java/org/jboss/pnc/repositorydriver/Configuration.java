@@ -17,6 +17,8 @@
  */
 package org.jboss.pnc.repositorydriver;
 
+import java.util.List;
+
 import javax.enterprise.context.ApplicationScoped;
 
 import lombok.Getter;
@@ -28,115 +30,52 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @ApplicationScoped
 public class Configuration {
 
-    /**
-     * List of allowed destinations by firewall in Docker container. <br />
-     * Format: \<IPv4>:\<Port>(,\<IPv4>:\<Port>)+ You can set it to "all" and network isolation will be skipped, in case
-     * of not setting it up at all all network traffic will be dropped
-     */
-    @ConfigProperty(name = "environment-driver.firewall-allowed-destinations", defaultValue = "127.0.0.1")
-    String firewallAllowedDestinations;
-
-    /**
-     * Persistent http proxy hostname
-     */
-    @ConfigProperty(name = "environment-driver.proxy-server")
-    String proxyServer;
-
-    /**
-     * Persistent http proxy port
-     */
-    @ConfigProperty(name = "environment-driver.proxy-port")
-    String proxyPort;
-
-    /**
-     * List of hosts that are not proxied.
-     */
-    @ConfigProperty(name = "environment-driver.non-proxy-port", defaultValue = "localhost")
-    String nonProxyHosts;
-
-    /**
-     * Working directory on the remote environment
-     */
-    @ConfigProperty(name = "environment-driver.working-directory")
-    String workingDirectory;
-
-    @ConfigProperty(name = "environment-driver.build-agent.service-scheme", defaultValue = "http")
-    String buildAgentServiceScheme;
-
-    @ConfigProperty(name = "environment-driver.build-agent.container-port")
-    String buildAgentContainerPort;
-
-    @ConfigProperty(name = "environment-driver.build-agent.bind-path")
-    String buildAgentBindPath;
-
-    @ConfigProperty(name = "environment-driver.build-agent.ping-path", defaultValue = "")
-    String buildAgentPingPath;
-
-    @ConfigProperty(name = "environment-driver.build-agent.running-wait-for", defaultValue = "60")
-    long buildAgentRunningWaitFor;
-
-    @ConfigProperty(name = "environment-driver.builder-pod-memory", defaultValue = "4")
-    int builderPodMemory;
-
-    @ConfigProperty(name = "environment-driver.self-base-url")
+    @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
 
-    @ConfigProperty(name = "environment-driver.openshift.ssh-service-port-name", defaultValue = "2222-ssh")
-    String sshServicePortName;
+    @ConfigProperty(name = "repository-driver.indy-client.api-url")
+    String indyUrl;
 
-    @ConfigProperty(name = "environment-driver.openshift.namespace")
-    String openshiftNamespace;
+    @ConfigProperty(name = "repository-driver.indy-client.request-timeout")
+    Integer indyClientRequestTimeout;
 
-    @ConfigProperty(name = "environment-driver.openshift.pod")
-    String podDefinition;
-
-    @ConfigProperty(name = "environment-driver.openshift.service")
-    String serviceDefinition;
-
-    @ConfigProperty(name = "environment-driver.openshift.ssh-service")
-    String sshServiceDefinition;
-
-    @ConfigProperty(name = "environment-driver.openshift.route")
-    String routeDefinition;
-
-    @ConfigProperty(name = "environment-driver.openshift.api.url")
-    String openshiftApiUrl;
-
-    /**
-     * Openshift Api authentication token.
-     */
-    @ConfigProperty(name = "environment-driver.openshift.api.token")
-    String openshiftApiToken;
-
-    @ConfigProperty(name = "environment-driver.openshift.client.connection-timeout", defaultValue = "5")
-    int openshiftClientConnectionTimeout;
-
-    @ConfigProperty(name = "environment-driver.openshift.client.request-timeout", defaultValue = "15")
-    int openshiftClientRequestTimeout;
-
-    @ConfigProperty(name = "environment-driver.http-client.connect-timeout", defaultValue = "5")
+    @ConfigProperty(name = "repository-driver.http-client.connect-timeout", defaultValue = "5")
     int httpClientConnectTimeout;
 
-    @ConfigProperty(name = "environment-driver.http-client.request-timeout", defaultValue = "15")
+    @ConfigProperty(name = "repository-driver.http-client.request-timeout", defaultValue = "15")
     int httpClientRequestTimeout;
 
-    @ConfigProperty(name = "environment-driver.ssh-ping-retry-duration", defaultValue = "15")
-    int sshPingRetryDuration;
-
-    @ConfigProperty(name = "environment-driver.destroy-retry-duration", defaultValue = "3600")
-    long destroyRetryDuration;
-
-    @ConfigProperty(name = "environment-driver.pod-running-wait-for", defaultValue = "300")
-    long podRunningWaitFor;
-
-    @ConfigProperty(name = "environment-driver.service-running-wait-for", defaultValue = "30")
-    long serviceRunningWaitFor;
-
-    @ConfigProperty(name = "environment-driver.callback-retry-duration", defaultValue = "300")
+    @ConfigProperty(name = "repository-driver.callback-retry-duration", defaultValue = "600")
     long callbackRetryDuration;
 
-    //TODO config keys
-    private String tempBuildPromotionTarget;
-    private String buildPromotionTarget;
+    @ConfigProperty(name = "repository-driver.build-promotion-target")
+    String buildPromotionTarget;
+
+    @ConfigProperty(name = "repository-driver.temp-build-promotion-target")
+    String tempBuildPromotionTarget;
+
+    @ConfigProperty(name = "repository-driver.ignored-repo-patterns")
+    List<String> ignoredRepoPatterns;
+
+    //// ArtifactFilterImpl.IgnoredPathPatterns ignoredPathPatterns;
+    // ArtifactFilterImpl.IgnoredPatterns ignoredPathPatterns.promotion
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.generic")
+    List<String> ignoredPathPatternsPromotionGeneric;
+
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.maven")
+    List<String> ignoredPathPatternsPromotionMaven;
+
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.npm")
+    List<String> ignoredPathPatternsPromotionNpm;
+
+    // ArtifactFilterImpl.IgnoredPatterns ignoredPathPatterns.data
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.generic")
+    List<String> ignoredPathPatternsDataGeneric;
+
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.maven")
+    List<String> ignoredPathPatternsDataMaven;
+
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.npm")
+    List<String> ignoredPathPatternsDataNpm;
 
 }

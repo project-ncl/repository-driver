@@ -24,6 +24,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -46,20 +47,27 @@ import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG
 @ApplicationScoped
 public class ArtifactFilterImpl implements ArtifactFilter {
 
+    @Inject
+    Configuration configuration;
+
     private IgnoredPatterns ignoredPathPatternsPromotion;
 
     private IgnoredPatterns ignoredPathPatternsData;
 
     private PatternsList ignoredRepoPatterns;
 
-    //TODO get values from the config
-    public ArtifactFilterImpl(
-            IgnoredPatterns ignoredPathPatternsPromotion,
-            IgnoredPatterns ignoredPathPatternsData,
-            List<String> ignoredRepoPatterns) {
-        this.ignoredPathPatternsPromotion = ignoredPathPatternsPromotion;
-        this.ignoredPathPatternsData = ignoredPathPatternsData;
-        this.ignoredRepoPatterns = new PatternsList(ignoredRepoPatterns);
+    public ArtifactFilterImpl() {
+        ignoredPathPatternsPromotion = new IgnoredPatterns();
+        ignoredPathPatternsPromotion.setGeneric(configuration.getIgnoredPathPatternsPromotionGeneric());
+        ignoredPathPatternsPromotion.setMaven(configuration.getIgnoredPathPatternsPromotionMaven());
+        ignoredPathPatternsPromotion.setNpm(configuration.getIgnoredPathPatternsPromotionNpm());
+
+        ignoredPathPatternsData = new IgnoredPatterns();
+        ignoredPathPatternsData.setGeneric(configuration.getIgnoredPathPatternsDataGeneric());
+        ignoredPathPatternsData.setMaven(configuration.getIgnoredPathPatternsDataMaven());
+        ignoredPathPatternsData.setNpm(configuration.getIgnoredPathPatternsDataNpm());
+
+        ignoredRepoPatterns = new PatternsList(configuration.getIgnoredRepoPatterns());
     }
 
     @Override
@@ -134,12 +142,7 @@ public class ArtifactFilterImpl implements ArtifactFilter {
 
     public static class PatternsList {
 
-        @JsonIgnore
         private List<Pattern> patterns;
-
-        public List<Pattern> getPatterns() {
-            return patterns == null ? Collections.emptyList() : patterns;
-        }
 
         public PatternsList(List<String> strings) {
             if (strings != null) {
@@ -148,6 +151,10 @@ public class ArtifactFilterImpl implements ArtifactFilter {
                     patterns.add(Pattern.compile(string));
                 }
             }
+        }
+
+        public List<Pattern> getPatterns() {
+            return patterns == null ? Collections.emptyList() : patterns;
         }
     }
 

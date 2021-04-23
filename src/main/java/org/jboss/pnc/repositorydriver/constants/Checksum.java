@@ -18,6 +18,4 @@ public class Checksum {
         suffixes.add("sha512");
     }
 
-
-
 }

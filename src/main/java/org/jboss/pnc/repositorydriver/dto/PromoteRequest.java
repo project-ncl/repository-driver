@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.jackson.Jacksonized;
 import org.jboss.pnc.api.dto.Request;
-import org.jboss.pnc.repositorydriver.constants.BuildType;
+import org.jboss.pnc.enums.BuildType;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>

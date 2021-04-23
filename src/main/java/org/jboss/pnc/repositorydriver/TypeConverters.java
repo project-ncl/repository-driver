@@ -1,7 +1,7 @@
 package org.jboss.pnc.repositorydriver;
 
+import org.jboss.pnc.enums.BuildType;
 import org.jboss.pnc.enums.RepositoryType;
-import org.jboss.pnc.repositorydriver.constants.BuildType;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
@@ -12,7 +12,7 @@ import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG
  */
 public class TypeConverters {
 
-    //TODO move out of the driver
+    // TODO move out of the driver
     public static RepositoryType getRepositoryType(BuildType buildType) {
         switch (buildType) {
             case MVN:

@@ -74,8 +74,8 @@ public class Public {
     }
 
     /**
-     * Gets repository manager result for a specific Build Record.
-     * It generates a successful result from tracking report even for builds that failed because of a system error with a sealed tracking record.
+     * Gets repository manager result for a specific Build Record. It generates a successful result from tracking report
+     * even for builds that failed because of a system error with a sealed tracking record.
      */
     @GET
     @Path("/{id}/repository-manager-result")

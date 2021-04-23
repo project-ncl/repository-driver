@@ -18,13 +18,17 @@
 
 package org.jboss.pnc.repositorydriver.runtime;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.pnc.common.concurrent.Sequence;
+import org.jboss.pnc.repositorydriver.Driver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -32,18 +36,36 @@ import org.jboss.pnc.common.concurrent.Sequence;
 @ApplicationScoped
 public class ApplicationLifecycle {
 
-    @ConfigProperty(name = "sequenceGenerator.nodeId", defaultValue = "-1") // nodeId + nodeIdOffset must be < 1024
-    int nodeId;
+    private static final Logger logger = LoggerFactory.getLogger(ApplicationLifecycle.class);
 
-    @ConfigProperty(name = "sequenceGenerator.nodeIdOffset", defaultValue = "0") // nodeId + nodeIdOffset must be < 1024
-    int nodeIdOffset;
+    private AtomicInteger activePromotions = new AtomicInteger();
+    private boolean shuttingDown;
 
     void onStart(@Observes StartupEvent event) {
-        if (nodeId > -1) {
-            Sequence.setNodeId(nodeIdOffset + nodeId);
-        }
     }
 
     void onStop(@Observes ShutdownEvent event) {
+        shuttingDown = true;
+        while (activePromotions.get() > 0) { // TODO add timeout, use quarkus.shutdown.timeout
+            try {
+                logger.info("Waiting for {} promotions to complete ...", activePromotions.get());
+                TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+                logger.warn("Interrupted while waiting for promotions to complete.", e);
+                return;
+            }
+        }
+    }
+
+    public void addActivePromotion() {
+        activePromotions.incrementAndGet();
+    }
+
+    public void removeActivePromotion() {
+        activePromotions.decrementAndGet();
+    }
+
+    public boolean isShuttingDown() {
+        return shuttingDown;
     }
 }

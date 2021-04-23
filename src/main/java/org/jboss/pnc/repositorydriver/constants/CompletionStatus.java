@@ -22,10 +22,5 @@ package org.jboss.pnc.repositorydriver.constants;
  */
 public enum CompletionStatus {
 
-    //TODO
-    SUCCESS, NO_REBUILD_REQUIRED, FAILED, CANCELLED, TIMED_OUT, SYSTEM_ERROR;
-
-    public boolean isFailed() {
-        return this != SUCCESS && this != NO_REBUILD_REQUIRED;
-    }
+    SUCCESS, FAILED, SYSTEM_ERROR;
 }

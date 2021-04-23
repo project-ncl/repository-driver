@@ -19,10 +19,10 @@
 package org.jboss.pnc.repositorydriver.runtime;
 
 import io.quarkus.security.identity.SecurityIdentity;
+import org.jboss.pnc.api.constants.MDCHeaderKeys;
+import org.jboss.pnc.api.constants.MDCKeys;
 import org.jboss.pnc.common.Strings;
 import org.jboss.pnc.common.concurrent.Sequence;
-import org.jboss.pnc.common.constants.MDCHeaderKeys;
-import org.jboss.pnc.common.constants.MDCKeys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;

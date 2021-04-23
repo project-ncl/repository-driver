@@ -45,7 +45,6 @@ import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.repositorydriver.dto.CreateRequest;
 import org.jboss.pnc.repositorydriver.dto.CreateResponse;
-import org.jboss.pnc.repositorydriver.dto.EnvironmentCreationCompleted;
 import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
 import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;

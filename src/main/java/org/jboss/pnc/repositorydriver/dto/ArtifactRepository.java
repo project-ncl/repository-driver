@@ -1,6 +1,6 @@
 /**
  * JBoss, Home of Professional Open Source.
- * Copyright 2021 Red Hat, Inc., and individual contributors
+ * Copyright 2014-2020 Red Hat, Inc., and individual contributors
  * as indicated by the @author tags.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.jboss.pnc.repositorydriver.dto;
 
-package org.jboss.pnc.repositorydriver;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
-/**
- * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
- */
-public class DriverException extends Exception {
+@Getter
+@AllArgsConstructor
+@Jacksonized
+@Builder(builderClassName = "Builder")
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class ArtifactRepository {
 
-    public DriverException(String message) {
-        super(message);
-    }
+    String id;
 
-    public DriverException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    String name;
+
+    String url;
+
+    Boolean releases;
+
+    Boolean snapshots;
+
 }

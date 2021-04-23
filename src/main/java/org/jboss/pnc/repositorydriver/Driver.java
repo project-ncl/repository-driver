@@ -76,23 +76,23 @@ import org.commonjava.indy.promote.model.PathsPromoteResult;
 import org.commonjava.indy.promote.model.ValidationResult;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.jboss.pnc.api.constants.BuildConfigurationParameterKeys;
-import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
+import org.jboss.pnc.constants.ReposiotryIdentifier;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.TargetRepository;
 import org.jboss.pnc.enums.ArtifactQuality;
+import org.jboss.pnc.enums.BuildType;
 import org.jboss.pnc.enums.RepositoryType;
-import org.jboss.pnc.repositorydriver.constants.BuildType;
 import org.jboss.pnc.repositorydriver.constants.Checksum;
 import org.jboss.pnc.repositorydriver.constants.CompletionStatus;
-import org.jboss.pnc.repositorydriver.constants.ReposiotryIdentifier;
+import org.jboss.pnc.repositorydriver.dto.ArtifactRepository;
 import org.jboss.pnc.repositorydriver.dto.CreateRequest;
 import org.jboss.pnc.repositorydriver.dto.CreateResponse;
 import org.jboss.pnc.repositorydriver.dto.PromoteRequest;
 import org.jboss.pnc.repositorydriver.dto.PromoteResult;
+import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
@@ -134,6 +134,9 @@ public class Driver {
     @Inject
     ArtifactFilter artifactFilter;
 
+    @Inject
+    ApplicationLifecycle lifecycle;
+
     public CreateResponse create(CreateRequest createRequest) throws RepositoryDriverException {
         BuildType buildType = createRequest.getBuildType();
         String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
@@ -146,8 +149,7 @@ public class Driver {
                     buildType,
                     packageType,
                     createRequest.isTempBuild(),
-                    createRequest.getExtraRepositories(),
-                    indy);
+                    createRequest.getExtraRepositories());
         } catch (IndyClientException e) {
             logger.debug("Failed to setup repository or repository group for this build");
             throw new RepositoryDriverException(
@@ -187,27 +189,35 @@ public class Driver {
      * product-level storage. Finally delete the group associated with the completed build.
      */
     public void promote(PromoteRequest promoteRequest) throws RepositoryDriverException {
+        if (lifecycle.isShuttingDown()) {
+            throw new StoppingException();
+        }
         String buildContentId = promoteRequest.getBuildContentId();
         BuildType buildType = promoteRequest.getBuildType();
         TrackedContentDTO report = sealAndGetTrackingReport(buildContentId, true);
 
         // schedule promotion
-        executor.submit(() -> {
+        executor.runAsync(() -> {
+            lifecycle.addActivePromotion();
             try {
                 Runnable heartBeatSender = heartBeatSender(promoteRequest.getHeartBeat());
 
                 List<Artifact> downloadedArtifacts;
                 try {
                     logger.info("BEGIN: Process artifacts downloaded by build");
-                    userLog.info("Processing dependencies"); //TODO log event duration
+                    userLog.info("Processing dependencies"); // TODO log event duration
                     StopWatch stopWatch = StopWatch.createStarted();
 
                     downloadedArtifacts = collectDownloadedArtifacts(report.getDownloads());
-                    logger.info("END: Process artifacts downloaded by build, took {} seconds", stopWatch.getTime(TimeUnit.SECONDS));
+                    logger.info(
+                            "END: Process artifacts downloaded by build, took {} seconds",
+                            stopWatch.getTime(TimeUnit.SECONDS));
                 } catch (RepositoryDriverException e) {
                     String message = e.getMessage();
                     userLog.error("Dependencies promotion failed. Error(s): {}", message);
-                    notifyInvoker(promoteRequest.getCallback(), PromoteResult.failed(buildContentId, message, CompletionStatus.SYSTEM_ERROR));
+                    notifyInvoker(
+                            promoteRequest.getCallback(),
+                            PromoteResult.failed(buildContentId, message, CompletionStatus.SYSTEM_ERROR));
                     return;
                 }
 
@@ -219,17 +229,38 @@ public class Driver {
                 deleteBuildGroup(buildType.getRepoType(), buildContentId);
                 promoteDownloads(heartBeatSender, report.getDownloads(), promoteRequest.isTempBuild());
                 heartBeatSender.run();
-                promoteUploadsToBuildContentSet(buildType.getRepoType(), buildContentId, uploads.getPromotion(), promoteRequest.isTempBuild());
+                promoteUploadsToBuildContentSet(
+                        buildType.getRepoType(),
+                        buildContentId,
+                        uploads.getPromotion(),
+                        promoteRequest.isTempBuild());
                 logger.info(
                         "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
                         StringUtils.join(uploads.getData(), "\n  "),
                         StringUtils.join(downloadedArtifacts, "\n  "));
-                notifyInvoker(promoteRequest.getCallback(), new PromoteResult(uploadedArtifacts, downloadedArtifacts, buildContentId, "", CompletionStatus.SUCCESS));
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        new PromoteResult(
+                                uploadedArtifacts,
+                                downloadedArtifacts,
+                                buildContentId,
+                                "",
+                                CompletionStatus.SUCCESS));
             } catch (PromotionValidationException e) {
-                notifyInvoker(promoteRequest.getCallback(), PromoteResult.failed(buildContentId, e.getMessage(), CompletionStatus.FAILED));
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        PromoteResult.failed(buildContentId, e.getMessage(), CompletionStatus.FAILED));
             } catch (RepositoryDriverException e) {
-                notifyInvoker(promoteRequest.getCallback(), PromoteResult.failed(buildContentId, e.getMessage(), CompletionStatus.SYSTEM_ERROR));
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        PromoteResult.failed(buildContentId, e.getMessage(), CompletionStatus.SYSTEM_ERROR));
             }
+        }).handle((nul, throwable) -> {
+            if (throwable != null) {
+                logger.error("Unhanded promotion exception.", throwable);
+            }
+            lifecycle.removeActivePromotion();
+            return null;
         });
     }
 
@@ -279,7 +310,8 @@ public class Driver {
                 .getStageAsync(() -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
     }
 
-    public PromoteResult collectRepoManagerResult(String buildContentId, boolean tempBuild) throws RepositoryDriverException {
+    public PromoteResult collectRepoManagerResult(String buildContentId, boolean tempBuild)
+            throws RepositoryDriverException {
         TrackedContentDTO report = sealAndGetTrackingReport(buildContentId, false);
         try {
             logger.info("BEGIN: Process artifacts downloaded by build");
@@ -287,7 +319,9 @@ public class Driver {
             StopWatch stopWatch = StopWatch.createStarted();
 
             List<Artifact> downloadedArtifacts = collectDownloadedArtifacts(report.getDownloads());
-            logger.info("END: Process artifacts downloaded by build, took {} seconds", stopWatch.getTime(TimeUnit.SECONDS)); //TODO log-event-duration
+            logger.info(
+                    "END: Process artifacts downloaded by build, took {} seconds",
+                    stopWatch.getTime(TimeUnit.SECONDS)); // TODO log-event-duration
 
             Uploads uploads = collectUploads(report.getUploads(), tempBuild);
             List<Artifact> uploadedArtifacts = uploads.getData();
@@ -297,12 +331,22 @@ public class Driver {
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
                     StringUtils.join(uploads.getData(), "\n  "),
                     StringUtils.join(downloadedArtifacts, "\n  "));
-            return new PromoteResult(uploadedArtifacts, downloadedArtifacts, buildContentId, "", CompletionStatus.SUCCESS);
+            return new PromoteResult(
+                    uploadedArtifacts,
+                    downloadedArtifacts,
+                    buildContentId,
+                    "",
+                    CompletionStatus.SUCCESS);
         } catch (RepositoryDriverException e) {
             String message = e.getMessage();
             logger.warn("Dependencies promotion failed. Error(s): {}", message);
             userLog.error("Built artifact promotion failed. Error(s): {}", message);
-            return new PromoteResult(Collections.emptyList(), Collections.emptyList(), buildContentId, message, CompletionStatus.FAILED);
+            return new PromoteResult(
+                    Collections.emptyList(),
+                    Collections.emptyList(),
+                    buildContentId,
+                    message,
+                    CompletionStatus.FAILED);
         }
     }
 
@@ -313,10 +357,11 @@ public class Driver {
      * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
      *         artifacts
      */
-    private Uploads collectUploads(Set<TrackedContentEntryDTO> uploads, boolean tempBuild) throws RepositoryDriverException {
+    private Uploads collectUploads(Set<TrackedContentEntryDTO> uploads, boolean tempBuild)
+            throws RepositoryDriverException {
         List<Artifact> data = new ArrayList<>();
 
-        userLog.info("Processing built artifacts"); //TODO duration
+        userLog.info("Processing built artifacts"); // TODO duration
         StopWatch stopWatch = StopWatch.createStarted();
 
         Set<String> promotionSet = new HashSet<>();
@@ -412,15 +457,14 @@ public class Driver {
      * @throws IndyClientException
      */
     private void setupBuildRepos(
-            String buildId, //TODO used only for logs, should we use buildContentId instead
+            String buildId, // TODO used only for logs, should we use buildContentId instead
             String buildContentId,
             BuildType buildType,
             String packageType,
             boolean tempBuild,
-                // add extra repositories removed from poms by the adjust process and set in BC by user
-                //TODO validate repository see #extractExtraRepositoriesFromGenericParameters
-            List<ArtifactRepository> extraDependencyRepositories,
-            Indy indy) throws IndyClientException {
+            // add extra repositories removed from poms by the adjust process and set in BC by user
+            // TODO validate repository see #extractExtraRepositoriesFromGenericParameters
+            List<ArtifactRepository> extraDependencyRepositories) throws IndyClientException {
 
         // if the build-level group doesn't exist, create it.
         StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
@@ -454,7 +498,7 @@ public class Driver {
             // Global-level repos, for captured/shared artifacts and access to the outside world
             addGlobalConstituents(buildType, packageType, buildGroup, tempBuild);
 
-            addExtraConstituents(packageType, extraDependencyRepositories, buildId, buildContentId, indy, buildGroup);
+            addExtraConstituents(packageType, extraDependencyRepositories, buildId, buildContentId, buildGroup);
 
             String changelog = "Creating repository group for resolving artifacts in build: " + buildId + " (repo: "
                     + buildContentId + ")";
@@ -470,7 +514,6 @@ public class Driver {
      * @param repositories the list of repositories to be added
      * @param buildId build ID
      * @param buildContentId build content ID
-     * @param indy Indy client
      * @param buildGroup target build group in which the repositories are added
      *
      * @throws IndyClientException in case of an issue when communicating with the repository manager
@@ -480,7 +523,6 @@ public class Driver {
             List<ArtifactRepository> repositories,
             String buildId,
             String buildContentId,
-            Indy indy,
             Group buildGroup) throws IndyClientException {
         if (repositories != null && !repositories.isEmpty()) {
             StoreListingDTO<RemoteRepository> existingRepos = indy.stores().listRemoteRepositories(packageType);
@@ -581,7 +623,8 @@ public class Driver {
         }
     }
 
-    private List<Artifact> collectDownloadedArtifacts(Set<TrackedContentEntryDTO> downloads) throws RepositoryDriverException {
+    private List<Artifact> collectDownloadedArtifacts(Set<TrackedContentEntryDTO> downloads)
+            throws RepositoryDriverException {
         IndyContentClientModule content;
         try {
             content = indy.content();
@@ -692,7 +735,8 @@ public class Driver {
      */
     private void promoteDownloads(Runnable heartBeatSender, Set<TrackedContentEntryDTO> downloads, boolean tempBuild)
             throws RepositoryDriverException, PromotionValidationException {
-        // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared imports
+        // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
+        // imports
         // and return dependency artifacts meta data.
         Map<StoreKey, Map<StoreKey, Set<String>>> depMap = collectDownloadsPromotionMap(downloads);
 
@@ -704,8 +748,7 @@ public class Driver {
                 CallbackTarget callbackTarget = new CallbackTarget(
                         configuration.getSelfBaseUrl(),
                         CallbackTarget.CallbackMethod.PUT,
-                        mdcToMapWithHeaderKeys()
-                );
+                        MdcUtils.mdcToMapWithHeaderKeys());
                 PathsPromoteRequest req = new PathsPromoteRequest(source, target, sourceToPaths.getValue())
                         .setPurgeSource(false);
                 // set read-only only the generic http proxy hosted repos, not shared-imports
@@ -739,7 +782,7 @@ public class Driver {
                             req.getTarget().toString(),
                             readonly,
                             stopWatchDoPromote.getTime(TimeUnit.SECONDS));
-                    userLog.error("Dependencies promotion failed. Error(s): {}", ex.getMessage()); //TODO unify log
+                    userLog.error("Dependencies promotion failed. Error(s): {}", ex.getMessage()); // TODO unify log
                     throw ex;
                 }
             }
@@ -819,8 +862,10 @@ public class Driver {
         return "/api/content/generic-http/hosted/" + getGenericHostedRepoName(source.getName());
     }
 
-    private TargetRepository getUploadsTargetRepository(RepositoryType repoType, boolean tempBuild, IndyContentClientModule content)
-            throws RepositoryDriverException {
+    private TargetRepository getUploadsTargetRepository(
+            RepositoryType repoType,
+            boolean tempBuild,
+            IndyContentClientModule content) throws RepositoryDriverException {
 
         StoreKey storeKey;
         String identifier;
@@ -846,7 +891,6 @@ public class Driver {
                 .temporaryRepo(tempBuild)
                 .build();
     }
-
 
     /**
      * Computes identifier string for an artifact. If the download path is valid for a package-type specific artifact it
@@ -1032,8 +1076,11 @@ public class Driver {
      *         in transport
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    public void promoteUploadsToBuildContentSet(RepositoryType repositoryType, String buildContentId, List<String> uploads, boolean tempBuild)
-            throws RepositoryDriverException, PromotionValidationException {
+    public void promoteUploadsToBuildContentSet(
+            RepositoryType repositoryType,
+            String buildContentId,
+            List<String> uploads,
+            boolean tempBuild) throws RepositoryDriverException, PromotionValidationException {
         userLog.info("Validating and promoting built artifacts");
 
         String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
@@ -1050,7 +1097,7 @@ public class Driver {
             throw ex;
         }
 
-        logger.info("END: promotion to build content set."); //TODO use log duration
+        logger.info("END: promotion to build content set."); // TODO use log duration
     }
 
     private String getBuildPromotionTarget(boolean tempBuild) {
@@ -1105,20 +1152,18 @@ public class Driver {
         }
     }
 
-    public void deleteBuildGroup(RepositoryType repositoryType, String buildContentId) throws RepositoryDriverException {
+    public void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
+            throws RepositoryDriverException {
         logger.info("BEGIN: Removing build aggregation group: {}", buildContentId);
         userLog.info("Removing build aggregation group");
-        StopWatch stopWatch = StopWatch.createStarted(); //TODO log event duration
+        StopWatch stopWatch = StopWatch.createStarted(); // TODO log event duration
 
         try {
             String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
             StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
             indy.stores().delete(key, "[Post-Build] Removing build aggregation group: " + buildContentId);
         } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy stores module. Reason: %s",
-                    e,
-                    e.getMessage());
+            throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
         }
         logger.info(
                 "END: Removing build aggregation group: {}, took: {} seconds",
@@ -1131,28 +1176,6 @@ public class Driver {
         return responseCode >= 200 && responseCode < 300;
     }
 
-    private Map<String, String> mdcToMapWithHeaderKeys() throws RepositoryDriverException {
-        Map<String, String> result = new HashMap<>();
-        Map<String, String> mdcMap = MDC.getCopyOfContextMap();
-        putMdcToResultMap(result, mdcMap, MDCHeaderKeys.PROCESS_CONTEXT);
-        putMdcToResultMap(result, mdcMap, MDCHeaderKeys.TMP);
-        putMdcToResultMap(result, mdcMap, MDCHeaderKeys.EXP);
-        putMdcToResultMap(result, mdcMap, MDCHeaderKeys.USER_ID);
-        return result;
-    }
-
-    private void putMdcToResultMap(Map<String, String> result, Map<String, String> mdcMap, MDCHeaderKeys mdcHeaderKeys)
-            throws RepositoryDriverException {
-        if (mdcMap == null) {
-            throw new RepositoryDriverException("Missing MDC map.");
-        }
-        if (mdcMap.get(mdcHeaderKeys.getMdcKey()) != null) {
-            result.put(mdcHeaderKeys.getHeaderName(), mdcMap.get(mdcHeaderKeys.getMdcKey()));
-        } else {
-            throw new RepositoryDriverException("Missing MDC value " + mdcHeaderKeys.getMdcKey());
-        }
-    }
-
     private Runnable heartBeatSender(Request heartBeat) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(heartBeat.getUri())
@@ -1161,7 +1184,8 @@ public class Driver {
         heartBeat.getHeaders().stream().forEach(h -> builder.header(h.getName(), h.getValue()));
         HttpRequest request = builder.build();
         return () -> {
-            CompletableFuture<HttpResponse<String>> response = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+            CompletableFuture<HttpResponse<String>> response = httpClient
+                    .sendAsync(request, HttpResponse.BodyHandlers.ofString());
             response.handleAsync((r, t) -> {
                 if (t != null) {
                     logger.warn("Failed to send heartbeat.", t);
@@ -1173,7 +1197,7 @@ public class Driver {
         };
     }
 
-    //TODO move out of the driver
+    // TODO move out of the driver
     List<ArtifactRepository> extractExtraRepositoriesFromGenericParameters(Map<String, String> genericParameters) {
         String extraReposString = genericParameters.get(BuildConfigurationParameterKeys.EXTRA_REPOSITORIES.name());
         if (extraReposString == null) {
@@ -1183,7 +1207,7 @@ public class Driver {
         return Arrays.stream(extraReposString.split("\n")).map((repoString) -> {
             try {
                 String id = new URL(repoString).getHost().replaceAll("\\.", "-");
-                return ArtifactRepository.build(id, id, repoString.trim(), true, false);
+                return new ArtifactRepository(id, id, repoString.trim(), true, false);
             } catch (MalformedURLException e) {
                 userLog.warn("Malformed repository URL entered: " + repoString + ". Skipping.");
                 return null;

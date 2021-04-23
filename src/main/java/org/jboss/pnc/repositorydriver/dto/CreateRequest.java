@@ -7,8 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.jackson.Jacksonized;
-import org.jboss.pnc.repositorydriver.ArtifactRepository;
-import org.jboss.pnc.repositorydriver.constants.BuildType;
+import org.jboss.pnc.enums.BuildType;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -20,10 +19,10 @@ import org.jboss.pnc.repositorydriver.constants.BuildType;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateRequest {
 
-    private String buildId;
-    private String buildContentId;
-    private BuildType buildType;
-    private boolean tempBuild;
-    private List<ArtifactRepository> extraRepositories;
+    String buildId;
+    String buildContentId;
+    BuildType buildType;
+    boolean tempBuild;
+    List<ArtifactRepository> extraRepositories;
 
 }

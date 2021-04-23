@@ -1,1 +1,1 @@
-# stateless artifact repository driver
+# Artifact repository driver
