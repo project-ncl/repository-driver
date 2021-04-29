@@ -159,7 +159,7 @@ public class Driver {
         }
 
         // since we're setting up a group/hosted repo per build, we can pin the tracking ID to the build repo ID.
-        String url;
+        String downloadsUrl;
         String deployUrl;
 
         try {
@@ -167,12 +167,12 @@ public class Driver {
             indy.module(IndyFoloAdminClientModule.class).initReport(buildId);
 
             StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
-            url = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
+            downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
 
             StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
             deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
 
-            logger.info("Using '{}' for {} repository access in build: {}", url, packageType, buildId);
+            logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
         } catch (IndyClientException e) {
             logger.debug("Failed to retrieve Indy client module for the artifact tracker");
             throw new RepositoryDriverException(
@@ -180,7 +180,7 @@ public class Driver {
                     e,
                     e.getMessage());
         }
-        return new CreateResponse(url, deployUrl, null);
+        return new CreateResponse(downloadsUrl, deployUrl, null);
     }
 
     /**
@@ -202,11 +202,14 @@ public class Driver {
             try {
                 Runnable heartBeatSender = heartBeatSender(promoteRequest.getHeartBeat());
 
+                //TODO try to merge this code with the #merge1
                 List<Artifact> downloadedArtifacts;
                 try {
                     logger.info("BEGIN: Process artifacts downloaded by build");
                     userLog.info("Processing dependencies"); // TODO log event duration
-                    StopWatch stopWatch = StopWatch.createStarted();
+                    //TODO we can drop the stopwatch
+                    StopWatch stopWatch = StopWatch.createStarted(); //TODO do we need stopwatch
+
 
                     downloadedArtifacts = collectDownloadedArtifacts(report.getDownloads());
                     logger.info(
@@ -224,19 +227,21 @@ public class Driver {
                 Uploads uploads = collectUploads(report.getUploads(), promoteRequest.isTempBuild());
                 List<Artifact> uploadedArtifacts = uploads.getData();
                 Collections.sort(uploadedArtifacts, Comparator.comparing(Artifact::getIdentifier));
+                //TODO END try to merge this code with the #merge1
 
+                //the promotion is done only after a successfully collected downloads and uploads
                 heartBeatSender.run();
                 deleteBuildGroup(buildType.getRepoType(), buildContentId);
                 promoteDownloads(heartBeatSender, report.getDownloads(), promoteRequest.isTempBuild());
                 heartBeatSender.run();
-                promoteUploadsToBuildContentSet(
+                promoteUploads(
                         buildType.getRepoType(),
                         buildContentId,
                         uploads.getPromotion(),
                         promoteRequest.isTempBuild());
                 logger.info(
                         "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
-                        StringUtils.join(uploads.getData(), "\n  "),
+                        StringUtils.join(uploadedArtifacts, "\n  "),
                         StringUtils.join(downloadedArtifacts, "\n  "));
                 notifyInvoker(
                         promoteRequest.getCallback(),
@@ -314,6 +319,7 @@ public class Driver {
             throws RepositoryDriverException {
         TrackedContentDTO report = sealAndGetTrackingReport(buildContentId, false);
         try {
+            //TODO #merge1
             logger.info("BEGIN: Process artifacts downloaded by build");
             userLog.info("Processing dependencies");
             StopWatch stopWatch = StopWatch.createStarted();
@@ -326,6 +332,7 @@ public class Driver {
             Uploads uploads = collectUploads(report.getUploads(), tempBuild);
             List<Artifact> uploadedArtifacts = uploads.getData();
             Collections.sort(uploadedArtifacts, Comparator.comparing(Artifact::getIdentifier));
+            //TODO END #merge1
 
             logger.info(
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
@@ -458,6 +465,7 @@ public class Driver {
      */
     private void setupBuildRepos(
             String buildId, // TODO used only for logs, should we use buildContentId instead
+            //TODO drop buildId, use buildContentId
             String buildContentId,
             BuildType buildType,
             String packageType,
@@ -1076,7 +1084,7 @@ public class Driver {
      *         in transport
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    public void promoteUploadsToBuildContentSet(
+    private void promoteUploads(
             RepositoryType repositoryType,
             String buildContentId,
             List<String> uploads,
@@ -1152,7 +1160,7 @@ public class Driver {
         }
     }
 
-    public void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
+    private void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
             throws RepositoryDriverException {
         logger.info("BEGIN: Removing build aggregation group: {}", buildContentId);
         userLog.info("Removing build aggregation group");

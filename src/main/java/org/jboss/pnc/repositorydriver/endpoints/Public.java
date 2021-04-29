@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
 @Path("/")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class Public {
+public class Public { //TODO use more descriptive class names
 
     private static final Logger logger = LoggerFactory.getLogger(Public.class);
 
