@@ -19,7 +19,6 @@ import org.jboss.pnc.enums.BuildType;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CreateRequest {
 
-    String buildId;
     String buildContentId;
     BuildType buildType;
     boolean tempBuild;

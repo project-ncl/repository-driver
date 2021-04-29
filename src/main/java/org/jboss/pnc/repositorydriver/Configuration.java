@@ -78,4 +78,7 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.npm")
     List<String> ignoredPathPatternsDataNpm;
 
+    public String getBuildPromotionTarget(boolean tempBuild) {
+        return tempBuild ? getTempBuildPromotionTarget() : getBuildPromotionTarget();
+    }
 }

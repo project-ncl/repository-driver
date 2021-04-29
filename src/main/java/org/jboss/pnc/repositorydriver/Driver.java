@@ -17,19 +17,15 @@
  */
 package org.jboss.pnc.repositorydriver;
 
-import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -41,8 +37,6 @@ import java.util.stream.Collectors;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
-import javax.validation.ConstraintViolation;
-import javax.validation.Validator;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,18 +44,10 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.time.StopWatch;
-import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
-import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
-import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
-import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
-import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
-import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
-import org.commonjava.indy.folo.dto.TrackedContentDTO;
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.Group;
 import org.commonjava.indy.model.core.HostedRepository;
 import org.commonjava.indy.model.core.RemoteRepository;
@@ -70,20 +56,15 @@ import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.model.core.dto.StoreListingDTO;
 import org.commonjava.indy.promote.client.IndyPromoteClientModule;
 import org.commonjava.indy.promote.model.AbstractPromoteResult;
-import org.commonjava.indy.promote.model.CallbackTarget;
 import org.commonjava.indy.promote.model.PathsPromoteRequest;
 import org.commonjava.indy.promote.model.PathsPromoteResult;
 import org.commonjava.indy.promote.model.ValidationResult;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.jboss.pnc.api.constants.BuildConfigurationParameterKeys;
 import org.jboss.pnc.api.dto.Request;
-import org.jboss.pnc.constants.ReposiotryIdentifier;
 import org.jboss.pnc.dto.Artifact;
-import org.jboss.pnc.dto.TargetRepository;
-import org.jboss.pnc.enums.ArtifactQuality;
 import org.jboss.pnc.enums.BuildType;
 import org.jboss.pnc.enums.RepositoryType;
-import org.jboss.pnc.repositorydriver.constants.Checksum;
 import org.jboss.pnc.repositorydriver.constants.CompletionStatus;
 import org.jboss.pnc.repositorydriver.dto.ArtifactRepository;
 import org.jboss.pnc.repositorydriver.dto.CreateRequest;
@@ -95,10 +76,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
 import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.COMMON_BUILD_GROUP_CONSTITUENTS_GROUP;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.SHARED_IMPORTS_ID;
 import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.TEMPORARY_BUILDS_GROUP;
 
 /**
@@ -126,9 +104,6 @@ public class Driver {
     ObjectMapper jsonMapper;
 
     @Inject
-    Validator validator;
-
-    @Inject
     Indy indy;
 
     @Inject
@@ -137,6 +112,9 @@ public class Driver {
     @Inject
     ApplicationLifecycle lifecycle;
 
+    @Inject
+    TrackingReportProcessor trackingReportProcessor;
+
     public CreateResponse create(CreateRequest createRequest) throws RepositoryDriverException {
         BuildType buildType = createRequest.getBuildType();
         String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
@@ -144,7 +122,6 @@ public class Driver {
 
         try {
             setupBuildRepos(
-                    createRequest.getBuildId(),
                     createRequest.getBuildContentId(),
                     buildType,
                     packageType,
@@ -194,7 +171,7 @@ public class Driver {
         }
         String buildContentId = promoteRequest.getBuildContentId();
         BuildType buildType = promoteRequest.getBuildType();
-        TrackedContentDTO report = sealAndGetTrackingReport(buildContentId, true);
+        trackingReportProcessor.retrieveTrackingReport(buildContentId, true);
 
         // schedule promotion
         executor.runAsync(() -> {
@@ -202,7 +179,6 @@ public class Driver {
             try {
                 Runnable heartBeatSender = heartBeatSender(promoteRequest.getHeartBeat());
 
-                //TODO try to merge this code with the #merge1
                 List<Artifact> downloadedArtifacts;
                 try {
                     logger.info("BEGIN: Process artifacts downloaded by build");
@@ -210,8 +186,7 @@ public class Driver {
                     //TODO we can drop the stopwatch
                     StopWatch stopWatch = StopWatch.createStarted(); //TODO do we need stopwatch
 
-
-                    downloadedArtifacts = collectDownloadedArtifacts(report.getDownloads());
+                    downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts();
                     logger.info(
                             "END: Process artifacts downloaded by build, took {} seconds",
                             stopWatch.getTime(TimeUnit.SECONDS));
@@ -224,21 +199,23 @@ public class Driver {
                     return;
                 }
 
-                Uploads uploads = collectUploads(report.getUploads(), promoteRequest.isTempBuild());
-                List<Artifact> uploadedArtifacts = uploads.getData();
-                Collections.sort(uploadedArtifacts, Comparator.comparing(Artifact::getIdentifier));
-                //TODO END try to merge this code with the #merge1
+                Uploads uploads = trackingReportProcessor.collectUploads(promoteRequest.isTempBuild());
+                List<Artifact> uploadedArtifacts = uploads.getArtifacts();
 
                 //the promotion is done only after a successfully collected downloads and uploads
                 heartBeatSender.run();
                 deleteBuildGroup(buildType.getRepoType(), buildContentId);
-                promoteDownloads(heartBeatSender, report.getDownloads(), promoteRequest.isTempBuild());
+
+                heartBeatSender.run();
+                promoteDownloads(trackingReportProcessor.collectDownloadsPromotionMap(), heartBeatSender, promoteRequest.isTempBuild());
+
                 heartBeatSender.run();
                 promoteUploads(
                         buildType.getRepoType(),
                         buildContentId,
-                        uploads.getPromotion(),
+                        uploads.getPromotionPaths(),
                         promoteRequest.isTempBuild());
+
                 logger.info(
                         "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
                         StringUtils.join(uploadedArtifacts, "\n  "),
@@ -317,29 +294,17 @@ public class Driver {
 
     public PromoteResult collectRepoManagerResult(String buildContentId, boolean tempBuild)
             throws RepositoryDriverException {
-        TrackedContentDTO report = sealAndGetTrackingReport(buildContentId, false);
+        trackingReportProcessor.retrieveTrackingReport(buildContentId, false);
         try {
-            //TODO #merge1
-            logger.info("BEGIN: Process artifacts downloaded by build");
-            userLog.info("Processing dependencies");
-            StopWatch stopWatch = StopWatch.createStarted();
-
-            List<Artifact> downloadedArtifacts = collectDownloadedArtifacts(report.getDownloads());
-            logger.info(
-                    "END: Process artifacts downloaded by build, took {} seconds",
-                    stopWatch.getTime(TimeUnit.SECONDS)); // TODO log-event-duration
-
-            Uploads uploads = collectUploads(report.getUploads(), tempBuild);
-            List<Artifact> uploadedArtifacts = uploads.getData();
-            Collections.sort(uploadedArtifacts, Comparator.comparing(Artifact::getIdentifier));
-            //TODO END #merge1
+            List<Artifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts();
+            Uploads uploads = trackingReportProcessor.collectUploads(tempBuild);
 
             logger.info(
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
-                    StringUtils.join(uploads.getData(), "\n  "),
+                    StringUtils.join(uploads.getArtifacts(), "\n  "),
                     StringUtils.join(downloadedArtifacts, "\n  "));
             return new PromoteResult(
-                    uploadedArtifacts,
+                    uploads.getArtifacts(),
                     downloadedArtifacts,
                     buildContentId,
                     "",
@@ -357,102 +322,6 @@ public class Driver {
         }
     }
 
-    /**
-     * Return list of output artifacts for promotion.
-     *
-     * @return List of output artifacts meta data
-     * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
-     *         artifacts
-     */
-    private Uploads collectUploads(Set<TrackedContentEntryDTO> uploads, boolean tempBuild)
-            throws RepositoryDriverException {
-        List<Artifact> data = new ArrayList<>();
-
-        userLog.info("Processing built artifacts"); // TODO duration
-        StopWatch stopWatch = StopWatch.createStarted();
-
-        Set<String> promotionSet = new HashSet<>();
-
-        IndyContentClientModule content;
-        try {
-            content = indy.content();
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy content module. Reason: %s",
-                    e,
-                    e.getMessage());
-        }
-
-        for (TrackedContentEntryDTO upload : uploads) {
-            String path = upload.getPath();
-            StoreKey storeKey = upload.getStoreKey();
-
-            if (artifactFilter.acceptsForData(upload)) {
-                String identifier = computeIdentifier(upload);
-
-                logger.info("Recording upload: {}", identifier);
-
-                RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
-                TargetRepository targetRepository = getUploadsTargetRepository(repoType, tempBuild, content);
-
-                ArtifactQuality artifactQuality = getArtifactQuality(tempBuild);
-                Artifact artifact = Artifact.builder()
-                        .md5(upload.getMd5())
-                        .sha1(upload.getSha1())
-                        .sha256(upload.getSha256())
-                        .size(upload.getSize())
-                        .artifactQuality(artifactQuality)
-                        .deployPath(upload.getPath())
-                        .filename(new File(path).getName())
-                        .identifier(identifier)
-                        .targetRepository(targetRepository)
-                        .build();
-
-                data.add(validateArtifact(artifact));
-            }
-
-            if (artifactFilter.acceptsForPromotion(upload, false)) {
-                promotionSet.add(path);
-                if (MAVEN_PKG_KEY.equals(storeKey.getPackageType()) && !isChecksum(path)) {
-                    // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
-                    // the other would be missing) but avoid adding checksums of checksums.
-                    promotionSet.add(path + ".md5");
-                    promotionSet.add(path + ".sha1");
-                }
-            }
-        }
-        logger.info("END: Process artifacts uploaded from build, took {} seconds", stopWatch.getTime(TimeUnit.SECONDS));
-        return new Uploads(data, new ArrayList<>(promotionSet));
-    }
-
-    private TrackedContentDTO sealAndGetTrackingReport(String buildContentId, boolean seal)
-            throws RepositoryDriverException {
-        TrackedContentDTO report;
-        try {
-            IndyFoloAdminClientModule foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-            if (seal) {
-                userLog.info("Sealing tracking record");
-                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-                if (!sealed) {
-                    throw new RepositoryDriverException(
-                            "Failed to seal content-tracking record for: %s.",
-                            buildContentId);
-                }
-            }
-            userLog.info("Getting tracking report");
-            report = foloAdmin.getTrackingReport(buildContentId);
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve tracking report for: %s. Reason: %s",
-                    e,
-                    buildContentId,
-                    e.getMessage());
-        }
-        if (report == null) {
-            throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", buildContentId);
-        }
-        return report;
-    }
 
     /**
      * Create the hosted repository and group necessary to support a single build. The hosted repository holds artifacts
@@ -464,8 +333,6 @@ public class Driver {
      * @throws IndyClientException
      */
     private void setupBuildRepos(
-            String buildId, // TODO used only for logs, should we use buildContentId instead
-            //TODO drop buildId, use buildContentId
             String buildContentId,
             BuildType buildType,
             String packageType,
@@ -486,19 +353,19 @@ public class Driver {
                 buildArtifacts.setAllowSnapshots(false);
                 buildArtifacts.setAllowReleases(true);
 
-                buildArtifacts.setDescription(String.format("Build output for PNC %s build #%s", packageType, buildId));
+                buildArtifacts.setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
 
                 indy.stores()
                         .create(
                                 buildArtifacts,
-                                "Creating hosted repository for " + packageType + " build: " + buildId + " (repo: "
+                                "Creating hosted repository for " + packageType + " build: " + buildContentId + " (repo: "
                                         + buildContentId + ")",
                                 HostedRepository.class);
             }
 
             Group buildGroup = new Group(packageType, buildContentId);
             String adjective = tempBuild ? "temporary " : "";
-            buildGroup.setDescription(String.format("Aggregation group for PNC %sbuild #%s", adjective, buildId));
+            buildGroup.setDescription(String.format("Aggregation group for PNC %sbuild #%s", adjective, buildContentId));
 
             // build-local artifacts
             buildGroup.addConstituent(hostedKey);
@@ -506,10 +373,10 @@ public class Driver {
             // Global-level repos, for captured/shared artifacts and access to the outside world
             addGlobalConstituents(buildType, packageType, buildGroup, tempBuild);
 
-            addExtraConstituents(packageType, extraDependencyRepositories, buildId, buildContentId, buildGroup);
+            addExtraConstituents(packageType, extraDependencyRepositories, buildContentId, buildGroup);
 
-            String changelog = "Creating repository group for resolving artifacts in build: " + buildId + " (repo: "
-                    + buildContentId + ")";
+            String changelog = "Creating repository group for resolving artifacts (repo: "
+                    + buildContentId + ").";
             indy.stores().create(buildGroup, changelog, Group.class);
         }
     }
@@ -520,7 +387,6 @@ public class Driver {
      *
      * @param packageType the package type key used by Indy
      * @param repositories the list of repositories to be added
-     * @param buildId build ID
      * @param buildContentId build content ID
      * @param buildGroup target build group in which the repositories are added
      *
@@ -529,7 +395,6 @@ public class Driver {
     private void addExtraConstituents(
             String packageType,
             List<ArtifactRepository> repositories,
-            String buildId,
             String buildContentId,
             Group buildGroup) throws IndyClientException {
         if (repositories != null && !repositories.isEmpty()) {
@@ -562,14 +427,14 @@ public class Driver {
                     remoteRepo.setAllowSnapshots(repository.getSnapshots());
                     remoteRepo.setDescription(
                             "Implicitly created " + packageType + " repo for: " + repository.getName() + " ("
-                                    + repository.getId() + ") from repository declaration removed by PME in build "
-                                    + buildId + " (repo: " + buildContentId + ")");
+                                    + repository.getId() + ") from repository declaration removed by PME "
+                                    + " (repo: " + buildContentId + ")");
                     indy.stores()
                             .create(
                                     remoteRepo,
                                     "Creating extra remote repository " + repository.getName() + " ("
-                                            + repository.getId() + ") for build: " + buildId + " (repo: "
-                                            + buildContentId + ")",
+                                            + repository.getId() + ") repo: "
+                                            + buildContentId + "",
                                     RemoteRepository.class);
                 }
 
@@ -631,108 +496,6 @@ public class Driver {
         }
     }
 
-    private List<Artifact> collectDownloadedArtifacts(Set<TrackedContentEntryDTO> downloads)
-            throws RepositoryDriverException {
-        IndyContentClientModule content;
-        try {
-            content = indy.content();
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy content module. Reason: %s",
-                    e,
-                    e.getMessage());
-        }
-
-        List<Artifact> deps = new ArrayList<>(downloads.size());
-        for (TrackedContentEntryDTO download : downloads) {
-            String path = download.getPath();
-            if (artifactFilter.acceptsForData(download)) {
-                String identifier = computeIdentifier(download);
-
-                logger.info("Recording download: {}", identifier);
-
-                String originUrl = download.getOriginUrl();
-                if (originUrl == null) {
-                    // this is from a hosted repository, either shared-imports or a build, or something like that.
-                    originUrl = download.getLocalUrl();
-                }
-
-                TargetRepository targetRepository = getDownloadsTargetRepository(download, content);
-
-                Artifact.Builder artifactBuilder = Artifact.builder()
-                        .md5(download.getMd5())
-                        .sha1(download.getSha1())
-                        .sha256(download.getSha256())
-                        .size(download.getSize())
-                        .deployPath(path)
-                        .originUrl(originUrl)
-                        .importDate(Instant.now())
-                        .filename(new File(path).getName())
-                        .identifier(identifier)
-                        .targetRepository(targetRepository);
-
-                Artifact artifact = validateArtifact(artifactBuilder.build());
-                deps.add(artifact);
-            }
-        }
-        Collections.sort(deps, Comparator.comparing(Artifact::getIdentifier));
-        return deps;
-    }
-
-    private Map<StoreKey, Map<StoreKey, Set<String>>> collectDownloadsPromotionMap(
-            Set<TrackedContentEntryDTO> downloads) {
-        Map<StoreKey, Map<StoreKey, Set<String>>> depMap = new HashMap<>();
-        Map<String, StoreKey> promotionTargets = new HashMap<>();
-        for (TrackedContentEntryDTO download : downloads) {
-            String path = download.getPath();
-            StoreKey source = download.getStoreKey();
-            String packageType = source.getPackageType();
-            if (artifactFilter.acceptsForPromotion(download, true)) {
-                StoreKey target = null;
-                Map<StoreKey, Set<String>> sources = null;
-                Set<String> paths = null;
-
-                // this has not been captured, so promote it.
-                switch (packageType) {
-                    case MAVEN_PKG_KEY:
-                    case NPM_PKG_KEY:
-                        target = getPromotionTarget(packageType, promotionTargets);
-                        sources = depMap.computeIfAbsent(target, t -> new HashMap<>());
-                        paths = sources.computeIfAbsent(source, s -> new HashSet<>());
-
-                        paths.add(path);
-                        if (MAVEN_PKG_KEY.equals(packageType) && !isChecksum(path)) {
-                            // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
-                            // the other would be missing) but avoid adding checksums of checksums.
-                            paths.add(path + ".md5");
-                            paths.add(path + ".sha1");
-                        }
-                        break;
-
-                    case GENERIC_PKG_KEY:
-                        String remoteName = source.getName();
-                        String hostedName = getGenericHostedRepoName(remoteName);
-                        target = new StoreKey(packageType, StoreType.hosted, hostedName);
-                        sources = depMap.computeIfAbsent(target, t -> new HashMap<>());
-                        paths = sources.computeIfAbsent(source, s -> new HashSet<>());
-
-                        paths.add(path);
-                        break;
-
-                    default:
-                        // do not promote anything else anywhere
-                        break;
-                }
-            }
-        }
-
-        return depMap;
-    }
-
-    private boolean isChecksum(String path) {
-        String suffix = StringUtils.substringAfterLast(path, ".");
-        return Checksum.suffixes.contains(suffix);
-    }
 
     /**
      * Promotes by path downloads captured in given map. The key in the map is promotion target store key. The value is
@@ -741,23 +504,17 @@ public class Driver {
      * @throws RepositoryDriverException in case of an unexpected error during promotion
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    private void promoteDownloads(Runnable heartBeatSender, Set<TrackedContentEntryDTO> downloads, boolean tempBuild)
+    private void promoteDownloads(Map<StoreKey, Map<StoreKey, Set<String>>> depMap, Runnable heartBeatSender, boolean tempBuild)
             throws RepositoryDriverException, PromotionValidationException {
         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
         // imports
-        // and return dependency artifacts meta data.
-        Map<StoreKey, Map<StoreKey, Set<String>>> depMap = collectDownloadsPromotionMap(downloads);
 
         for (Map.Entry<StoreKey, Map<StoreKey, Set<String>>> targetToSources : depMap.entrySet()) {
             StoreKey target = targetToSources.getKey();
             for (Map.Entry<StoreKey, Set<String>> sourceToPaths : targetToSources.getValue().entrySet()) {
                 heartBeatSender.run();
                 StoreKey source = sourceToPaths.getKey();
-                CallbackTarget callbackTarget = new CallbackTarget(
-                        configuration.getSelfBaseUrl(),
-                        CallbackTarget.CallbackMethod.PUT,
-                        MdcUtils.mdcToMapWithHeaderKeys());
-                PathsPromoteRequest req = new PathsPromoteRequest(source, target, sourceToPaths.getValue())
+                PathsPromoteRequest request = new PathsPromoteRequest(source, target, sourceToPaths.getValue())
                         .setPurgeSource(false);
                 // set read-only only the generic http proxy hosted repos, not shared-imports
                 boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(target.getPackageType());
@@ -766,28 +523,28 @@ public class Driver {
                 try {
                     logger.info(
                             "BEGIN: doPromoteByPath: source: '{}', target: '{}', readonly: {}",
-                            req.getSource().toString(),
-                            req.getTarget().toString(),
+                            request.getSource().toString(),
+                            request.getTarget().toString(),
                             readonly);
                     userLog.info(
                             "Promoting {} dependencies from {} to {}",
-                            req.getPaths().size(),
-                            req.getSource(),
-                            req.getTarget());
+                            request.getPaths().size(),
+                            request.getSource(),
+                            request.getTarget());
 
-                    doPromoteByPath(req, false, readonly);
+                    doPromoteByPath(request, false, readonly);
 
                     logger.info(
                             "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
-                            req.getSource().toString(),
-                            req.getTarget().toString(),
+                            request.getSource().toString(),
+                            request.getTarget().toString(),
                             readonly,
                             stopWatchDoPromote.getTime(TimeUnit.SECONDS));
                 } catch (RepositoryDriverException ex) {
                     logger.info(
                             "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
-                            req.getSource().toString(),
-                            req.getTarget().toString(),
+                            request.getSource().toString(),
+                            request.getTarget().toString(),
                             readonly,
                             stopWatchDoPromote.getTime(TimeUnit.SECONDS));
                     userLog.error("Dependencies promotion failed. Error(s): {}", ex.getMessage()); // TODO unify log
@@ -797,199 +554,10 @@ public class Driver {
         }
     }
 
-    private StoreKey getPromotionTarget(String packageType, Map<String, StoreKey> promotionTargets) {
-        if (!promotionTargets.containsKey(packageType)) {
-            StoreKey storeKey = new StoreKey(packageType, StoreType.hosted, SHARED_IMPORTS_ID);
-            promotionTargets.put(packageType, storeKey);
-        }
-        return promotionTargets.get(packageType);
-    }
 
-    private TargetRepository getDownloadsTargetRepository(
-            TrackedContentEntryDTO download,
-            IndyContentClientModule content) throws RepositoryDriverException {
-        String identifier;
-        String repoPath;
-        StoreKey source = download.getStoreKey();
-        RepositoryType repoType = TypeConverters.toRepoType(source.getPackageType());
-        if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
-            identifier = "indy-" + repoType.name().toLowerCase();
-            repoPath = getTargetRepositoryPath(download, content);
-        } else if (repoType == RepositoryType.GENERIC_PROXY) {
-            identifier = "indy-http";
-            repoPath = getGenericTargetRepositoryPath(source);
-        } else {
-            throw new RepositoryDriverException(
-                    "Repository type " + repoType + " is not supported by Indy repo manager driver.");
-        }
-        if (!repoPath.endsWith("/")) {
-            repoPath += '/';
-        }
 
-        return TargetRepository.refBuilder()
-                .identifier(identifier)
-                .repositoryType(repoType)
-                .repositoryPath(repoPath)
-                .temporaryRepo(false)
-                .build();
-    }
 
-    private String getTargetRepositoryPath(TrackedContentEntryDTO download, IndyContentClientModule content) {
-        String result;
-        StoreKey sk = download.getStoreKey();
-        String packageType = sk.getPackageType();
-        if (artifactFilter.ignoreDependencySource(sk)) {
-            result = "/api/" + content.contentPath(sk);
-        } else {
-            result = "/api/" + content.contentPath(new StoreKey(packageType, StoreType.hosted, SHARED_IMPORTS_ID));
-        }
-        return result;
-    }
 
-    /**
-     * For a remote generic http repo computes matching hosted repo name.
-     *
-     * @param remoteName the remote repo name
-     * @return computed hosted repo name
-     */
-    private String getGenericHostedRepoName(String remoteName) {
-        String hostedName;
-        if (remoteName.startsWith("r-")) {
-            hostedName = "h-" + remoteName.substring(2);
-        } else {
-            logger.warn(
-                    "Unexpected generic http remote repo name {}. Using it for hosted repo "
-                            + "without change, but it probably doesn't exist.",
-                    remoteName);
-            hostedName = remoteName;
-        }
-        return hostedName;
-    }
-
-    private String getGenericTargetRepositoryPath(StoreKey source) {
-        return "/api/content/generic-http/hosted/" + getGenericHostedRepoName(source.getName());
-    }
-
-    private TargetRepository getUploadsTargetRepository(
-            RepositoryType repoType,
-            boolean tempBuild,
-            IndyContentClientModule content) throws RepositoryDriverException {
-
-        StoreKey storeKey;
-        String identifier;
-        if (repoType == RepositoryType.MAVEN) {
-            storeKey = new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(tempBuild));
-            identifier = ReposiotryIdentifier.INDY_MAVEN;
-        } else if (repoType == RepositoryType.NPM) {
-            storeKey = new StoreKey(NPM_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(tempBuild));
-            identifier = ReposiotryIdentifier.INDY_NPM;
-        } else {
-            throw new RepositoryDriverException(
-                    "Repository type " + repoType + " is not supported for uploads by Indy repo manager driver.");
-        }
-
-        String repoPath = "/api/" + content.contentPath(storeKey);
-        if (!repoPath.endsWith("/")) {
-            repoPath += '/';
-        }
-        return TargetRepository.refBuilder()
-                .identifier(identifier)
-                .repositoryType(repoType)
-                .repositoryPath(repoPath)
-                .temporaryRepo(tempBuild)
-                .build();
-    }
-
-    /**
-     * Computes identifier string for an artifact. If the download path is valid for a package-type specific artifact it
-     * creates the identifier accordingly.
-     *
-     * @param transfer the download or upload that we want to generate identifier for
-     * @return generated identifier
-     */
-    private String computeIdentifier(final TrackedContentEntryDTO transfer) {
-        String identifier = null;
-
-        switch (transfer.getStoreKey().getPackageType()) {
-            case MAVEN_PKG_KEY:
-                ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
-                if (pathInfo != null) {
-                    ArtifactRef aref = new SimpleArtifactRef(
-                            pathInfo.getProjectId(),
-                            pathInfo.getType(),
-                            pathInfo.getClassifier());
-                    identifier = aref.toString();
-                }
-                break;
-
-            case NPM_PKG_KEY:
-                NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(transfer.getPath());
-                if (npmPathInfo != null) {
-                    NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
-                    identifier = packageRef.toString();
-                }
-                break;
-
-            case GENERIC_PKG_KEY:
-                // handle generic downloads along with other invalid download paths for other package types
-                break;
-
-            default:
-                // do not do anything by default
-                logger.warn(
-                        "Package type {} is not handled by Indy repository session.",
-                        transfer.getStoreKey().getPackageType());
-                break;
-        }
-
-        if (identifier == null) {
-            identifier = computeGenericIdentifier(
-                    transfer.getOriginUrl(),
-                    transfer.getLocalUrl(),
-                    transfer.getSha256());
-        }
-
-        return identifier;
-    }
-
-    /**
-     * Compute the identifier string for a generic download, that does not match package type specific files structure.
-     * It prefers to use the origin URL if it is not empty. In case it is then it uses local URL, which can never be
-     * empty, it is the local file mirror in Indy. After that it attaches the sha256 separated by a pipe.
-     *
-     * @param originUrl the origin URL of the transfer, it can be null
-     * @param localUrl url where the artifact was backed up in Indy
-     * @param sha256 the SHA-256 of the transfer
-     * @return the generated identifier
-     */
-    private String computeGenericIdentifier(String originUrl, String localUrl, String sha256) {
-        String identifier = originUrl;
-        if (identifier == null) {
-            // this is from/to a hosted repository, either the build repo or something like that.
-            identifier = localUrl;
-        }
-        identifier += '|' + sha256;
-        return identifier;
-    }
-
-    /**
-     * Check artifact for any validation errors. If there are constraint violations, then a RepositoryManagerException
-     * is thrown. Otherwise the artifact is returned.
-     *
-     * @param artifact to validate
-     * @return the same artifact
-     * @throws RepositoryDriverException if there are constraint violations
-     */
-    private Artifact validateArtifact(Artifact artifact) throws RepositoryDriverException {
-        Set<ConstraintViolation<Artifact>> violations = validator.validate(artifact);
-        if (!violations.isEmpty()) {
-            throw new RepositoryDriverException(
-                    "Repository manager returned invalid artifact: " + artifact.toString()
-                            + " Constraint Violations: %s",
-                    violations);
-        }
-        return artifact;
-    }
 
     /**
      * Promotes a set of artifact paths (or everything, if the path-set is missing) from a particular Indy artifact
@@ -1095,7 +663,7 @@ public class Driver {
 
         try {
             StoreKey source = new StoreKey(packageType, StoreType.hosted, buildContentId);
-            StoreKey target = new StoreKey(packageType, StoreType.hosted, getBuildPromotionTarget(tempBuild));
+            StoreKey target = new StoreKey(packageType, StoreType.hosted, configuration.getBuildPromotionTarget(tempBuild));
 
             PathsPromoteRequest request = new PathsPromoteRequest(source, target, new HashSet<>(uploads));
 
@@ -1106,10 +674,6 @@ public class Driver {
         }
 
         logger.info("END: promotion to build content set."); // TODO use log duration
-    }
-
-    private String getBuildPromotionTarget(boolean tempBuild) {
-        return tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget();
     }
 
     /**
@@ -1150,14 +714,6 @@ public class Driver {
             sb.append("(no error message received)");
         }
         return sb.toString();
-    }
-
-    private ArtifactQuality getArtifactQuality(boolean isTempBuild) {
-        if (isTempBuild) {
-            return ArtifactQuality.TEMPORARY;
-        } else {
-            return ArtifactQuality.NEW;
-        }
     }
 
     private void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
@@ -1221,37 +777,5 @@ public class Driver {
                 return null;
             }
         }).filter(Objects::nonNull).collect(Collectors.toList());
-    }
-
-    private class Uploads {
-
-        /** List of artifacts to be stored in DB. */
-        private List<Artifact> data;
-
-        /** List of paths to be promoted. */
-        private List<String> promotion;
-
-        private Uploads(List<Artifact> data, List<String> promotion) {
-            this.data = data;
-            this.promotion = promotion;
-        }
-
-        /**
-         * Gets the list of uploaded artifacts to be stored in DB.
-         *
-         * @return the list
-         */
-        public List<Artifact> getData() {
-            return data;
-        }
-
-        /**
-         * Gets the list of paths for promotion.
-         *
-         * @return the list
-         */
-        public List<String> getPromotion() {
-            return promotion;
-        }
     }
 }
