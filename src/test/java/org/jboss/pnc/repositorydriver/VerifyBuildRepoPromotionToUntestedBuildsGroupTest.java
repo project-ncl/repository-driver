@@ -40,7 +40,8 @@ import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAV
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-@Category(ContainerTest.class)
+// similar to  DownloadTwoThenVerifyExtractedArtifactsContainThemTest but testing PNC_BUILDS
+// instead of using PNC_BUILDS read the value from the cponfigurations
 public class VerifyBuildRepoPromotionToUntestedBuildsGroupTest extends org.jboss.pnc.indyrepositorymanager.AbstractImportTest {
 
     @Test //TODO another tracking report processing see #trecking-report-processing

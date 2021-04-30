@@ -47,7 +47,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-@Category(ContainerTest.class) //TODO another tracking report processing see #trecking-report-processing
+@Category(ContainerTest.class) //TODO simmilar to DownloadTwoThenVerifyExtractedArtifactsContainThemTest but on uploads
 public class UploadTwoThenVerifyExtractedArtifactsContainThemTest extends AbstractImportTest {
 
     @Test

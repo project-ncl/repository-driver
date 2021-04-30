@@ -43,7 +43,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-@Category(ContainerTest.class) //TODO another tracking report processing see #trecking-report-processing
+@Category(ContainerTest.class) //TODO afticaft collection test
 public class UploadOneThenDownloadAndVerifyArtifactHasOriginUrlTest extends org.jboss.pnc.indyrepositorymanager.AbstractImportTest {
 
     private static final Logger log = LoggerFactory

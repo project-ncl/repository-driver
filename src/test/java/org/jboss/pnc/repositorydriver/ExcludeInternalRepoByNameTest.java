@@ -51,6 +51,16 @@ import static org.jboss.pnc.indyrepositorymanager.IndyRepositoryConstants.SHARED
 @Category(ContainerTest.class)
 public class ExcludeInternalRepoByNameTest extends org.jboss.pnc.indyrepositorymanager.AbstractImportTest {
 
+    /*
+
+        create a report with an INTERNAL and an EXTERNAL repo name and make sure the INTERNAL is excluded
+
+        StoreKey centralKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "central");
+        StoreKey sharedImportsKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, IndyRepositoryConstants.SHARED_IMPORTS_ID);
+
+
+     */
+
     private static final String INTERNAL = "internal";
     private static final String EXTERNAL = "external";
 

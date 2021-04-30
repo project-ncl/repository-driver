@@ -17,119 +17,77 @@
  */
 package org.jboss.pnc.repositorydriver;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.io.IOUtils;
-import org.commonjava.atlas.maven.ident.ref.ProjectVersionRef;
-import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
-import org.commonjava.atlas.maven.ident.ref.SimpleProjectVersionRef;
-import org.commonjava.indy.client.core.Indy;
-import org.commonjava.indy.client.core.IndyClientException;
-import org.commonjava.indy.client.core.util.UrlUtils;
+import javax.inject.Inject;
+
+import io.quarkus.test.junit.QuarkusTest;
+import org.commonjava.indy.folo.dto.TrackedContentDTO;
+import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
+import org.commonjava.indy.model.core.AccessChannel;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
-import org.jboss.pnc.enums.RepositoryType;
-import org.jboss.pnc.indyrepositorymanager.fixture.TestBuildExecution;
-import org.jboss.pnc.model.Artifact;
-import org.jboss.pnc.spi.repositorymanager.BuildExecution;
-import org.jboss.pnc.spi.repositorymanager.RepositoryManagerResult;
-import org.jboss.pnc.spi.repositorymanager.model.RepositorySession;
-import org.jboss.pnc.test.category.ContainerTest;
-import org.junit.Test;
-import org.junit.experimental.categories.Category;
+import org.commonjava.indy.pkg.PackageTypeConstants;
+import org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.notNullValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.jboss.pnc.indyrepositorymanager.IndyRepositoryConstants.SHARED_IMPORTS_ID;
+@QuarkusTest
+public class DownloadTwoThenVerifyExtractedArtifactsContainThemTest {
 
-@Category(ContainerTest.class)
-public class DownloadTwoThenVerifyExtractedArtifactsContainThemTest extends org.jboss.pnc.indyrepositorymanager.AbstractImportTest {
+    @Inject
+    TrackingReportProcessor trackingReportProcessor;
 
-    /**
-     * 1. creates a "repo structure"
-     * 2. downlaods two community artifact
-     * 3. runs the promotion
-     * 4. make sure they are in the report in the correct place
-     * 5. make sure the artifacts ara available for download form Indy
-     *
-     * this should be done without testing the indy by mocking the report
-     * and make sure the tracking report is correctly processed
-     *
-     * #trecking-report-processing
-     *
-     */
-    @Test //TODO reimplement
+    @Test
     public void extractBuildArtifacts_ContainsTwoDownloads() throws Exception {
-        String pomPath = "org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
-        String jarPath = "org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar";
-        String pomContent = "This is a pom test " + System.currentTimeMillis();
-        String jarContent = "This is a jar test " + System.currentTimeMillis();
 
-        // setup the expectation that the remote repo pointing at this server will request this file...and define its
-        // content.
-        server.expect(server.formatUrl(STORE, pomPath), 200, pomContent);
-        server.expect(server.formatUrl(STORE, jarPath), 200, jarContent);
+        //given
+        TrackedContentDTO report = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
-        // create a dummy non-chained build execution and repo session based on it
-        BuildExecution execution = new org.jboss.pnc.indyrepositorymanager.fixture.TestBuildExecution();
+        StoreKey centralKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "central");
+        StoreKey sharedImportsKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, IndyRepositoryConstants.SHARED_IMPORTS_ID);
 
-        RepositorySession rc = driver.createBuildRepository(
-                execution,
-                accessToken,
-                accessToken,
-                RepositoryType.MAVEN,
-                Collections.emptyMap());
-        assertThat(rc, notNullValue());
+        String pomPath = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
+        String jarPath = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar";
+        TrackedContentEntryDTO downloadPom = new TrackedContentEntryDTO(
+                centralKey,
+                AccessChannel.NATIVE,
+                pomPath
+        );
+        downloads.add(downloadPom);
+        TrackedContentEntryDTO downloadJar = new TrackedContentEntryDTO(
+                centralKey,
+                AccessChannel.NATIVE,
+                jarPath
+        );
+        downloads.add(downloadJar);
+        report.setDownloads(downloads);
 
-        String baseUrl = rc.getConnectionInfo().getDependencyUrl();
+        //when
+        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
+        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetPaths();
 
-        // download the two files via the repo session's dependency URL, which will proxy the test http server
-        // using the expectations above
-        assertThat(download(UrlUtils.buildUrl(baseUrl, pomPath)), equalTo(pomContent));
-        assertThat(download(UrlUtils.buildUrl(baseUrl, jarPath)), equalTo(jarContent));
+        //then
+        Assertions.assertEquals(1, sourceTargetPaths.size());
 
-        // extract the build artifacts, which should contain the two imported deps.
-        // This will also trigger promoting imported artifacts into the shared-imports hosted repo
-        RepositoryManagerResult repositoryManagerResult = rc.extractBuildArtifacts(true);
+        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().get();
+        Assertions.assertEquals(centralKey, fromCentralToSharedImports.getSource());
+        Assertions.assertEquals(sharedImportsKey, fromCentralToSharedImports.getTarget());
 
-        List<Artifact> deps = repositoryManagerResult.getDependencies();
-        System.out.println(deps);
+        Set<String> paths = fromCentralToSharedImports.getPaths();
+        Set<String> expected = new HashSet<>();
+        expected.add(pomPath);
+        expected.add(pomPath + "sha1");
+        expected.add(pomPath + "md5");
+        expected.add(jarPath);
+        expected.add(jarPath + "sha1");
+        expected.add(jarPath + "md5");
 
-        assertThat(deps, notNullValue());
-        assertThat("Expected 2 dependencies, got: " + deps, deps.size(), equalTo(2));
+        Assertions.assertLinesMatch(expected.stream(), paths.stream());
 
-        ProjectVersionRef pvr = new SimpleProjectVersionRef("org.commonjava.indy", "indy-core", "0.17.0");
-        Set<String> refs = new HashSet<>();
-        refs.add(new SimpleArtifactRef(pvr, "pom", null).toString());
-        refs.add(new SimpleArtifactRef(pvr, "jar", null).toString());
-
-        // check that both files are in the dep artifacts list using getIdentifier() to match on GAVT[C]
-        for (Artifact artifact : deps) {
-            assertThat(
-                    artifact + " is not in the expected list of deps: " + refs,
-                    refs.contains(artifact.getIdentifier()),
-                    equalTo(true));
-        }
-
-        Indy indy = driver.getIndy(accessToken);
-
-        // check that the new imports are available from shared-imports
-        assertAvailableInSharedImports(indy, pomContent, pomPath);
-        assertAvailableInSharedImports(indy, jarContent, jarPath);
     }
 
-    private void assertAvailableInSharedImports(Indy indy, String content, String path)
-            throws IndyClientException, IOException {
-        InputStream stream = indy.content().get(new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, SHARED_IMPORTS_ID), path);
-        String downloaded = IOUtils.toString(stream, (String) null);
-        assertThat(downloaded, equalTo(content));
-    }
 
 }

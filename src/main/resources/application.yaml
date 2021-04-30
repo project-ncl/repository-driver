@@ -25,6 +25,7 @@ quarkus:
 
 
 repository-driver:
+  rhpam-base-url: ${rhpam-base-url}
 
 "%test":
   quarkus:

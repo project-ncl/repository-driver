@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,10 +23,7 @@ import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
-import org.commonjava.indy.client.core.Indy;
-import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.module.IndyContentClientModule;
-import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.StoreKey;
@@ -57,9 +53,6 @@ public class TrackingReportProcessor {
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
     @Inject
-    Indy indy;
-
-    @Inject
     ArtifactFilter artifactFilter;
 
     @Inject
@@ -68,40 +61,12 @@ public class TrackingReportProcessor {
     @Inject
     Configuration configuration;
 
-    TrackedContentDTO report;
+    @Inject
+    IndyContentClientModule indyContentModule;
 
-    public void retrieveTrackingReport(String buildContentId, boolean seal) throws RepositoryDriverException {
-        try {
-            IndyFoloAdminClientModule foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-            if (seal) {
-                userLog.info("Sealing tracking record");
-                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-                if (!sealed) {
-                    throw new RepositoryDriverException("Failed to seal content-tracking record for: %s.", buildContentId);
-                }
-            }
-            userLog.info("Getting tracking report");
-            report = foloAdmin.getTrackingReport(buildContentId);
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException( "Failed to retrieve tracking report for: %s. Reason: %s", e, buildContentId, e.getMessage());
-        }
-        if (report == null) {
-            throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", buildContentId);
-        }
-    }
-
-    public List<Artifact> collectDownloadedArtifacts() throws RepositoryDriverException {
+    public List<Artifact> collectDownloadedArtifacts(TrackedContentDTO report) throws RepositoryDriverException {
         //TODO add log with duration of this method
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
-        IndyContentClientModule content;
-        try {
-            content = indy.content();
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy content module. Reason: %s",
-                    e,
-                    e.getMessage());
-        }
 
         List<Artifact> deps = new ArrayList<>(downloads.size());
         for (TrackedContentEntryDTO download : downloads) {
@@ -117,7 +82,7 @@ public class TrackingReportProcessor {
                     originUrl = download.getLocalUrl();
                 }
 
-                TargetRepository targetRepository = getDownloadsTargetRepository(download, content);
+                TargetRepository targetRepository = getDownloadsTargetRepository(download);
 
                 Artifact.Builder artifactBuilder = Artifact.builder()
                         .md5(download.getMd5())
@@ -137,6 +102,121 @@ public class TrackingReportProcessor {
         }
         Collections.sort(deps, Comparator.comparing(Artifact::getIdentifier));
         return deps;
+    }
+
+    /**
+     * Return list of output artifacts for promotion.
+     *
+     * @return List of output artifacts meta data
+     * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
+     *         artifacts
+     */
+    public List<Artifact> collectUploadedArtifacts(TrackedContentDTO report, boolean tempBuild)
+            throws RepositoryDriverException {
+
+        List<Artifact> artifacts = new ArrayList<>();
+
+        userLog.info("Processing built artifacts"); // TODO duration
+        StopWatch stopWatch = StopWatch.createStarted();
+
+        for (TrackedContentEntryDTO upload : report.getUploads()) {
+            String path = upload.getPath();
+            StoreKey storeKey = upload.getStoreKey();
+
+            if (artifactFilter.acceptsForData(upload)) {
+                String identifier = computeIdentifier(upload);
+
+                logger.info("Recording upload: {}", identifier);
+
+                RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
+                TargetRepository targetRepository = getUploadsTargetRepository(repoType, tempBuild);
+
+                ArtifactQuality artifactQuality = getArtifactQuality(tempBuild);
+                Artifact artifact = Artifact.builder()
+                        .md5(upload.getMd5())
+                        .sha1(upload.getSha1())
+                        .sha256(upload.getSha256())
+                        .size(upload.getSize())
+                        .artifactQuality(artifactQuality)
+                        .deployPath(upload.getPath())
+                        .filename(new File(path).getName())
+                        .identifier(identifier)
+                        .targetRepository(targetRepository)
+                        .build();
+
+                artifacts.add(validateArtifact(artifact));
+            }
+        }
+        logger.info("END: Process artifacts uploaded from build, took {} seconds", stopWatch.getTime(TimeUnit.SECONDS));
+        return artifacts;
+    }
+
+    public PromotionPaths collectDownloadsPromotions(TrackedContentDTO report) {
+        Set<TrackedContentEntryDTO> downloads = report.getDownloads();
+        PromotionPaths promotionPaths = new PromotionPaths();
+        Map<String, StoreKey> promotionTargetsCache = new HashMap<>();
+        for (TrackedContentEntryDTO download : downloads) {
+            String path = download.getPath();
+            StoreKey source = download.getStoreKey();
+            String packageType = source.getPackageType();
+            if (artifactFilter.acceptsForPromotion(download, true)) {
+                StoreKey target = null;
+                Map<StoreKey, Set<String>> sources = null;
+                Set<String> paths = null;
+
+                // this has not been captured, so promote it.
+                switch (packageType) {
+                    case MAVEN_PKG_KEY:
+                    case NPM_PKG_KEY:
+                        target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
+                        promotionPaths.add(source, target, path);
+                        if (MAVEN_PKG_KEY.equals(packageType) && !isChecksum(path)) {
+                            // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
+                            // the other would be missing) but avoid adding checksums of checksums.
+                            promotionPaths.add(source, target, path + ".md5");
+                            promotionPaths.add(source, target, path + ".sha1");
+                        }
+                        break;
+
+                    case GENERIC_PKG_KEY:
+                        String remoteName = source.getName();
+                        String hostedName = getGenericHostedRepoName(remoteName);
+                        target = new StoreKey(packageType, StoreType.hosted, hostedName);
+                        promotionPaths.add(source, target, path + ".sha1");
+                        break;
+
+                    default:
+                        // do not promote anything else anywhere
+                        break;
+                }
+            }
+        }
+        return promotionPaths;
+    }
+
+    public PromotionPaths collectUploadsPromotions(
+            TrackedContentDTO report,
+            boolean tempBuild,
+            RepositoryType repositoryType,
+            String buildContentId) {
+        PromotionPaths promotionPaths = new PromotionPaths();
+        for (TrackedContentEntryDTO upload : report.getUploads()) {
+            String path = upload.getPath();
+            StoreKey storeKey = upload.getStoreKey();
+            if (artifactFilter.acceptsForPromotion(upload, false)) {
+                String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
+                StoreKey source = new StoreKey(packageType, StoreType.hosted, buildContentId);
+                StoreKey target = new StoreKey(packageType, StoreType.hosted, getBuildPromotionTarget(tempBuild));
+                promotionPaths.add(source, target, path);
+                if (MAVEN_PKG_KEY.equals(storeKey.getPackageType()) && !isChecksum(path)) {
+                    // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
+                    // the other would be missing) but avoid adding checksums of checksums.
+                    promotionPaths.add(source, target, path + ".md5");
+                    promotionPaths.add(source, target, path + ".sha1");
+                }
+            }
+        }
+        return promotionPaths;
     }
 
     /**
@@ -212,15 +292,14 @@ public class TrackingReportProcessor {
     }
 
     private TargetRepository getDownloadsTargetRepository(
-            TrackedContentEntryDTO download,
-            IndyContentClientModule content) throws RepositoryDriverException {
+            TrackedContentEntryDTO download) throws RepositoryDriverException {
         String identifier;
         String repoPath;
         StoreKey source = download.getStoreKey();
         RepositoryType repoType = TypeConverters.toRepoType(source.getPackageType());
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
             identifier = "indy-" + repoType.name().toLowerCase();
-            repoPath = getTargetRepositoryPath(download, content);
+            repoPath = getTargetRepositoryPath(download, indyContentModule);
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
             identifier = "indy-http";
             repoPath = getGenericTargetRepositoryPath(source);
@@ -296,149 +375,24 @@ public class TrackingReportProcessor {
         return artifact;
     }
 
-    /**
-     * Return list of output artifacts for promotion.
-     *
-     * @return List of output artifacts meta data
-     * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
-     *         artifacts
-     */
-    public Uploads collectUploads(boolean tempBuild)
-            throws RepositoryDriverException {
-
-        List<Artifact> artifacts = new ArrayList<>();
-
-        userLog.info("Processing built artifacts"); // TODO duration
-        StopWatch stopWatch = StopWatch.createStarted();
-
-        Set<String> promotionPaths = new HashSet<>();
-
-        IndyContentClientModule content;
-        try {
-            content = indy.content();
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy content module. Reason: %s",
-                    e,
-                    e.getMessage());
-        }
-
-        for (TrackedContentEntryDTO upload : report.getUploads()) {
-            String path = upload.getPath();
-            StoreKey storeKey = upload.getStoreKey();
-
-            if (artifactFilter.acceptsForData(upload)) {
-                String identifier = computeIdentifier(upload);
-
-                logger.info("Recording upload: {}", identifier);
-
-                RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
-                TargetRepository targetRepository = getUploadsTargetRepository(repoType, tempBuild, content);
-
-                ArtifactQuality artifactQuality = getArtifactQuality(tempBuild);
-                Artifact artifact = Artifact.builder()
-                        .md5(upload.getMd5())
-                        .sha1(upload.getSha1())
-                        .sha256(upload.getSha256())
-                        .size(upload.getSize())
-                        .artifactQuality(artifactQuality)
-                        .deployPath(upload.getPath())
-                        .filename(new File(path).getName())
-                        .identifier(identifier)
-                        .targetRepository(targetRepository)
-                        .build();
-
-                artifacts.add(validateArtifact(artifact));
-            }
-
-            if (artifactFilter.acceptsForPromotion(upload, false)) {
-                promotionPaths.add(path);
-                if (MAVEN_PKG_KEY.equals(storeKey.getPackageType()) && !isChecksum(path)) {
-                    // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
-                    // the other would be missing) but avoid adding checksums of checksums.
-                    promotionPaths.add(path + ".md5");
-                    promotionPaths.add(path + ".sha1");
-                }
-            }
-        }
-        logger.info("END: Process artifacts uploaded from build, took {} seconds", stopWatch.getTime(TimeUnit.SECONDS));
-        return new Uploads(artifacts, new ArrayList<>(promotionPaths));
-    }
-
-    public Map<StoreKey, Map<StoreKey, Set<String>>> collectDownloadsPromotionMap() {
-        Set<TrackedContentEntryDTO> downloads = report.getDownloads();
-        Map<StoreKey, Map<StoreKey, Set<String>>> depMap = new HashMap<>();
-        Map<String, StoreKey> promotionTargets = new HashMap<>();
-        for (TrackedContentEntryDTO download : downloads) {
-            String path = download.getPath();
-            StoreKey source = download.getStoreKey();
-            String packageType = source.getPackageType();
-            if (artifactFilter.acceptsForPromotion(download, true)) {
-                StoreKey target = null;
-                Map<StoreKey, Set<String>> sources = null;
-                Set<String> paths = null;
-
-                // this has not been captured, so promote it.
-                switch (packageType) {
-                    case MAVEN_PKG_KEY:
-                    case NPM_PKG_KEY:
-                        target = getPromotionTarget(packageType, promotionTargets);
-                        sources = depMap.computeIfAbsent(target, t -> new HashMap<>());
-                        paths = sources.computeIfAbsent(source, s -> new HashSet<>());
-
-                        paths.add(path);
-                        if (MAVEN_PKG_KEY.equals(packageType) && !isChecksum(path)) {
-                            // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
-                            // the other would be missing) but avoid adding checksums of checksums.
-                            paths.add(path + ".md5");
-                            paths.add(path + ".sha1");
-                        }
-                        break;
-
-                    case GENERIC_PKG_KEY:
-                        String remoteName = source.getName();
-                        String hostedName = getGenericHostedRepoName(remoteName);
-                        target = new StoreKey(packageType, StoreType.hosted, hostedName);
-                        sources = depMap.computeIfAbsent(target, t -> new HashMap<>());
-                        paths = sources.computeIfAbsent(source, s -> new HashSet<>());
-
-                        paths.add(path);
-                        break;
-
-                    default:
-                        // do not promote anything else anywhere
-                        break;
-                }
-            }
-        }
-
-        return depMap;
-    }
-
-    public Set<TrackedContentEntryDTO> getDownloads() {
-        return report.getDownloads();
-    }
-
-
     private TargetRepository getUploadsTargetRepository(
             RepositoryType repoType,
-            boolean tempBuild,
-            IndyContentClientModule content) throws RepositoryDriverException {
+            boolean tempBuild) throws RepositoryDriverException {
 
         StoreKey storeKey;
         String identifier;
         if (repoType == RepositoryType.MAVEN) {
-            storeKey = new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, configuration.getBuildPromotionTarget(tempBuild));
+            storeKey = new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(tempBuild));
             identifier = ReposiotryIdentifier.INDY_MAVEN;
         } else if (repoType == RepositoryType.NPM) {
-            storeKey = new StoreKey(NPM_PKG_KEY, StoreType.hosted, configuration.getBuildPromotionTarget(tempBuild));
+            storeKey = new StoreKey(NPM_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(tempBuild));
             identifier = ReposiotryIdentifier.INDY_NPM;
         } else {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported for uploads by Indy repo manager driver.");
         }
 
-        String repoPath = "/api/" + content.contentPath(storeKey);
+        String repoPath = "/api/" + indyContentModule.contentPath(storeKey);
         if (!repoPath.endsWith("/")) {
             repoPath += '/';
         }
@@ -463,13 +417,15 @@ public class TrackingReportProcessor {
         return Checksum.suffixes.contains(suffix);
     }
 
-    private StoreKey getPromotionTarget(String packageType, Map<String, StoreKey> promotionTargets) {
-        if (!promotionTargets.containsKey(packageType)) {
+    private StoreKey getSharedImportsPromotionTarget(String packageType, Map<String, StoreKey> promotionTargetsCache) {
+        if (!promotionTargetsCache.containsKey(packageType)) {
             StoreKey storeKey = new StoreKey(packageType, StoreType.hosted, SHARED_IMPORTS_ID);
-            promotionTargets.put(packageType, storeKey);
+            promotionTargetsCache.put(packageType, storeKey);
         }
-        return promotionTargets.get(packageType);
+        return promotionTargetsCache.get(packageType);
     }
 
-
+    public String getBuildPromotionTarget(boolean tempBuild) {
+        return tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget();
+    }
 }

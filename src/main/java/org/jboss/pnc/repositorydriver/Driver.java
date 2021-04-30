@@ -26,17 +26,17 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
+import javax.validation.Validator;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,8 +46,10 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
+import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
+import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.model.core.Group;
 import org.commonjava.indy.model.core.HostedRepository;
 import org.commonjava.indy.model.core.RemoteRepository;
@@ -113,7 +115,18 @@ public class Driver {
     ApplicationLifecycle lifecycle;
 
     @Inject
+    Validator validator;
+
+    @Inject
+    IndyContentClientModule indyContentModule;
+
+    @Inject
     TrackingReportProcessor trackingReportProcessor;
+
+    @PostConstruct
+    public void init() {
+
+    }
 
     public CreateResponse create(CreateRequest createRequest) throws RepositoryDriverException {
         BuildType buildType = createRequest.getBuildType();
@@ -171,7 +184,7 @@ public class Driver {
         }
         String buildContentId = promoteRequest.getBuildContentId();
         BuildType buildType = promoteRequest.getBuildType();
-        trackingReportProcessor.retrieveTrackingReport(buildContentId, true);
+        TrackedContentDTO report = retrieveTrackingReport(buildContentId, true);
 
         // schedule promotion
         executor.runAsync(() -> {
@@ -186,7 +199,7 @@ public class Driver {
                     //TODO we can drop the stopwatch
                     StopWatch stopWatch = StopWatch.createStarted(); //TODO do we need stopwatch
 
-                    downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts();
+                    downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
                     logger.info(
                             "END: Process artifacts downloaded by build, took {} seconds",
                             stopWatch.getTime(TimeUnit.SECONDS));
@@ -199,22 +212,20 @@ public class Driver {
                     return;
                 }
 
-                Uploads uploads = trackingReportProcessor.collectUploads(promoteRequest.isTempBuild());
-                List<Artifact> uploadedArtifacts = uploads.getArtifacts();
+                List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(report, promoteRequest.isTempBuild());
 
                 //the promotion is done only after a successfully collected downloads and uploads
                 heartBeatSender.run();
                 deleteBuildGroup(buildType.getRepoType(), buildContentId);
 
                 heartBeatSender.run();
-                promoteDownloads(trackingReportProcessor.collectDownloadsPromotionMap(), heartBeatSender, promoteRequest.isTempBuild());
+                promoteDownloads(trackingReportProcessor.collectDownloadsPromotions(report), heartBeatSender, promoteRequest.isTempBuild());
 
                 heartBeatSender.run();
                 promoteUploads(
-                        buildType.getRepoType(),
-                        buildContentId,
-                        uploads.getPromotionPaths(),
-                        promoteRequest.isTempBuild());
+                        trackingReportProcessor.collectUploadsPromotions(report, promoteRequest.isTempBuild(), buildType.getRepoType(), buildContentId),
+                        promoteRequest.isTempBuild(),
+                        heartBeatSender);
 
                 logger.info(
                         "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
@@ -294,17 +305,19 @@ public class Driver {
 
     public PromoteResult collectRepoManagerResult(String buildContentId, boolean tempBuild)
             throws RepositoryDriverException {
-        trackingReportProcessor.retrieveTrackingReport(buildContentId, false);
+
+        TrackedContentDTO report = retrieveTrackingReport(buildContentId, false);
+
         try {
-            List<Artifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts();
-            Uploads uploads = trackingReportProcessor.collectUploads(tempBuild);
+            List<Artifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+            List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(report, tempBuild);
 
             logger.info(
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
-                    StringUtils.join(uploads.getArtifacts(), "\n  "),
+                    StringUtils.join(uploadedArtifacts, "\n  "),
                     StringUtils.join(downloadedArtifacts, "\n  "));
             return new PromoteResult(
-                    uploads.getArtifacts(),
+                    uploadedArtifacts,
                     downloadedArtifacts,
                     buildContentId,
                     "",
@@ -504,60 +517,85 @@ public class Driver {
      * @throws RepositoryDriverException in case of an unexpected error during promotion
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    private void promoteDownloads(Map<StoreKey, Map<StoreKey, Set<String>>> depMap, Runnable heartBeatSender, boolean tempBuild)
+    private void promoteDownloads(PromotionPaths promotionPaths, Runnable heartBeatSender, boolean tempBuild)
             throws RepositoryDriverException, PromotionValidationException {
         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
         // imports
 
-        for (Map.Entry<StoreKey, Map<StoreKey, Set<String>>> targetToSources : depMap.entrySet()) {
-            StoreKey target = targetToSources.getKey();
-            for (Map.Entry<StoreKey, Set<String>> sourceToPaths : targetToSources.getValue().entrySet()) {
-                heartBeatSender.run();
-                StoreKey source = sourceToPaths.getKey();
-                PathsPromoteRequest request = new PathsPromoteRequest(source, target, sourceToPaths.getValue())
-                        .setPurgeSource(false);
-                // set read-only only the generic http proxy hosted repos, not shared-imports
-                boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(target.getPackageType());
+        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetPaths()) {
+            heartBeatSender.run();
+            PathsPromoteRequest request = new PathsPromoteRequest(
+                    sourceTargetPaths.getSource(),
+                    sourceTargetPaths.getTarget(),
+                    sourceTargetPaths.getPaths());
+            request.setPurgeSource(false);
+            // set read-only only the generic http proxy hosted repos, not shared-imports
+            boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(sourceTargetPaths.getTarget().getPackageType());
 
-                StopWatch stopWatchDoPromote = StopWatch.createStarted();
-                try {
-                    logger.info(
-                            "BEGIN: doPromoteByPath: source: '{}', target: '{}', readonly: {}",
-                            request.getSource().toString(),
-                            request.getTarget().toString(),
-                            readonly);
-                    userLog.info(
-                            "Promoting {} dependencies from {} to {}",
-                            request.getPaths().size(),
-                            request.getSource(),
-                            request.getTarget());
+            StopWatch stopWatchDoPromote = StopWatch.createStarted();
+            try {
+                logger.info( //TODO unify logs
+                        "BEGIN: doPromoteByPath: source: '{}', target: '{}', readonly: {}",
+                        request.getSource().toString(),
+                        request.getTarget().toString(),
+                        readonly);
+                userLog.info(
+                        "Promoting {} dependencies from {} to {}",
+                        request.getPaths().size(),
+                        request.getSource(),
+                        request.getTarget());
 
-                    doPromoteByPath(request, false, readonly);
+                doPromoteByPath(request, false, readonly);
 
-                    logger.info(
-                            "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
-                            request.getSource().toString(),
-                            request.getTarget().toString(),
-                            readonly,
-                            stopWatchDoPromote.getTime(TimeUnit.SECONDS));
-                } catch (RepositoryDriverException ex) {
-                    logger.info(
-                            "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
-                            request.getSource().toString(),
-                            request.getTarget().toString(),
-                            readonly,
-                            stopWatchDoPromote.getTime(TimeUnit.SECONDS));
-                    userLog.error("Dependencies promotion failed. Error(s): {}", ex.getMessage()); // TODO unify log
-                    throw ex;
-                }
+                logger.info(
+                        "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
+                        request.getSource().toString(),
+                        request.getTarget().toString(),
+                        readonly,
+                        stopWatchDoPromote.getTime(TimeUnit.SECONDS));
+            } catch (RepositoryDriverException ex) {
+                logger.info(
+                        "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
+                        request.getSource().toString(),
+                        request.getTarget().toString(),
+                        readonly,
+                        stopWatchDoPromote.getTime(TimeUnit.SECONDS));
+                userLog.error("Dependencies promotion failed. Error(s): {}", ex.getMessage()); // TODO unify log
+                throw ex;
             }
         }
     }
 
 
+    /**
+     * Promote the build output to the consolidated build repo (using path promotion, where the build repo contents are
+     * added to the repo's contents) and marks the build output as readonly.
+     *
+     * @throws RepositoryDriverException when the repository client API throws an exception due to something unexpected
+     *         in transport
+     * @throws PromotionValidationException when the promotion process results in an error due to validation failure
+     */
+    private void promoteUploads(
+            PromotionPaths promotionPaths,
+            boolean tempBuild,
+            Runnable heartBeatSender) throws RepositoryDriverException, PromotionValidationException {
+        userLog.info("Validating and promoting built artifacts");
 
-
-
+        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetPaths()) {
+            heartBeatSender.run();
+            try {
+                PathsPromoteRequest request = new PathsPromoteRequest(
+                        sourceTargetPaths.getSource(),
+                        sourceTargetPaths.getTarget(),
+                        sourceTargetPaths.getPaths());
+                doPromoteByPath(request, !tempBuild, false);
+            } catch (RepositoryDriverException | PromotionValidationException ex) {
+                userLog.error("Built artifact promotion failed. Error(s): {}", ex.getMessage());
+                throw ex;
+            }
+        }
+        logger.info("END: promotion to build content set."); // TODO use log duration
+    }
 
     /**
      * Promotes a set of artifact paths (or everything, if the path-set is missing) from a particular Indy artifact
@@ -644,39 +682,6 @@ public class Driver {
     }
 
     /**
-     * Promote the build output to the consolidated build repo (using path promotion, where the build repo contents are
-     * added to the repo's contents) and marks the build output as readonly.
-     *
-     * @param uploads artifacts to be promoted
-     * @throws RepositoryDriverException when the repository client API throws an exception due to something unexpected
-     *         in transport
-     * @throws PromotionValidationException when the promotion process results in an error due to validation failure
-     */
-    private void promoteUploads(
-            RepositoryType repositoryType,
-            String buildContentId,
-            List<String> uploads,
-            boolean tempBuild) throws RepositoryDriverException, PromotionValidationException {
-        userLog.info("Validating and promoting built artifacts");
-
-        String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
-
-        try {
-            StoreKey source = new StoreKey(packageType, StoreType.hosted, buildContentId);
-            StoreKey target = new StoreKey(packageType, StoreType.hosted, configuration.getBuildPromotionTarget(tempBuild));
-
-            PathsPromoteRequest request = new PathsPromoteRequest(source, target, new HashSet<>(uploads));
-
-            doPromoteByPath(request, !tempBuild, false);
-        } catch (RepositoryDriverException | PromotionValidationException ex) {
-            userLog.error("Built artifact promotion failed. Error(s): {}", ex.getMessage());
-            throw ex;
-        }
-
-        logger.info("END: promotion to build content set."); // TODO use log duration
-    }
-
-    /**
      * Computes error message from a failed promotion result. It means either error must not be empty or validations
      * need to contain at least 1 validation error.
      *
@@ -759,6 +764,37 @@ public class Driver {
                 return null;
             }, executor);
         };
+    }
+
+    private TrackedContentDTO retrieveTrackingReport(String buildContentId, boolean seal) throws RepositoryDriverException {
+        IndyFoloAdminClientModule foloAdmin;
+        try {
+            foloAdmin = indy.module(IndyFoloAdminClientModule.class);
+        } catch (IndyClientException e) {
+            throw new RepositoryDriverException(
+                    "Failed to retrieve Indy client module for the artifact tracker: %s",
+                    e,
+                    e.getMessage());
+        }
+
+        TrackedContentDTO report;
+        try {
+            if (seal) {
+                userLog.info("Sealing tracking record");
+                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
+                if (!sealed) {
+                    throw new RepositoryDriverException("Failed to seal content-tracking record for: %s.", buildContentId);
+                }
+            }
+            userLog.info("Getting tracking report");
+            report = foloAdmin.getTrackingReport(buildContentId);
+        } catch (IndyClientException e) {
+            throw new RepositoryDriverException( "Failed to retrieve tracking report for: %s. Reason: %s", e, buildContentId, e.getMessage());
+        }
+        if (report == null) {
+            throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", buildContentId);
+        }
+        return report;
     }
 
     // TODO move out of the driver

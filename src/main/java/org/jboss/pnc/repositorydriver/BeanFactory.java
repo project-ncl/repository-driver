@@ -18,6 +18,7 @@ import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.IndyClientModule;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
+import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
@@ -96,6 +97,12 @@ public class BeanFactory {
     @ApplicationScoped
     public HttpClient getHttpClient() {
         return httpClient;
+    }
+
+    @Produces
+    @ApplicationScoped
+    public IndyContentClientModule getIndyContentClientModule() {
+        return new IndyContentClientModule();
     }
 
     @PreDestroy
