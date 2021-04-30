@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
@@ -56,7 +57,8 @@ public class ArtifactFilterImpl implements ArtifactFilter {
 
     private PatternsList ignoredRepoPatterns;
 
-    public ArtifactFilterImpl() {
+    @PostConstruct
+    public void init() {
         ignoredPathPatternsPromotion = new IgnoredPatterns();
         ignoredPathPatternsPromotion.setGeneric(configuration.getIgnoredPathPatternsPromotionGeneric());
         ignoredPathPatternsPromotion.setMaven(configuration.getIgnoredPathPatternsPromotionMaven());

@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import javax.enterprise.context.Dependent;
+import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validator;
@@ -32,6 +32,7 @@ import org.jboss.pnc.constants.ReposiotryIdentifier;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.dto.TargetRepository;
 import org.jboss.pnc.enums.ArtifactQuality;
+import org.jboss.pnc.enums.BuildCategory;
 import org.jboss.pnc.enums.RepositoryType;
 import org.jboss.pnc.repositorydriver.constants.Checksum;
 import org.slf4j.Logger;
@@ -45,7 +46,7 @@ import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.S
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
-@Dependent
+@ApplicationScoped
 public class TrackingReportProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(TrackingReportProcessor.class);
@@ -111,7 +112,7 @@ public class TrackingReportProcessor {
      * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
      *         artifacts
      */
-    public List<Artifact> collectUploadedArtifacts(TrackedContentDTO report, boolean tempBuild)
+    public List<Artifact> collectUploadedArtifacts(TrackedContentDTO report, boolean tempBuild, BuildCategory buildCategory)
             throws RepositoryDriverException {
 
         List<Artifact> artifacts = new ArrayList<>();
@@ -142,6 +143,7 @@ public class TrackingReportProcessor {
                         .filename(new File(path).getName())
                         .identifier(identifier)
                         .targetRepository(targetRepository)
+                        .buildCategory(buildCategory)
                         .build();
 
                 artifacts.add(validateArtifact(artifact));
@@ -425,7 +427,7 @@ public class TrackingReportProcessor {
         return promotionTargetsCache.get(packageType);
     }
 
-    public String getBuildPromotionTarget(boolean tempBuild) {
+    private String getBuildPromotionTarget(boolean tempBuild) {
         return tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget();
     }
 }

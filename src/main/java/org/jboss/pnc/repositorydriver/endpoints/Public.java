@@ -26,12 +26,12 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import io.quarkus.security.Authenticated;
 import org.jboss.pnc.repositorydriver.Driver;
 import org.jboss.pnc.repositorydriver.RepositoryDriverException;
+import org.jboss.pnc.repositorydriver.dto.CollectRequest;
 import org.jboss.pnc.repositorydriver.dto.CreateRequest;
 import org.jboss.pnc.repositorydriver.dto.CreateResponse;
 import org.jboss.pnc.repositorydriver.dto.PromoteRequest;
@@ -81,9 +81,9 @@ public class Public { //TODO use more descriptive class names
     @Path("/{id}/repository-manager-result")
     public PromoteResult collectRepoManagerResult(
             @PathParam("id") String buildRecordId,
-            @QueryParam("temp") boolean tempBuild) throws RepositoryDriverException {
+            CollectRequest collectRequest) throws RepositoryDriverException {
         logger.info("Getting repository manager result for build record id {}.", buildRecordId);
-        return driver.collectRepoManagerResult(buildRecordId, tempBuild);
+        return driver.collectRepoManagerResult(buildRecordId, collectRequest.isTempBuild(), collectRequest.getBuildCategory());
     }
 
 }

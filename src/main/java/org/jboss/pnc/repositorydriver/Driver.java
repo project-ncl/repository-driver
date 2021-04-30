@@ -17,8 +17,6 @@
  */
 package org.jboss.pnc.repositorydriver;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -33,10 +31,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
-import javax.validation.Validator;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,16 +42,13 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.time.StopWatch;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
-import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.model.core.Group;
 import org.commonjava.indy.model.core.HostedRepository;
-import org.commonjava.indy.model.core.RemoteRepository;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
-import org.commonjava.indy.model.core.dto.StoreListingDTO;
 import org.commonjava.indy.promote.client.IndyPromoteClientModule;
 import org.commonjava.indy.promote.model.AbstractPromoteResult;
 import org.commonjava.indy.promote.model.PathsPromoteRequest;
@@ -65,10 +58,10 @@ import org.eclipse.microprofile.context.ManagedExecutor;
 import org.jboss.pnc.api.constants.BuildConfigurationParameterKeys;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.dto.Artifact;
+import org.jboss.pnc.enums.BuildCategory;
 import org.jboss.pnc.enums.BuildType;
 import org.jboss.pnc.enums.RepositoryType;
 import org.jboss.pnc.repositorydriver.constants.CompletionStatus;
-import org.jboss.pnc.repositorydriver.dto.ArtifactRepository;
 import org.jboss.pnc.repositorydriver.dto.CreateRequest;
 import org.jboss.pnc.repositorydriver.dto.CreateResponse;
 import org.jboss.pnc.repositorydriver.dto.PromoteRequest;
@@ -78,8 +71,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.COMMON_BUILD_GROUP_CONSTITUENTS_GROUP;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.TEMPORARY_BUILDS_GROUP;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -109,24 +100,10 @@ public class Driver {
     Indy indy;
 
     @Inject
-    ArtifactFilter artifactFilter;
-
-    @Inject
     ApplicationLifecycle lifecycle;
 
     @Inject
-    Validator validator;
-
-    @Inject
-    IndyContentClientModule indyContentModule;
-
-    @Inject
     TrackingReportProcessor trackingReportProcessor;
-
-    @PostConstruct
-    public void init() {
-
-    }
 
     public CreateResponse create(CreateRequest createRequest) throws RepositoryDriverException {
         BuildType buildType = createRequest.getBuildType();
@@ -212,7 +189,10 @@ public class Driver {
                     return;
                 }
 
-                List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(report, promoteRequest.isTempBuild());
+                List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
+                        report,
+                        promoteRequest.isTempBuild(),
+                        promoteRequest.getBuildCategory());
 
                 //the promotion is done only after a successfully collected downloads and uploads
                 heartBeatSender.run();
@@ -303,14 +283,12 @@ public class Driver {
                 .getStageAsync(() -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
     }
 
-    public PromoteResult collectRepoManagerResult(String buildContentId, boolean tempBuild)
+    public PromoteResult collectRepoManagerResult(String buildContentId, boolean tempBuild, BuildCategory buildCategory)
             throws RepositoryDriverException {
-
         TrackedContentDTO report = retrieveTrackingReport(buildContentId, false);
-
         try {
             List<Artifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
-            List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(report, tempBuild);
+            List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(report, tempBuild, buildCategory);
 
             logger.info(
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
@@ -335,7 +313,6 @@ public class Driver {
         }
     }
 
-
     /**
      * Create the hosted repository and group necessary to support a single build. The hosted repository holds artifacts
      * uploaded from the build, and the group coordinates access to this hosted repository, along with content from the
@@ -352,7 +329,7 @@ public class Driver {
             boolean tempBuild,
             // add extra repositories removed from poms by the adjust process and set in BC by user
             // TODO validate repository see #extractExtraRepositoriesFromGenericParameters
-            List<ArtifactRepository> extraDependencyRepositories) throws IndyClientException {
+            List<String> extraDependencyRepositories) throws IndyClientException {
 
         // if the build-level group doesn't exist, create it.
         StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
@@ -360,7 +337,6 @@ public class Driver {
 
         if (!indy.stores().exists(groupKey)) {
             // if the product-level storage repo (for in-progress product builds) doesn't exist, create it.
-
             if (!indy.stores().exists(hostedKey)) {
                 HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
                 buildArtifacts.setAllowSnapshots(false);
@@ -376,139 +352,20 @@ public class Driver {
                                 HostedRepository.class);
             }
 
-            Group buildGroup = new Group(packageType, buildContentId);
-            String adjective = tempBuild ? "temporary " : "";
-            buildGroup.setDescription(String.format("Aggregation group for PNC %sbuild #%s", adjective, buildContentId));
-
-            // build-local artifacts
-            buildGroup.addConstituent(hostedKey);
-
-            // Global-level repos, for captured/shared artifacts and access to the outside world
-            addGlobalConstituents(buildType, packageType, buildGroup, tempBuild);
-
-            addExtraConstituents(packageType, extraDependencyRepositories, buildContentId, buildGroup);
+            Group buildGroup = BuildGroupBuilder.builder(indy, packageType, buildContentId)
+                    .withDescription(String.format("Aggregation group for PNC %sbuild #%s", tempBuild ? "temporary " : "", buildContentId))
+                    // build-local artifacts
+                    .addConstituent(hostedKey)
+                    // Global-level repos, for captured/shared artifacts and access to the outside world
+                    .addGlobalConstituents(buildType, packageType, tempBuild)
+                    .addExtraConstituents(packageType, extraDependencyRepositories)
+                    .build();
 
             String changelog = "Creating repository group for resolving artifacts (repo: "
                     + buildContentId + ").";
             indy.stores().create(buildGroup, changelog, Group.class);
         }
     }
-
-    /**
-     * Adds extra remote repositories to the build group that are requested for the particular build. For a Maven build
-     * these are repositories defined in the root pom removed by PME by the adjust process.
-     *
-     * @param packageType the package type key used by Indy
-     * @param repositories the list of repositories to be added
-     * @param buildContentId build content ID
-     * @param buildGroup target build group in which the repositories are added
-     *
-     * @throws IndyClientException in case of an issue when communicating with the repository manager
-     */
-    private void addExtraConstituents(
-            String packageType,
-            List<ArtifactRepository> repositories,
-            String buildContentId,
-            Group buildGroup) throws IndyClientException {
-        if (repositories != null && !repositories.isEmpty()) {
-            StoreListingDTO<RemoteRepository> existingRepos = indy.stores().listRemoteRepositories(packageType);
-            for (ArtifactRepository repository : repositories) {
-                StoreKey remoteKey = null;
-                for (RemoteRepository existingRepo : existingRepos) {
-                    if (StringUtils.equals(existingRepo.getUrl(), repository.getUrl())) {
-                        remoteKey = existingRepo.getKey();
-                        break;
-                    }
-                }
-
-                if (remoteKey == null) {
-                    // this is basically an implied repo, so using the same prefix "i-"
-                    String remoteName = "i-" + convertIllegalCharacters(repository.getId());
-
-                    // find a free repository ID for the newly created repo
-                    remoteKey = new StoreKey(packageType, StoreType.remote, remoteName);
-                    int i = 2;
-                    while (indy.stores().exists(remoteKey)) {
-                        remoteKey = new StoreKey(packageType, StoreType.remote, remoteName + "-" + i++);
-                    }
-
-                    RemoteRepository remoteRepo = new RemoteRepository(
-                            packageType,
-                            remoteKey.getName(),
-                            repository.getUrl());
-                    remoteRepo.setAllowReleases(repository.getReleases());
-                    remoteRepo.setAllowSnapshots(repository.getSnapshots());
-                    remoteRepo.setDescription(
-                            "Implicitly created " + packageType + " repo for: " + repository.getName() + " ("
-                                    + repository.getId() + ") from repository declaration removed by PME "
-                                    + " (repo: " + buildContentId + ")");
-                    indy.stores()
-                            .create(
-                                    remoteRepo,
-                                    "Creating extra remote repository " + repository.getName() + " ("
-                                            + repository.getId() + ") repo: "
-                                            + buildContentId + "",
-                                    RemoteRepository.class);
-                }
-
-                buildGroup.addConstituent(remoteKey);
-            }
-        }
-    }
-
-    /**
-     * Converts characters in a given string considered as illegal by Indy to underscores.
-     *
-     * @param name repository name
-     * @return string with converted characters
-     */
-    private String convertIllegalCharacters(String name) {
-        char[] result = new char[name.length()];
-        for (int i = 0; i < name.length(); i++) {
-            char checkedChar = name.charAt(i);
-            if (Character.isLetterOrDigit(checkedChar) || checkedChar == '+' || checkedChar == '-'
-                    || checkedChar == '.') {
-                result[i] = checkedChar;
-            } else {
-                result[i] = '_';
-            }
-        }
-        return String.valueOf(result);
-    }
-
-    /**
-     * Add the constituents that every build repository group should contain:
-     * <ol>
-     * <li>builds-untested (Group)</li>
-     * <li>for temporary builds add also temporary-builds (Group)</li>
-     * <li>shared-imports (Hosted Repo)</li>
-     * <li>public (Group)</li>
-     * <li>any build-type-specific repos</li>
-     * </ol>
-     *
-     * @param buildType the build type
-     * @param pakageType package type key used by Indy (is defined by the build type, passed in just to avoid computing
-     *        it again)
-     */
-    private void addGlobalConstituents(BuildType buildType, String pakageType, Group group, boolean tempBuild) {
-        // 1. global builds artifacts
-        if (tempBuild) {
-            group.addConstituent(new StoreKey(pakageType, StoreType.hosted, TEMPORARY_BUILDS_GROUP));
-        }
-        group.addConstituent(new StoreKey(pakageType, StoreType.group, COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
-
-        // add build-type-specific constituents
-        switch (buildType) {
-            case GRADLE:
-                group.addConstituent(StoreKey.fromString(GRADLE_PLUGINS_REPO));
-                break;
-
-            default:
-                // no build-type-specific constituents for others
-                break;
-        }
-    }
-
 
     /**
      * Promotes by path downloads captured in given map. The key in the map is promotion target store key. The value is
@@ -521,8 +378,7 @@ public class Driver {
             throws RepositoryDriverException, PromotionValidationException {
         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
         // imports
-
-        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetPaths()) {
+        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             heartBeatSender.run();
             PathsPromoteRequest request = new PathsPromoteRequest(
                     sourceTargetPaths.getSource(),
@@ -566,7 +422,6 @@ public class Driver {
         }
     }
 
-
     /**
      * Promote the build output to the consolidated build repo (using path promotion, where the build repo contents are
      * added to the repo's contents) and marks the build output as readonly.
@@ -581,7 +436,7 @@ public class Driver {
             Runnable heartBeatSender) throws RepositoryDriverException, PromotionValidationException {
         userLog.info("Validating and promoting built artifacts");
 
-        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetPaths()) {
+        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             heartBeatSender.run();
             try {
                 PathsPromoteRequest request = new PathsPromoteRequest(
@@ -798,20 +653,12 @@ public class Driver {
     }
 
     // TODO move out of the driver
-    List<ArtifactRepository> extractExtraRepositoriesFromGenericParameters(Map<String, String> genericParameters) {
+    List<String> extractExtraRepositoriesFromGenericParameters(Map<String, String> genericParameters) {
         String extraReposString = genericParameters.get(BuildConfigurationParameterKeys.EXTRA_REPOSITORIES.name());
         if (extraReposString == null) {
             return new ArrayList<>();
         }
 
-        return Arrays.stream(extraReposString.split("\n")).map((repoString) -> {
-            try {
-                String id = new URL(repoString).getHost().replaceAll("\\.", "-");
-                return new ArtifactRepository(id, id, repoString.trim(), true, false);
-            } catch (MalformedURLException e) {
-                userLog.warn("Malformed repository URL entered: " + repoString + ". Skipping.");
-                return null;
-            }
-        }).filter(Objects::nonNull).collect(Collectors.toList());
+        return Arrays.stream(extraReposString.split("\n")).filter(Objects::nonNull).collect(Collectors.toList());
     }
 }

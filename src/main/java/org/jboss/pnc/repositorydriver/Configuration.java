@@ -19,7 +19,7 @@ package org.jboss.pnc.repositorydriver;
 
 import java.util.List;
 
-import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.context.Dependent;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -27,7 +27,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Getter
 @Setter
-@ApplicationScoped
+@Dependent
 public class Configuration {
 
     @ConfigProperty(name = "repository-driver.self-base-url")
@@ -36,7 +36,7 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.indy-client.api-url")
     String indyUrl;
 
-    @ConfigProperty(name = "repository-driver.indy-client.request-timeout")
+    @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
 
     @ConfigProperty(name = "repository-driver.http-client.connect-timeout", defaultValue = "5")

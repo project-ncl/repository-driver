@@ -25,14 +25,30 @@ quarkus:
 
 
 repository-driver:
-  rhpam-base-url: ${rhpam-base-url}
+  temp-build-promotion-target: "temp-target"
+  ignored-path-patterns:
+    promotion:
+      maven: [".*/maven-metadata\\.xml$", ".*\\.sha1$"]
+      npm: ["x"] #TODO
+      generic: ["x"]
+    data:
+      maven: ["x"]
+      npm: ["x"]
+      generic: ["x"]
+  ignored-repo-patterns: ["x"]
+  build-promotion-target: "build-target"
+  self-base-url: "http://localhost:8081/"
+  indy-client:
+    api-url: "http://indy-host/api/"
 
 "%test":
   quarkus:
     oidc:
       enabled: false
+    oidc-client:
+      enabled: false
   repository-driver:
     http-client:
       connect-timeout: 1
       request-timeout: 3
-
+    ignored-repo-patterns: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
