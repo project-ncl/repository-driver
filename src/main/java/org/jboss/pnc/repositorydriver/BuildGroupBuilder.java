@@ -69,11 +69,8 @@ public class BuildGroupBuilder {
      * </ol>
      *
      * @param buildType the build type
-     * @param packageType package type key used by Indy (is defined by the build type, passed in just to avoid computing
-     *        it again)
      */
-    //TODO do we need this method specific packageType
-    public BuildGroupBuilder addGlobalConstituents(BuildType buildType, String packageType, boolean tempBuild) {
+    public BuildGroupBuilder addGlobalConstituents(BuildType buildType, boolean tempBuild) {
         // 1. global builds artifacts
         if (tempBuild) {
             buildGroup.addConstituent(new StoreKey(packageType, StoreType.hosted, TEMPORARY_BUILDS_GROUP));
@@ -97,15 +94,11 @@ public class BuildGroupBuilder {
      * Adds extra remote repositories to the build group that are requested for the particular build. For a Maven build
      * these are repositories defined in the root pom removed by PME by the adjust process.
      *
-     * @param packageType the package type key used by Indy
      * @param repositoryUrls the list of repositories to be added
      *
      * @throws IndyClientException in case of an issue when communicating with the repository manager
      */
-    //TODO do we need this method specific packageType
-    public BuildGroupBuilder addExtraConstituents(
-            String packageType,
-            List<String> repositoryUrls) throws IndyClientException {
+    public BuildGroupBuilder addExtraConstituents(List<String> repositoryUrls) throws IndyClientException {
         if (repositoryUrls != null && !repositoryUrls.isEmpty()) {
             Set<ArtifactRepository> repositories = repositoryUrls.stream()
                     .map(this::createArtifactRepository)

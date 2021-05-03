@@ -362,8 +362,8 @@ public class Driver {
                     // build-local artifacts
                     .addConstituent(hostedKey)
                     // Global-level repos, for captured/shared artifacts and access to the outside world
-                    .addGlobalConstituents(buildType, packageType, tempBuild)
-                    .addExtraConstituents(packageType, extraDependencyRepositories)
+                    .addGlobalConstituents(buildType, tempBuild)
+                    .addExtraConstituents(extraDependencyRepositories)
                     .build();
 
             String changelog = "Creating repository group for resolving artifacts (repo: "

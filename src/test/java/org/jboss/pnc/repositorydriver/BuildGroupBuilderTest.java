@@ -42,7 +42,7 @@ public class BuildGroupBuilderTest {
                 indy,
                 MavenPackageTypeDescriptor.MAVEN_PKG_KEY,
                 "build-X")
-                .addExtraConstituents(MavenPackageTypeDescriptor.MAVEN_PKG_KEY, repositories)
+                .addExtraConstituents(repositories)
                 .build();
 
         Assertions.assertEquals(1, buildGroup.getConstituents().size());
