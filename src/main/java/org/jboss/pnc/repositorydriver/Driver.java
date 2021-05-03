@@ -61,7 +61,7 @@ import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.enums.BuildCategory;
 import org.jboss.pnc.enums.BuildType;
 import org.jboss.pnc.enums.RepositoryType;
-import org.jboss.pnc.repositorydriver.constants.CompletionStatus;
+import org.jboss.pnc.repositorydriver.constants.Status;
 import org.jboss.pnc.repositorydriver.dto.CreateRequest;
 import org.jboss.pnc.repositorydriver.dto.CreateResponse;
 import org.jboss.pnc.repositorydriver.dto.PromoteRequest;
@@ -147,7 +147,7 @@ public class Driver {
                     e,
                     e.getMessage());
         }
-        return new CreateResponse(downloadsUrl, deployUrl, null);
+        return new CreateResponse(downloadsUrl, deployUrl);
     }
 
     /**
@@ -167,7 +167,13 @@ public class Driver {
         executor.runAsync(() -> {
             lifecycle.addActivePromotion();
             try {
-                Runnable heartBeatSender = heartBeatSender(promoteRequest.getHeartBeat());
+                Request heartBeat = promoteRequest.getHeartBeat();
+                Runnable heartBeatSender;
+                if (heartBeat != null) {
+                    heartBeatSender = heartBeatSender(heartBeat);
+                } else {
+                    heartBeatSender = () -> {};
+                }
 
                 List<Artifact> downloadedArtifacts;
                 try {
@@ -185,7 +191,7 @@ public class Driver {
                     userLog.error("Dependencies promotion failed. Error(s): {}", message);
                     notifyInvoker(
                             promoteRequest.getCallback(),
-                            PromoteResult.failed(buildContentId, message, CompletionStatus.SYSTEM_ERROR));
+                            PromoteResult.failed(buildContentId, message, Status.SYSTEM_ERROR));
                     return;
                 }
 
@@ -218,15 +224,15 @@ public class Driver {
                                 downloadedArtifacts,
                                 buildContentId,
                                 "",
-                                CompletionStatus.SUCCESS));
+                                Status.SUCCESS));
             } catch (PromotionValidationException e) {
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        PromoteResult.failed(buildContentId, e.getMessage(), CompletionStatus.FAILED));
+                        PromoteResult.failed(buildContentId, e.getMessage(), Status.FAILED));
             } catch (RepositoryDriverException e) {
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        PromoteResult.failed(buildContentId, e.getMessage(), CompletionStatus.SYSTEM_ERROR));
+                        PromoteResult.failed(buildContentId, e.getMessage(), Status.SYSTEM_ERROR));
             }
         }).handle((nul, throwable) -> {
             if (throwable != null) {
@@ -299,17 +305,16 @@ public class Driver {
                     downloadedArtifacts,
                     buildContentId,
                     "",
-                    CompletionStatus.SUCCESS);
+                    Status.SUCCESS);
         } catch (RepositoryDriverException e) {
             String message = e.getMessage();
-            logger.warn("Dependencies promotion failed. Error(s): {}", message);
-            userLog.error("Built artifact promotion failed. Error(s): {}", message);
+            userLog.error("Failed to collect artifacts. Error(s): {}", message);
             return new PromoteResult(
                     Collections.emptyList(),
                     Collections.emptyList(),
                     buildContentId,
                     message,
-                    CompletionStatus.FAILED);
+                    Status.FAILED);
         }
     }
 
@@ -416,7 +421,7 @@ public class Driver {
                         request.getTarget().toString(),
                         readonly,
                         stopWatchDoPromote.getTime(TimeUnit.SECONDS));
-                userLog.error("Dependencies promotion failed. Error(s): {}", ex.getMessage()); // TODO unify log
+                userLog.error("Failed to promote by path. Error(s): {}", ex.getMessage()); // TODO unify log
                 throw ex;
             }
         }

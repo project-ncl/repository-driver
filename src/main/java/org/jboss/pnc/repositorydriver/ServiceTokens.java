@@ -18,6 +18,9 @@ public class ServiceTokens {
     private volatile Tokens currentTokens;
 
     public String getAccessToken() {
+        if (currentTokens == null) { //TODO is this correct ?
+            currentTokens = client.getTokens().await().indefinitely();
+        }
         Tokens tokens = currentTokens;
         if (tokens.isAccessTokenExpired()) {
             tokens = client.refreshTokens(tokens.getRefreshToken()).await().indefinitely();

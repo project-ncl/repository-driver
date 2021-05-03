@@ -20,7 +20,7 @@ package org.jboss.pnc.repositorydriver.constants;
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
-public enum CompletionStatus {
+public enum Status {
 
     SUCCESS, FAILED, SYSTEM_ERROR;
 }

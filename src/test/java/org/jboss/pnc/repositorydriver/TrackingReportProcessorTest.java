@@ -16,7 +16,6 @@ import org.commonjava.indy.pkg.PackageTypeConstants;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.enums.BuildCategory;
 import org.jboss.pnc.enums.RepositoryType;
-import org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -35,31 +34,8 @@ public class TrackingReportProcessorTest {
     @Inject
     Configuration configuration;
 
-    private static StoreKey centralKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "central");
-    private static StoreKey sharedImportsKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, IndyRepositoryConstants.SHARED_IMPORTS_ID);
-    private static StoreKey ignoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "ignored");
-    private static StoreKey toBeIgnoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "tobeignored");
-    private static StoreKey notToBeIgnoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "nottobeignored");
-
-    private static String indyPom = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
-    private static TrackedContentEntryDTO indyPomFromCentral;
-
-    private static String indyJar = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar";
-    private static TrackedContentEntryDTO indyJarFromCentral;
-
-
     @BeforeAll
     public static void beforeAll() {
-        indyPomFromCentral = new TrackedContentEntryDTO(
-                centralKey,
-                AccessChannel.NATIVE,
-                indyPom
-        );
-        indyJarFromCentral = new TrackedContentEntryDTO(
-                centralKey,
-                AccessChannel.NATIVE,
-                indyJar
-        );
     }
 
 
@@ -69,8 +45,8 @@ public class TrackingReportProcessorTest {
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
-        downloads.add(indyPomFromCentral);
-        downloads.add(indyJarFromCentral);
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyJarFromCentral);
         report.setDownloads(downloads);
 
         //when
@@ -81,17 +57,17 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
         SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().get();
-        Assertions.assertEquals(centralKey, fromCentralToSharedImports.getSource());
-        Assertions.assertEquals(sharedImportsKey, fromCentralToSharedImports.getTarget());
+        Assertions.assertEquals(TrackingReportMocks.centralKey, fromCentralToSharedImports.getSource());
+        Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, fromCentralToSharedImports.getTarget());
 
         Set<String> paths = fromCentralToSharedImports.getPaths();
         Set<String> expected = new HashSet<>();
-        expected.add(indyPom);
-        expected.add(indyPom + ".sha1");
-        expected.add(indyPom + ".md5");
-        expected.add(indyJar);
-        expected.add(indyJar + ".sha1");
-        expected.add(indyJar + ".md5");
+        expected.add(TrackingReportMocks.indyPom);
+        expected.add(TrackingReportMocks.indyPom + ".sha1");
+        expected.add(TrackingReportMocks.indyPom + ".md5");
+        expected.add(TrackingReportMocks.indyJar);
+        expected.add(TrackingReportMocks.indyJar + ".sha1");
+        expected.add(TrackingReportMocks.indyJar + ".md5");
 
         Assertions.assertLinesMatch(expected.stream(), paths.stream());
     }
@@ -113,12 +89,12 @@ public class TrackingReportProcessorTest {
         uploads.add(new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                indyJar
+                TrackingReportMocks.indyJar
         ));
         uploads.add(new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                indyPom
+                TrackingReportMocks.indyPom
         ));
         report.setUploads(uploads);
 
@@ -135,12 +111,12 @@ public class TrackingReportProcessorTest {
 
         Set<String> paths = fromBuildToPromoted.getPaths();
         Set<String> expected = new HashSet<>();
-        expected.add(indyPom);
-        expected.add(indyPom + ".sha1");
-        expected.add(indyPom + ".md5");
-        expected.add(indyJar);
-        expected.add(indyJar + ".sha1");
-        expected.add(indyJar + ".md5");
+        expected.add(TrackingReportMocks.indyPom);
+        expected.add(TrackingReportMocks.indyPom + ".sha1");
+        expected.add(TrackingReportMocks.indyPom + ".md5");
+        expected.add(TrackingReportMocks.indyJar);
+        expected.add(TrackingReportMocks.indyJar + ".sha1");
+        expected.add(TrackingReportMocks.indyJar + ".md5");
 
         Assertions.assertLinesMatch(expected.stream(), paths.stream());
     }
@@ -151,11 +127,11 @@ public class TrackingReportProcessorTest {
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
-        downloads.add(indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
         downloads.add(new TrackedContentEntryDTO(
-                ignoredKey,
+                TrackingReportMocks.ignoredKey,
                 AccessChannel.NATIVE,
-                indyJar));
+                TrackingReportMocks.indyJar));
         report.setDownloads(downloads);
 
         //when
@@ -166,8 +142,8 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
         SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().get();
-        Assertions.assertEquals(centralKey, fromCentralToSharedImports.getSource());
-        Assertions.assertEquals(sharedImportsKey, fromCentralToSharedImports.getTarget());
+        Assertions.assertEquals(TrackingReportMocks.centralKey, fromCentralToSharedImports.getSource());
+        Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, fromCentralToSharedImports.getTarget());
     }
 
     @Test
@@ -178,15 +154,15 @@ public class TrackingReportProcessorTest {
 
         String pom1 = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
         downloads.add(new TrackedContentEntryDTO(
-                centralKey,
+                TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
                 pom1));
         downloads.add(new TrackedContentEntryDTO(
-                toBeIgnoredKey,
+                TrackingReportMocks.toBeIgnoredKey,
                 AccessChannel.NATIVE,
                 pom1));
         downloads.add(new TrackedContentEntryDTO(
-                notToBeIgnoredKey,
+                TrackingReportMocks.notToBeIgnoredKey,
                 AccessChannel.NATIVE,
                 pom1));
         report.setDownloads(downloads);
@@ -211,14 +187,14 @@ public class TrackingReportProcessorTest {
         TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                indyJar
+                TrackingReportMocks.indyJar
         );
         uploads.add(trackedIndyJar);
 
         TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                indyPom
+                TrackingReportMocks.indyPom
         );
         uploads.add(trackedIndyPom);
 
@@ -229,7 +205,7 @@ public class TrackingReportProcessorTest {
 
         //then
         Assertions.assertEquals(2, artifacts.size());
-        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(indyPom)).findAny().get();
+        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().get();
         Assertions.assertEquals(BuildCategory.STANDARD, artifact.getBuildCategory());
     }
 
@@ -245,7 +221,7 @@ public class TrackingReportProcessorTest {
         TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                indyJar
+                TrackingReportMocks.indyJar
         );
         trackedIndyJar.setOriginUrl("originJarUrl"); //TODO what should originUrl look like
         downloads.add(trackedIndyJar);
@@ -253,7 +229,7 @@ public class TrackingReportProcessorTest {
         TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                indyPom
+                TrackingReportMocks.indyPom
         );
         String originPomUrl = "originPomUrl";
         trackedIndyPom.setOriginUrl(originPomUrl);
@@ -266,7 +242,7 @@ public class TrackingReportProcessorTest {
 
         //then
         Assertions.assertEquals(2, artifacts.size());
-        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(indyPom)).findAny().get();
+        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().get();
         Assertions.assertEquals(originPomUrl, artifact.getOriginUrl());
     }
 
