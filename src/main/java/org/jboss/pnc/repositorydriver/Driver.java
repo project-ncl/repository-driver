@@ -21,15 +21,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
@@ -39,7 +33,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.time.StopWatch;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
@@ -55,8 +48,8 @@ import org.commonjava.indy.promote.model.PathsPromoteRequest;
 import org.commonjava.indy.promote.model.PathsPromoteResult;
 import org.commonjava.indy.promote.model.ValidationResult;
 import org.eclipse.microprofile.context.ManagedExecutor;
-import org.jboss.pnc.api.constants.BuildConfigurationParameterKeys;
 import org.jboss.pnc.api.dto.Request;
+import org.jboss.pnc.common.log.ProcessStageUtils;
 import org.jboss.pnc.dto.Artifact;
 import org.jboss.pnc.enums.BuildCategory;
 import org.jboss.pnc.enums.BuildType;
@@ -125,7 +118,6 @@ public class Driver {
                     e.getMessage());
         }
 
-        // since we're setting up a group/hosted repo per build, we can pin the tracking ID to the build repo ID.
         String downloadsUrl;
         String deployUrl;
 
@@ -166,74 +158,107 @@ public class Driver {
         // schedule promotion
         executor.runAsync(() -> {
             lifecycle.addActivePromotion();
+            Request heartBeat = promoteRequest.getHeartBeat();
+            Runnable heartBeatSender;
+            if (heartBeat != null) {
+                heartBeatSender = heartBeatSender(heartBeat);
+            } else {
+                heartBeatSender = () -> {};
+            }
+
+            String logEventKeyDownloads = "COLLECTING_DOWNLOADED_ARTIFACTS";
+            List<Artifact> downloadedArtifacts;
             try {
-                Request heartBeat = promoteRequest.getHeartBeat();
-                Runnable heartBeatSender;
-                if (heartBeat != null) {
-                    heartBeatSender = heartBeatSender(heartBeat);
-                } else {
-                    heartBeatSender = () -> {};
-                }
+                ProcessStageUtils.logProcessStageBegin(logEventKeyDownloads);
+                downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloads);
+            } catch (RepositoryDriverException e) {
+                String message = e.getMessage();
+                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloads, "Failed with: " + message);
+                logger.error("Failed " + logEventKeyDownloads, e);
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        PromoteResult.failed(buildContentId, message, Status.SYSTEM_ERROR));
+                return;
+            }
 
-                List<Artifact> downloadedArtifacts;
-                try {
-                    logger.info("BEGIN: Process artifacts downloaded by build");
-                    userLog.info("Processing dependencies"); // TODO log event duration
-                    //TODO we can drop the stopwatch
-                    StopWatch stopWatch = StopWatch.createStarted(); //TODO do we need stopwatch
-
-                    downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
-                    logger.info(
-                            "END: Process artifacts downloaded by build, took {} seconds",
-                            stopWatch.getTime(TimeUnit.SECONDS));
-                } catch (RepositoryDriverException e) {
-                    String message = e.getMessage();
-                    userLog.error("Dependencies promotion failed. Error(s): {}", message);
-                    notifyInvoker(
-                            promoteRequest.getCallback(),
-                            PromoteResult.failed(buildContentId, message, Status.SYSTEM_ERROR));
-                    return;
-                }
-
-                List<Artifact> uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
+            String logEventKeyUploads = "COLLECTING_UPLOADED_ARTIFACTS";
+            List<Artifact> uploadedArtifacts;
+            try {
+                heartBeatSender.run();
+                ProcessStageUtils.logProcessStageBegin(logEventKeyUploads);
+                uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                         report,
                         promoteRequest.isTempBuild(),
                         promoteRequest.getBuildCategory());
-
-                //the promotion is done only after a successfully collected downloads and uploads
-                heartBeatSender.run();
-                deleteBuildGroup(buildType.getRepoType(), buildContentId);
-
-                heartBeatSender.run();
-                promoteDownloads(trackingReportProcessor.collectDownloadsPromotions(report), heartBeatSender, promoteRequest.isTempBuild());
-
-                heartBeatSender.run();
-                promoteUploads(
-                        trackingReportProcessor.collectUploadsPromotions(report, promoteRequest.isTempBuild(), buildType.getRepoType(), buildContentId),
-                        promoteRequest.isTempBuild(),
-                        heartBeatSender);
-
-                logger.info(
-                        "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
-                        StringUtils.join(uploadedArtifacts, "\n  "),
-                        StringUtils.join(downloadedArtifacts, "\n  "));
-                notifyInvoker(
-                        promoteRequest.getCallback(),
-                        new PromoteResult(
-                                uploadedArtifacts,
-                                downloadedArtifacts,
-                                buildContentId,
-                                "",
-                                Status.SUCCESS));
-            } catch (PromotionValidationException e) {
-                notifyInvoker(
-                        promoteRequest.getCallback(),
-                        PromoteResult.failed(buildContentId, e.getMessage(), Status.FAILED));
+                ProcessStageUtils.logProcessStageEnd(logEventKeyUploads);
             } catch (RepositoryDriverException e) {
+                String message = e.getMessage();
+                ProcessStageUtils.logProcessStageEnd(logEventKeyUploads, "Failed with: " + message);
+                logger.error("Failed " + logEventKeyUploads, e);
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        PromoteResult.failed(buildContentId, message, Status.SYSTEM_ERROR));
+                return;
+            }
+
+            String logEventKeyDeleteGroup = "DELETE_BUILD_GROUP";
+            try {
+                heartBeatSender.run();
+                ProcessStageUtils.logProcessStageBegin(logEventKeyDeleteGroup);
+                deleteBuildGroup(buildType.getRepoType(), buildContentId);
+                ProcessStageUtils.logProcessStageEnd(logEventKeyDeleteGroup);
+            } catch (RepositoryDriverException e) {
+                ProcessStageUtils.logProcessStageEnd(logEventKeyDeleteGroup, "Failed with: " + e.getMessage());
+                logger.error("Failed " + logEventKeyDeleteGroup, e);
                 notifyInvoker(
                         promoteRequest.getCallback(),
                         PromoteResult.failed(buildContentId, e.getMessage(), Status.SYSTEM_ERROR));
             }
+
+            String logEventKeyDownloadsPromote = "PROMOTING_DOWNLOADED_ARTIFACTS";
+            try {
+                //the promotion is done only after a successfully collected downloads and uploads
+                heartBeatSender.run();
+                ProcessStageUtils.logProcessStageBegin(logEventKeyDownloadsPromote);
+                promoteDownloads(trackingReportProcessor.collectDownloadsPromotions(report), heartBeatSender, promoteRequest.isTempBuild());
+                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloadsPromote);
+            } catch (RepositoryDriverException | PromotionValidationException e) {
+                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloadsPromote, "Failed with: " + e.getMessage());
+                logger.error("Failed " + logEventKeyDownloadsPromote, e);
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        PromoteResult.failed(buildContentId, e.getMessage(), e instanceof RepositoryDriverException ? Status.SYSTEM_ERROR : Status.FAILED));
+            }
+
+            String logEventKeyUploadsPromote = "PROMOTING_UPLOADED_ARTIFACTS";
+            try {
+                heartBeatSender.run();
+                ProcessStageUtils.logProcessStageBegin(logEventKeyUploadsPromote);
+                promoteUploads(
+                        trackingReportProcessor.collectUploadsPromotions(report, promoteRequest.isTempBuild(), buildType.getRepoType(), buildContentId),
+                        promoteRequest.isTempBuild(),
+                        heartBeatSender);
+                ProcessStageUtils.logProcessStageEnd(logEventKeyUploadsPromote);
+            } catch (RepositoryDriverException | PromotionValidationException e) {
+                ProcessStageUtils.logProcessStageEnd(logEventKeyUploadsPromote, "Failed with: " + e.getMessage());
+                logger.error("Failed " + logEventKeyUploadsPromote, e);
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        PromoteResult.failed(buildContentId, e.getMessage(), e instanceof RepositoryDriverException ? Status.SYSTEM_ERROR : Status.FAILED));
+            }
+            logger.info(
+                    "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
+                    StringUtils.join(uploadedArtifacts, "\n  "),
+                    StringUtils.join(downloadedArtifacts, "\n  "));
+            notifyInvoker(
+                    promoteRequest.getCallback(),
+                    new PromoteResult(
+                            uploadedArtifacts,
+                            downloadedArtifacts,
+                            buildContentId,
+                            "",
+                            Status.SUCCESS));
         }).handle((nul, throwable) -> {
             if (throwable != null) {
                 logger.error("Unhanded promotion exception.", throwable);
@@ -332,8 +357,6 @@ public class Driver {
             BuildType buildType,
             String packageType,
             boolean tempBuild,
-            // add extra repositories removed from poms by the adjust process and set in BC by user
-            // TODO validate repository see #extractExtraRepositoriesFromGenericParameters
             List<String> extraDependencyRepositories) throws IndyClientException {
 
         // if the build-level group doesn't exist, create it.
@@ -393,35 +416,15 @@ public class Driver {
             // set read-only only the generic http proxy hosted repos, not shared-imports
             boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(sourceTargetPaths.getTarget().getPackageType());
 
-            StopWatch stopWatchDoPromote = StopWatch.createStarted();
             try {
-                logger.info( //TODO unify logs
-                        "BEGIN: doPromoteByPath: source: '{}', target: '{}', readonly: {}",
-                        request.getSource().toString(),
-                        request.getTarget().toString(),
-                        readonly);
                 userLog.info(
                         "Promoting {} dependencies from {} to {}",
                         request.getPaths().size(),
                         request.getSource(),
                         request.getTarget());
-
                 doPromoteByPath(request, false, readonly);
-
-                logger.info(
-                        "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
-                        request.getSource().toString(),
-                        request.getTarget().toString(),
-                        readonly,
-                        stopWatchDoPromote.getTime(TimeUnit.SECONDS));
             } catch (RepositoryDriverException ex) {
-                logger.info(
-                        "END: doPromoteByPath: source: '{}', target: '{}', readonly: {}, took: {} seconds",
-                        request.getSource().toString(),
-                        request.getTarget().toString(),
-                        readonly,
-                        stopWatchDoPromote.getTime(TimeUnit.SECONDS));
-                userLog.error("Failed to promote by path. Error(s): {}", ex.getMessage()); // TODO unify log
+                userLog.error("Failed to promote by path. Error(s): {}", ex.getMessage());
                 throw ex;
             }
         }
@@ -439,8 +442,6 @@ public class Driver {
             PromotionPaths promotionPaths,
             boolean tempBuild,
             Runnable heartBeatSender) throws RepositoryDriverException, PromotionValidationException {
-        userLog.info("Validating and promoting built artifacts");
-
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             heartBeatSender.run();
             try {
@@ -454,7 +455,6 @@ public class Driver {
                 throw ex;
             }
         }
-        logger.info("END: promotion to build content set."); // TODO use log duration
     }
 
     /**
@@ -581,12 +581,17 @@ public class Driver {
         return sb.toString();
     }
 
+    /**
+     * Cleans up the repo group from Indy. The group is not needed for promotion.
+     * It shouldn't be done if the build fails, to leave the group for debugging a build.
+     * All the groups are deleted by a cleaner(not part of this driver) after 7 days.
+     *
+     * @param repositoryType
+     * @param buildContentId
+     * @throws RepositoryDriverException
+     */
     private void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
             throws RepositoryDriverException {
-        logger.info("BEGIN: Removing build aggregation group: {}", buildContentId);
-        userLog.info("Removing build aggregation group");
-        StopWatch stopWatch = StopWatch.createStarted(); // TODO log event duration
-
         try {
             String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
             StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
@@ -594,11 +599,6 @@ public class Driver {
         } catch (IndyClientException e) {
             throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
         }
-        logger.info(
-                "END: Removing build aggregation group: {}, took: {} seconds",
-                buildContentId,
-                stopWatch.getTime(TimeUnit.SECONDS));
-        stopWatch.reset();
     }
 
     private boolean isHttpSuccess(int responseCode) {
@@ -655,15 +655,5 @@ public class Driver {
             throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", buildContentId);
         }
         return report;
-    }
-
-    // TODO move out of the driver
-    List<String> extractExtraRepositoriesFromGenericParameters(Map<String, String> genericParameters) {
-        String extraReposString = genericParameters.get(BuildConfigurationParameterKeys.EXTRA_REPOSITORIES.name());
-        if (extraReposString == null) {
-            return new ArrayList<>();
-        }
-
-        return Arrays.stream(extraReposString.split("\n")).filter(Objects::nonNull).collect(Collectors.toList());
     }
 }

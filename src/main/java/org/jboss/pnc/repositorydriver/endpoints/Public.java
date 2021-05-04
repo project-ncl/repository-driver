@@ -46,7 +46,7 @@ import org.slf4j.LoggerFactory;
 @Path("/")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-public class Public { //TODO use more descriptive class names
+public class Public {
 
     private static final Logger logger = LoggerFactory.getLogger(Public.class);
 
@@ -54,8 +54,7 @@ public class Public { //TODO use more descriptive class names
     Driver driver;
 
     /**
-     * Create a new repository session tuned to the parameters of that build collection and the build that will use this
-     * repository session.
+     * Create a new repository for the build. If Indy responds with en error an error response is returned to the invoker.
      */
     @Authenticated
     @POST
@@ -65,6 +64,11 @@ public class Public { //TODO use more descriptive class names
         return driver.create(createRequest);
     }
 
+    /**
+     * Retrieves the tracking report from Indy and promotes the repository.
+     * The endpoint returns after tracking report retrieval, if the retrieval fails and error response is returned.
+     * The promotion is an async operation, the result is sent via callback defined in the {@link PromoteRequest}
+     */
     @Authenticated
     @PUT
     @Path("/promote")
@@ -74,16 +78,16 @@ public class Public { //TODO use more descriptive class names
     }
 
     /**
-     * Gets repository manager result for a specific Build Record. It generates a successful result from tracking report
+     * Gets repository manager result for a specific buildContentId. It generates a successful result from tracking report
      * even for builds that failed because of a system error with a sealed tracking record.
      */
     @GET
     @Path("/{id}/repository-manager-result")
     public PromoteResult collectRepoManagerResult(
-            @PathParam("id") String buildRecordId,
+            @PathParam("id") String buildContentId,
             CollectRequest collectRequest) throws RepositoryDriverException {
-        logger.info("Getting repository manager result for build record id {}.", buildRecordId);
-        return driver.collectRepoManagerResult(buildRecordId, collectRequest.isTempBuild(), collectRequest.getBuildCategory());
+        logger.info("Getting repository manager result for build record id {}.", buildContentId);
+        return driver.collectRepoManagerResult(buildContentId, collectRequest.isTempBuild(), collectRequest.getBuildCategory());
     }
 
 }

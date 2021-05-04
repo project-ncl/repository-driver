@@ -15,15 +15,18 @@ public class ServiceTokens {
     @Inject
     OidcClient client;
 
+    @Inject
+    Configuration configuration;
+
     private volatile Tokens currentTokens;
 
     public String getAccessToken() {
-        if (currentTokens == null) { //TODO is this correct ?
-            currentTokens = client.getTokens().await().indefinitely();
+        if (currentTokens == null) {
+            currentTokens = client.getTokens().await().atMost(configuration.getKeyCloakRequestTimeout());
         }
         Tokens tokens = currentTokens;
         if (tokens.isAccessTokenExpired()) {
-            tokens = client.refreshTokens(tokens.getRefreshToken()).await().indefinitely();
+            tokens = client.refreshTokens(tokens.getRefreshToken()).await().atMost(configuration.getKeyCloakRequestTimeout());
             currentTokens = tokens;
         }
         return tokens.getAccessToken();

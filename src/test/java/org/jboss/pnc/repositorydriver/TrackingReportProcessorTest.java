@@ -56,7 +56,7 @@ public class TrackingReportProcessorTest {
         //then
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
-        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().get();
+        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().orElseThrow();
         Assertions.assertEquals(TrackingReportMocks.centralKey, fromCentralToSharedImports.getSource());
         Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, fromCentralToSharedImports.getTarget());
 
@@ -105,7 +105,7 @@ public class TrackingReportProcessorTest {
         //then
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
-        SourceTargetPaths fromBuildToPromoted = sourceTargetPaths.stream().findAny().get();
+        SourceTargetPaths fromBuildToPromoted = sourceTargetPaths.stream().findAny().orElseThrow();
         Assertions.assertEquals(buildKey, fromBuildToPromoted.getSource());
         Assertions.assertEquals(promotedBuildsKey, fromBuildToPromoted.getTarget());
 
@@ -122,7 +122,7 @@ public class TrackingReportProcessorTest {
     }
 
     @Test
-    public void shouldExcludeInternalRepoByName() throws Exception {
+    public void shouldExcludeInternalRepoByName() {
         //given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
@@ -141,7 +141,7 @@ public class TrackingReportProcessorTest {
         //then
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
-        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().get();
+        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().orElseThrow();
         Assertions.assertEquals(TrackingReportMocks.centralKey, fromCentralToSharedImports.getSource());
         Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, fromCentralToSharedImports.getTarget());
     }
@@ -205,7 +205,7 @@ public class TrackingReportProcessorTest {
 
         //then
         Assertions.assertEquals(2, artifacts.size());
-        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().get();
+        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().orElseThrow();
         Assertions.assertEquals(BuildCategory.STANDARD, artifact.getBuildCategory());
     }
 
@@ -223,7 +223,7 @@ public class TrackingReportProcessorTest {
                 AccessChannel.NATIVE,
                 TrackingReportMocks.indyJar
         );
-        trackedIndyJar.setOriginUrl("originJarUrl"); //TODO what should originUrl look like
+        trackedIndyJar.setOriginUrl("originJarUrl");
         downloads.add(trackedIndyJar);
 
         TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
@@ -242,7 +242,7 @@ public class TrackingReportProcessorTest {
 
         //then
         Assertions.assertEquals(2, artifacts.size());
-        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().get();
+        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().orElseThrow();
         Assertions.assertEquals(originPomUrl, artifact.getOriginUrl());
     }
 

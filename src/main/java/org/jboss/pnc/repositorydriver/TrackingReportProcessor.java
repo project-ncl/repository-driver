@@ -3,13 +3,11 @@ package org.jboss.pnc.repositorydriver;
 import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -17,7 +15,6 @@ import javax.validation.ConstraintViolation;
 import javax.validation.Validator;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang3.time.StopWatch;
 import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
@@ -51,8 +48,6 @@ public class TrackingReportProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(TrackingReportProcessor.class);
 
-    private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
-
     @Inject
     ArtifactFilter artifactFilter;
 
@@ -66,7 +61,6 @@ public class TrackingReportProcessor {
     IndyContentClientModule indyContentModule;
 
     public List<Artifact> collectDownloadedArtifacts(TrackedContentDTO report) throws RepositoryDriverException {
-        //TODO add log with duration of this method
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
 
         List<Artifact> deps = new ArrayList<>(downloads.size());
@@ -101,7 +95,7 @@ public class TrackingReportProcessor {
                 deps.add(artifact);
             }
         }
-        Collections.sort(deps, Comparator.comparing(Artifact::getIdentifier));
+        deps.sort(Comparator.comparing(Artifact::getIdentifier));
         return deps;
     }
 
@@ -117,9 +111,6 @@ public class TrackingReportProcessor {
 
         List<Artifact> artifacts = new ArrayList<>();
 
-        userLog.info("Processing built artifacts"); // TODO duration
-        StopWatch stopWatch = StopWatch.createStarted();
-
         for (TrackedContentEntryDTO upload : report.getUploads()) {
             String path = upload.getPath();
             StoreKey storeKey = upload.getStoreKey();
@@ -128,7 +119,6 @@ public class TrackingReportProcessor {
                 String identifier = computeIdentifier(upload);
 
                 logger.info("Recording upload: {}", identifier);
-
                 RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
                 TargetRepository targetRepository = getUploadsTargetRepository(repoType, tempBuild);
 
@@ -149,7 +139,6 @@ public class TrackingReportProcessor {
                 artifacts.add(validateArtifact(artifact));
             }
         }
-        logger.info("END: Process artifacts uploaded from build, took {} seconds", stopWatch.getTime(TimeUnit.SECONDS));
         return artifacts;
     }
 
@@ -162,17 +151,14 @@ public class TrackingReportProcessor {
             StoreKey source = download.getStoreKey();
             String packageType = source.getPackageType();
             if (artifactFilter.acceptsForPromotion(download, true)) {
-                StoreKey target = null;
-                Map<StoreKey, Set<String>> sources = null;
-                Set<String> paths = null;
-
+                StoreKey target;
                 // this has not been captured, so promote it.
                 switch (packageType) {
                     case MAVEN_PKG_KEY:
                     case NPM_PKG_KEY:
                         target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
                         promotionPaths.add(source, target, path);
-                        if (MAVEN_PKG_KEY.equals(packageType) && !isChecksum(path)) {
+                        if (MAVEN_PKG_KEY.equals(packageType) && isNotChecksum(path)) {
                             // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
                             // the other would be missing) but avoid adding checksums of checksums.
                             promotionPaths.add(source, target, path + ".md5");
@@ -210,7 +196,7 @@ public class TrackingReportProcessor {
                 StoreKey source = new StoreKey(packageType, StoreType.hosted, buildContentId);
                 StoreKey target = new StoreKey(packageType, StoreType.hosted, getBuildPromotionTarget(tempBuild));
                 promotionPaths.add(source, target, path);
-                if (MAVEN_PKG_KEY.equals(storeKey.getPackageType()) && !isChecksum(path)) {
+                if (MAVEN_PKG_KEY.equals(storeKey.getPackageType()) && isNotChecksum(path)) {
                     // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
                     // the other would be missing) but avoid adding checksums of checksums.
                     promotionPaths.add(source, target, path + ".md5");
@@ -414,9 +400,9 @@ public class TrackingReportProcessor {
         }
     }
 
-    private boolean isChecksum(String path) {
+    private boolean isNotChecksum(String path) {
         String suffix = StringUtils.substringAfterLast(path, ".");
-        return Checksum.suffixes.contains(suffix);
+        return !Checksum.suffixes.contains(suffix);
     }
 
     private StoreKey getSharedImportsPromotionTarget(String packageType, Map<String, StoreKey> promotionTargetsCache) {

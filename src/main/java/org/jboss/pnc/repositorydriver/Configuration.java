@@ -17,6 +17,7 @@
  */
 package org.jboss.pnc.repositorydriver;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +49,9 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.callback-retry-duration", defaultValue = "600")
     long callbackRetryDuration;
+
+    @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
+    private Duration keyCloakRequestTimeout;
 
     @ConfigProperty(name = "repository-driver.build-promotion-target")
     String buildPromotionTarget;

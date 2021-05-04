@@ -18,6 +18,8 @@
 
 package org.jboss.pnc.repositorydriver.runtime;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -26,7 +28,7 @@ import javax.enterprise.event.Observes;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import org.jboss.pnc.repositorydriver.Driver;
+import org.eclipse.microprofile.config.ConfigProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,13 +48,19 @@ public class ApplicationLifecycle {
 
     void onStop(@Observes ShutdownEvent event) {
         shuttingDown = true;
-        while (activePromotions.get() > 0) { // TODO add timeout, use quarkus.shutdown.timeout
+        Duration shutdownTimeout = ConfigProvider.getConfig().getValue("quarkus.shutdown.timeout", Duration.class);
+        Instant shutdownStarted = Instant.now();
+        while (activePromotions.get() > 0) {
+            if (Duration.between(shutdownStarted, Instant.now()).compareTo(shutdownTimeout) > 0) {
+                logger.warn("Reached quarkus.shutdown.timeout: {}", shutdownTimeout.toString());
+                break;
+            }
             try {
                 logger.info("Waiting for {} promotions to complete ...", activePromotions.get());
                 TimeUnit.SECONDS.sleep(1);
             } catch (InterruptedException e) {
                 logger.warn("Interrupted while waiting for promotions to complete.", e);
-                return;
+                break;
             }
         }
     }
