@@ -7,6 +7,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import lombok.Builder;
+import lombok.Getter;
 import org.apache.commons.lang.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
@@ -15,8 +17,7 @@ import org.commonjava.indy.model.core.RemoteRepository;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.model.core.dto.StoreListingDTO;
-import org.jboss.pnc.enums.BuildType;
-import org.jboss.pnc.repositorydriver.dto.ArtifactRepository;
+import org.jboss.pnc.api.enums.BuildType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +37,9 @@ public class BuildGroupBuilder {
     private String packageType;
     private String buildContentId;
 
-    //use #builder
-    private BuildGroupBuilder() {}
+    // use #builder
+    private BuildGroupBuilder() {
+    }
 
     public static BuildGroupBuilder builder(Indy indy, String packageType, String buildContentId) {
         BuildGroupBuilder buildGroupBuilder = new BuildGroupBuilder();
@@ -134,14 +136,13 @@ public class BuildGroupBuilder {
                     remoteRepo.setAllowSnapshots(repository.getSnapshots());
                     remoteRepo.setDescription(
                             "Implicitly created " + packageType + " repo for: " + repository.getName() + " ("
-                                    + repository.getId() + ") from repository declaration removed by PME "
-                                    + " (repo: " + buildContentId + ")");
+                                    + repository.getId() + ") from repository declaration removed by PME " + " (repo: "
+                                    + buildContentId + ")");
                     indy.stores()
                             .create(
                                     remoteRepo,
                                     "Creating extra remote repository " + repository.getName() + " ("
-                                            + repository.getId() + ") repo: "
-                                            + buildContentId + "",
+                                            + repository.getId() + ") repo: " + buildContentId + "",
                                     RemoteRepository.class);
                 }
 
@@ -159,13 +160,7 @@ public class BuildGroupBuilder {
             userLog.warn("Malformed repository URL entered: {}. Skipping!", url);
             return null;
         }
-        return ArtifactRepository.builder()
-                .id(id)
-                .name(id)
-                .url(url.trim())
-                .releases(true)
-                .snapshots(false)
-                .build();
+        return ArtifactRepository.builder().id(id).name(id).url(url.trim()).releases(true).snapshots(false).build();
     }
 
     public Group build() {
@@ -192,5 +187,19 @@ public class BuildGroupBuilder {
         return String.valueOf(result);
     }
 
+    @Getter
+    @Builder(builderClassName = "Builder")
+    public static class ArtifactRepository {
 
+        String id;
+
+        String name;
+
+        String url;
+
+        Boolean releases;
+
+        Boolean snapshots;
+
+    }
 }

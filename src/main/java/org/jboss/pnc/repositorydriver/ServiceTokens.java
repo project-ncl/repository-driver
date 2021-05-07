@@ -26,7 +26,9 @@ public class ServiceTokens {
         }
         Tokens tokens = currentTokens;
         if (tokens.isAccessTokenExpired()) {
-            tokens = client.refreshTokens(tokens.getRefreshToken()).await().atMost(configuration.getKeyCloakRequestTimeout());
+            tokens = client.refreshTokens(tokens.getRefreshToken())
+                    .await()
+                    .atMost(configuration.getKeyCloakRequestTimeout());
             currentTokens = tokens;
         }
         return tokens.getAccessToken();

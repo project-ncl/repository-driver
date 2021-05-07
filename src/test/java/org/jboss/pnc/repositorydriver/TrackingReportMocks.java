@@ -13,10 +13,19 @@ import org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants;
 public class TrackingReportMocks {
 
     public static StoreKey centralKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "central");
-    public static StoreKey sharedImportsKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, IndyRepositoryConstants.SHARED_IMPORTS_ID);
+    public static StoreKey sharedImportsKey = new StoreKey(
+            PackageTypeConstants.PKG_TYPE_MAVEN,
+            StoreType.hosted,
+            IndyRepositoryConstants.SHARED_IMPORTS_ID);
     public static StoreKey ignoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "ignored");
-    public static StoreKey toBeIgnoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "tobeignored");
-    public static StoreKey notToBeIgnoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "nottobeignored");
+    public static StoreKey toBeIgnoredKey = new StoreKey(
+            PackageTypeConstants.PKG_TYPE_MAVEN,
+            StoreType.remote,
+            "tobeignored");
+    public static StoreKey notToBeIgnoredKey = new StoreKey(
+            PackageTypeConstants.PKG_TYPE_MAVEN,
+            StoreType.remote,
+            "nottobeignored");
 
     public static String indyPom = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
     public static TrackedContentEntryDTO indyPomFromCentral;
@@ -28,12 +37,10 @@ public class TrackingReportMocks {
         indyPomFromCentral = new TrackedContentEntryDTO(
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom
-        );
+                TrackingReportMocks.indyPom);
         indyJarFromCentral = new TrackedContentEntryDTO(
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar
-        );
+                TrackingReportMocks.indyJar);
     }
 }

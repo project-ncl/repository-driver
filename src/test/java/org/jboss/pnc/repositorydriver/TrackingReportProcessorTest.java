@@ -13,9 +13,9 @@ import org.commonjava.indy.model.core.AccessChannel;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.pkg.PackageTypeConstants;
-import org.jboss.pnc.dto.Artifact;
-import org.jboss.pnc.enums.BuildCategory;
-import org.jboss.pnc.enums.RepositoryType;
+import org.jboss.pnc.api.enums.BuildCategory;
+import org.jboss.pnc.api.enums.RepositoryType;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -38,10 +38,9 @@ public class TrackingReportProcessorTest {
     public static void beforeAll() {
     }
 
-
     @Test
     public void shouldDownloadTwoThenVerifyExtractedArtifactsContainThem() {
-        //given
+        // given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
@@ -49,11 +48,11 @@ public class TrackingReportProcessorTest {
         downloads.add(TrackingReportMocks.indyJarFromCentral);
         report.setDownloads(downloads);
 
-        //when
+        // when
         PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
-        //then
+        // then
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
         SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().orElseThrow();
@@ -75,7 +74,7 @@ public class TrackingReportProcessorTest {
     @ParameterizedTest
     @ValueSource(booleans = { true, false })
     public void shouldUploadTwoThenVerifyExtractedArtifactsContainThem(boolean tempBuild) {
-        //given
+        // given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> uploads = new HashSet<>();
 
@@ -86,23 +85,16 @@ public class TrackingReportProcessorTest {
                 StoreType.hosted,
                 tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget());
 
-        uploads.add(new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar
-        ));
-        uploads.add(new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom
-        ));
+        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar));
+        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom));
         report.setUploads(uploads);
 
-        //when
-        PromotionPaths promotionPaths = trackingReportProcessor.collectUploadsPromotions(report, tempBuild, RepositoryType.MAVEN, buildContentId);
+        // when
+        PromotionPaths promotionPaths = trackingReportProcessor
+                .collectUploadsPromotions(report, tempBuild, RepositoryType.MAVEN, buildContentId);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
-        //then
+        // then
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
         SourceTargetPaths fromBuildToPromoted = sourceTargetPaths.stream().findAny().orElseThrow();
@@ -123,22 +115,23 @@ public class TrackingReportProcessorTest {
 
     @Test
     public void shouldExcludeInternalRepoByName() {
-        //given
+        // given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         downloads.add(TrackingReportMocks.indyPomFromCentral);
-        downloads.add(new TrackedContentEntryDTO(
-                TrackingReportMocks.ignoredKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar));
+        downloads.add(
+                new TrackedContentEntryDTO(
+                        TrackingReportMocks.ignoredKey,
+                        AccessChannel.NATIVE,
+                        TrackingReportMocks.indyJar));
         report.setDownloads(downloads);
 
-        //when
+        // when
         PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
-        //then
+        // then
         Assertions.assertEquals(1, sourceTargetPaths.size());
 
         SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().orElseThrow();
@@ -148,36 +141,27 @@ public class TrackingReportProcessorTest {
 
     @Test
     public void shouldExcludeInternalRepoByRegex() {
-        //given
+        // given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         String pom1 = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
-        downloads.add(new TrackedContentEntryDTO(
-                TrackingReportMocks.centralKey,
-                AccessChannel.NATIVE,
-                pom1));
-        downloads.add(new TrackedContentEntryDTO(
-                TrackingReportMocks.toBeIgnoredKey,
-                AccessChannel.NATIVE,
-                pom1));
-        downloads.add(new TrackedContentEntryDTO(
-                TrackingReportMocks.notToBeIgnoredKey,
-                AccessChannel.NATIVE,
-                pom1));
+        downloads.add(new TrackedContentEntryDTO(TrackingReportMocks.centralKey, AccessChannel.NATIVE, pom1));
+        downloads.add(new TrackedContentEntryDTO(TrackingReportMocks.toBeIgnoredKey, AccessChannel.NATIVE, pom1));
+        downloads.add(new TrackedContentEntryDTO(TrackingReportMocks.notToBeIgnoredKey, AccessChannel.NATIVE, pom1));
         report.setDownloads(downloads);
 
-        //when
+        // when
         PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
-        //then
+        // then
         Assertions.assertEquals(2, sourceTargetPaths.size());
     }
 
     @Test
     public void verifyUploadedArtifacts() throws RepositoryDriverException {
-        //given
+        // given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> uploads = new HashSet<>();
 
@@ -187,31 +171,33 @@ public class TrackingReportProcessorTest {
         TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar
-        );
+                TrackingReportMocks.indyJar);
         uploads.add(trackedIndyJar);
 
         TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom
-        );
+                TrackingReportMocks.indyPom);
         uploads.add(trackedIndyPom);
 
         report.setUploads(uploads);
 
-        //when
-        List<Artifact> artifacts = trackingReportProcessor.collectUploadedArtifacts(report, false, BuildCategory.STANDARD);
+        // when
+        List<RepositoryArtifact> artifacts = trackingReportProcessor
+                .collectUploadedArtifacts(report, false, BuildCategory.STANDARD);
 
-        //then
+        // then
         Assertions.assertEquals(2, artifacts.size());
-        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().orElseThrow();
+        RepositoryArtifact artifact = artifacts.stream()
+                .filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom))
+                .findAny()
+                .orElseThrow();
         Assertions.assertEquals(BuildCategory.STANDARD, artifact.getBuildCategory());
     }
 
     @Test
     public void verifyDownloadedArtifacts() throws RepositoryDriverException {
-        //given
+        // given
         TrackedContentDTO report = new TrackedContentDTO();
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
@@ -221,28 +207,29 @@ public class TrackingReportProcessorTest {
         TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar
-        );
+                TrackingReportMocks.indyJar);
         trackedIndyJar.setOriginUrl("originJarUrl");
         downloads.add(trackedIndyJar);
 
         TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
                 buildKey,
                 AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom
-        );
+                TrackingReportMocks.indyPom);
         String originPomUrl = "originPomUrl";
         trackedIndyPom.setOriginUrl(originPomUrl);
         downloads.add(trackedIndyPom);
 
         report.setDownloads(downloads);
 
-        //when
-        List<Artifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+        // when
+        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
 
-        //then
+        // then
         Assertions.assertEquals(2, artifacts.size());
-        Artifact artifact = artifacts.stream().filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom)).findAny().orElseThrow();
+        RepositoryArtifact artifact = artifacts.stream()
+                .filter(a -> a.getDeployPath().equals(TrackingReportMocks.indyPom))
+                .findAny()
+                .orElseThrow();
         Assertions.assertEquals(originPomUrl, artifact.getOriginUrl());
     }
 

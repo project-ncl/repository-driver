@@ -60,7 +60,8 @@ public class ArtifactFilterImpl implements ArtifactFilter {
     @PostConstruct
     public void init() {
         ignoredPathPatternsPromotion = new IgnoredPatterns();
-        configuration.getIgnoredPathPatternsPromotionGeneric().ifPresent(p -> ignoredPathPatternsPromotion.setGeneric(p));
+        configuration.getIgnoredPathPatternsPromotionGeneric()
+                .ifPresent(p -> ignoredPathPatternsPromotion.setGeneric(p));
         configuration.getIgnoredPathPatternsPromotionMaven().ifPresent(p -> ignoredPathPatternsPromotion.setMaven(p));
         configuration.getIgnoredPathPatternsPromotionNpm().ifPresent(p -> ignoredPathPatternsPromotion.setNpm(p));
 

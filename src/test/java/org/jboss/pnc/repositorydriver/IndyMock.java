@@ -41,7 +41,8 @@ public class IndyMock extends Indy {
         super(baseUrl, modules);
     }
 
-    public IndyMock(String baseUrl, IndyClientAuthenticator authenticator, IndyClientModule... modules) throws IndyClientException {
+    public IndyMock(String baseUrl, IndyClientAuthenticator authenticator, IndyClientModule... modules)
+            throws IndyClientException {
         super(baseUrl, authenticator, modules);
     }
 
@@ -49,7 +50,11 @@ public class IndyMock extends Indy {
         super(baseUrl, mapper, modules);
     }
 
-    public IndyMock(String baseUrl, IndyClientAuthenticator authenticator, IndyObjectMapper mapper, IndyClientModule... modules) throws IndyClientException {
+    public IndyMock(
+            String baseUrl,
+            IndyClientAuthenticator authenticator,
+            IndyObjectMapper mapper,
+            IndyClientModule... modules) throws IndyClientException {
         super(baseUrl, authenticator, mapper, modules);
     }
 
@@ -57,35 +62,59 @@ public class IndyMock extends Indy {
         super(baseUrl, modules);
     }
 
-    public IndyMock(String baseUrl, IndyClientAuthenticator authenticator, Collection<IndyClientModule> modules) throws IndyClientException {
+    public IndyMock(String baseUrl, IndyClientAuthenticator authenticator, Collection<IndyClientModule> modules)
+            throws IndyClientException {
         super(baseUrl, authenticator, modules);
     }
 
-    public IndyMock(String baseUrl, IndyObjectMapper mapper, Collection<IndyClientModule> modules) throws IndyClientException {
+    public IndyMock(String baseUrl, IndyObjectMapper mapper, Collection<IndyClientModule> modules)
+            throws IndyClientException {
         super(baseUrl, mapper, modules);
     }
 
-    public IndyMock(String baseUrl, IndyClientAuthenticator authenticator, IndyObjectMapper mapper, Collection<IndyClientModule> modules) throws IndyClientException {
+    public IndyMock(
+            String baseUrl,
+            IndyClientAuthenticator authenticator,
+            IndyObjectMapper mapper,
+            Collection<IndyClientModule> modules) throws IndyClientException {
         super(baseUrl, authenticator, mapper, modules);
     }
 
-    public IndyMock(IndyClientAuthenticator authenticator, IndyObjectMapper mapper, Collection<IndyClientModule> modules, SiteConfig location) throws IndyClientException {
+    public IndyMock(
+            IndyClientAuthenticator authenticator,
+            IndyObjectMapper mapper,
+            Collection<IndyClientModule> modules,
+            SiteConfig location) throws IndyClientException {
         super(authenticator, mapper, modules, location);
     }
 
-    public IndyMock(SiteConfig location, IndyClientAuthenticator authenticator, IndyObjectMapper mapper, IndyClientModule... modules) throws IndyClientException {
+    public IndyMock(
+            SiteConfig location,
+            IndyClientAuthenticator authenticator,
+            IndyObjectMapper mapper,
+            IndyClientModule... modules) throws IndyClientException {
         super(location, authenticator, mapper, modules);
     }
 
-    public IndyMock(SiteConfig location, IndyClientAuthenticator authenticator, IndyObjectMapper mapper, Map<String, String> mdcCopyMappings, IndyClientModule... modules) throws IndyClientException {
+    public IndyMock(
+            SiteConfig location,
+            IndyClientAuthenticator authenticator,
+            IndyObjectMapper mapper,
+            Map<String, String> mdcCopyMappings,
+            IndyClientModule... modules) throws IndyClientException {
         super(location, authenticator, mapper, mdcCopyMappings, modules);
     }
 
-    public IndyMock(SiteConfig location, PasswordManager passwordManager, IndyClientModule... modules) throws IndyClientException {
+    public IndyMock(SiteConfig location, PasswordManager passwordManager, IndyClientModule... modules)
+            throws IndyClientException {
         super(location, passwordManager, modules);
     }
 
-    public IndyMock(SiteConfig location, PasswordManager passwordManager, IndyObjectMapper objectMapper, IndyClientModule... modules) throws IndyClientException {
+    public IndyMock(
+            SiteConfig location,
+            PasswordManager passwordManager,
+            IndyObjectMapper objectMapper,
+            IndyClientModule... modules) throws IndyClientException {
         super(location, passwordManager, objectMapper, modules);
     }
 
@@ -100,14 +129,19 @@ public class IndyMock extends Indy {
         HostedRepository hostedRepository = Mockito.mock(HostedRepository.class);
         Mockito.when(indyStore.load(any(), any())).thenReturn(hostedRepository);
 
-//        Mockito.when(indyStore.update(any(), anyString())).thenReturn(hostedRepository);
+        // Mockito.when(indyStore.update(any(), anyString())).thenReturn(hostedRepository);
         return indyStore;
     }
 
     public static class IndyFoloContentClientModuleMock extends IndyFoloContentClientModule {
         @Override
         public String trackingUrl(String id, StoreKey key) {
-            return String.format("http://localhost/folo/track/%s/%s/%s/%s/", id, key.getPackageType(), key.getType().singularEndpointName(), key.getName());
+            return String.format(
+                    "http://localhost/folo/track/%s/%s/%s/%s/",
+                    id,
+                    key.getPackageType(),
+                    key.getType().singularEndpointName(),
+                    key.getName());
         }
     }
 
@@ -137,16 +171,8 @@ public class IndyMock extends Indy {
             String buildContentId = "build-X";
             StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
 
-            uploads.add(new TrackedContentEntryDTO(
-                    buildKey,
-                    AccessChannel.NATIVE,
-                    TrackingReportMocks.indyJar
-            ));
-            uploads.add(new TrackedContentEntryDTO(
-                    buildKey,
-                    AccessChannel.NATIVE,
-                    TrackingReportMocks.indyPom
-            ));
+            uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar));
+            uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom));
             report.setUploads(uploads);
 
             return report;

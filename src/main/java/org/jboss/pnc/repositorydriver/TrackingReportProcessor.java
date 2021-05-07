@@ -25,12 +25,11 @@ import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
-import org.jboss.pnc.constants.ReposiotryIdentifier;
-import org.jboss.pnc.dto.Artifact;
-import org.jboss.pnc.dto.TargetRepository;
-import org.jboss.pnc.enums.ArtifactQuality;
-import org.jboss.pnc.enums.BuildCategory;
-import org.jboss.pnc.enums.RepositoryType;
+import org.jboss.pnc.api.constants.ReposiotryIdentifier;
+import org.jboss.pnc.api.enums.BuildCategory;
+import org.jboss.pnc.api.enums.RepositoryType;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
+import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
 import org.jboss.pnc.repositorydriver.constants.Checksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,10 +59,11 @@ public class TrackingReportProcessor {
     @Inject
     IndyContentClientModule indyContentModule;
 
-    public List<Artifact> collectDownloadedArtifacts(TrackedContentDTO report) throws RepositoryDriverException {
+    public List<RepositoryArtifact> collectDownloadedArtifacts(TrackedContentDTO report)
+            throws RepositoryDriverException {
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
 
-        List<Artifact> deps = new ArrayList<>(downloads.size());
+        List<RepositoryArtifact> deps = new ArrayList<>(downloads.size());
         for (TrackedContentEntryDTO download : downloads) {
             String path = download.getPath();
             if (artifactFilter.acceptsForData(download)) {
@@ -79,7 +79,7 @@ public class TrackingReportProcessor {
 
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
 
-                Artifact.Builder artifactBuilder = Artifact.builder()
+                RepositoryArtifact.Builder artifactBuilder = RepositoryArtifact.builder()
                         .md5(download.getMd5())
                         .sha1(download.getSha1())
                         .sha256(download.getSha256())
@@ -91,11 +91,11 @@ public class TrackingReportProcessor {
                         .identifier(identifier)
                         .targetRepository(targetRepository);
 
-                Artifact artifact = validateArtifact(artifactBuilder.build());
+                RepositoryArtifact artifact = validateArtifact(artifactBuilder.build());
                 deps.add(artifact);
             }
         }
-        deps.sort(Comparator.comparing(Artifact::getIdentifier));
+        deps.sort(Comparator.comparing(RepositoryArtifact::getIdentifier));
         return deps;
     }
 
@@ -106,10 +106,12 @@ public class TrackingReportProcessor {
      * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
      *         artifacts
      */
-    public List<Artifact> collectUploadedArtifacts(TrackedContentDTO report, boolean tempBuild, BuildCategory buildCategory)
-            throws RepositoryDriverException {
+    public List<RepositoryArtifact> collectUploadedArtifacts(
+            TrackedContentDTO report,
+            boolean tempBuild,
+            BuildCategory buildCategory) throws RepositoryDriverException {
 
-        List<Artifact> artifacts = new ArrayList<>();
+        List<RepositoryArtifact> artifacts = new ArrayList<>();
 
         for (TrackedContentEntryDTO upload : report.getUploads()) {
             String path = upload.getPath();
@@ -122,13 +124,11 @@ public class TrackingReportProcessor {
                 RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
                 TargetRepository targetRepository = getUploadsTargetRepository(repoType, tempBuild);
 
-                ArtifactQuality artifactQuality = getArtifactQuality(tempBuild);
-                Artifact artifact = Artifact.builder()
+                RepositoryArtifact artifact = RepositoryArtifact.builder()
                         .md5(upload.getMd5())
                         .sha1(upload.getSha1())
                         .sha256(upload.getSha256())
                         .size(upload.getSize())
-                        .artifactQuality(artifactQuality)
                         .deployPath(upload.getPath())
                         .filename(new File(path).getName())
                         .identifier(identifier)
@@ -279,8 +279,8 @@ public class TrackingReportProcessor {
         return identifier;
     }
 
-    private TargetRepository getDownloadsTargetRepository(
-            TrackedContentEntryDTO download) throws RepositoryDriverException {
+    private TargetRepository getDownloadsTargetRepository(TrackedContentEntryDTO download)
+            throws RepositoryDriverException {
         String identifier;
         String repoPath;
         StoreKey source = download.getStoreKey();
@@ -299,7 +299,7 @@ public class TrackingReportProcessor {
             repoPath += '/';
         }
 
-        return TargetRepository.refBuilder()
+        return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
                 .repositoryPath(repoPath)
@@ -343,7 +343,6 @@ public class TrackingReportProcessor {
         return hostedName;
     }
 
-
     /**
      * Check artifact for any validation errors. If there are constraint violations, then a RepositoryManagerException
      * is thrown. Otherwise the artifact is returned.
@@ -352,8 +351,8 @@ public class TrackingReportProcessor {
      * @return the same artifact
      * @throws RepositoryDriverException if there are constraint violations
      */
-    private Artifact validateArtifact(Artifact artifact) throws RepositoryDriverException {
-        Set<ConstraintViolation<Artifact>> violations = validator.validate(artifact);
+    private RepositoryArtifact validateArtifact(RepositoryArtifact artifact) throws RepositoryDriverException {
+        Set<ConstraintViolation<RepositoryArtifact>> violations = validator.validate(artifact);
         if (!violations.isEmpty()) {
             throw new RepositoryDriverException(
                     "Repository manager returned invalid artifact: " + artifact.toString()
@@ -363,9 +362,8 @@ public class TrackingReportProcessor {
         return artifact;
     }
 
-    private TargetRepository getUploadsTargetRepository(
-            RepositoryType repoType,
-            boolean tempBuild) throws RepositoryDriverException {
+    private TargetRepository getUploadsTargetRepository(RepositoryType repoType, boolean tempBuild)
+            throws RepositoryDriverException {
 
         StoreKey storeKey;
         String identifier;
@@ -384,20 +382,12 @@ public class TrackingReportProcessor {
         if (!repoPath.endsWith("/")) {
             repoPath += '/';
         }
-        return TargetRepository.refBuilder()
+        return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
                 .repositoryPath(repoPath)
                 .temporaryRepo(tempBuild)
                 .build();
-    }
-
-    private ArtifactQuality getArtifactQuality(boolean isTempBuild) {
-        if (isTempBuild) {
-            return ArtifactQuality.TEMPORARY;
-        } else {
-            return ArtifactQuality.NEW;
-        }
     }
 
     private boolean isNotChecksum(String path) {

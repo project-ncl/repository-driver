@@ -23,8 +23,8 @@ public class BeanFactoryMock extends BeanFactory {
 
     @Produces
     Indy createIndyServiceAccountClient() {
-        IndyClientModule[] indyModules = new IndyClientModule[]{new IndyMock.IndyFoloAdminClientModuleMock(), new IndyMock.IndyFoloContentClientModuleMock(),
-                new IndyMock.IndyPromoteClientModuleMock()};
+        IndyClientModule[] indyModules = new IndyClientModule[] { new IndyMock.IndyFoloAdminClientModuleMock(),
+                new IndyMock.IndyFoloContentClientModuleMock(), new IndyMock.IndyPromoteClientModuleMock() };
 
         IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator(serviceTokens.getAccessToken());
         try {

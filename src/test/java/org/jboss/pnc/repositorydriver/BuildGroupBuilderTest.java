@@ -37,11 +37,8 @@ public class BuildGroupBuilderTest {
 
         List<String> repositories = new ArrayList<>();
         repositories.add("http://test.com/maven");
-        repositories.add("invalid url"); //should not be added
-        Group buildGroup = BuildGroupBuilder.builder(
-                indy,
-                MavenPackageTypeDescriptor.MAVEN_PKG_KEY,
-                "build-X")
+        repositories.add("invalid url"); // should not be added
+        Group buildGroup = BuildGroupBuilder.builder(indy, MavenPackageTypeDescriptor.MAVEN_PKG_KEY, "build-X")
                 .addExtraConstituents(repositories)
                 .build();
 

@@ -18,13 +18,13 @@ import io.restassured.RestAssured;
 import org.jboss.pnc.api.constants.HttpHeaders;
 import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
-import org.jboss.pnc.enums.BuildCategory;
-import org.jboss.pnc.enums.BuildType;
-import org.jboss.pnc.repositorydriver.constants.Status;
-import org.jboss.pnc.repositorydriver.dto.CreateRequest;
-import org.jboss.pnc.repositorydriver.dto.CreateResponse;
-import org.jboss.pnc.repositorydriver.dto.PromoteRequest;
-import org.jboss.pnc.repositorydriver.dto.PromoteResult;
+import org.jboss.pnc.api.enums.BuildCategory;
+import org.jboss.pnc.api.enums.BuildType;
+import org.jboss.pnc.api.enums.ResultStatus;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
 import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
@@ -77,14 +77,14 @@ public class DriverTest {
 
     @Test
     public void shouldCreateRepository() {
-        //given
-        CreateRequest request = CreateRequest.builder()
+        // given
+        RepositoryCreateRequest request = RepositoryCreateRequest.builder()
                 .buildContentId("build-X")
                 .buildType(BuildType.MVN)
                 .tempBuild(false)
                 .build();
-        //when
-        CreateResponse createResponse = given().contentType(MediaType.APPLICATION_JSON)
+        // when
+        RepositoryCreateResponse repositoryCreateResponse = given().contentType(MediaType.APPLICATION_JSON)
                 .headers(requestHeaders())
                 .body(request)
                 .when()
@@ -93,23 +93,27 @@ public class DriverTest {
                 .statusCode(200)
                 .extract()
                 .body()
-                .as(CreateResponse.class);
+                .as(RepositoryCreateResponse.class);
 
-        //then
-        Assertions.assertEquals("http://localhost/folo/track/build-X/maven/group/build-X/", createResponse.getRepositoryDependencyUrl());
-        Assertions.assertEquals("http://localhost/folo/track/build-X/maven/hosted/build-X/", createResponse.getRepositoryDeployUrl());
+        // then
+        Assertions.assertEquals(
+                "http://localhost/folo/track/build-X/maven/group/build-X/",
+                repositoryCreateResponse.getRepositoryDependencyUrl());
+        Assertions.assertEquals(
+                "http://localhost/folo/track/build-X/maven/hosted/build-X/",
+                repositoryCreateResponse.getRepositoryDeployUrl());
     }
 
     @Test
     @Timeout(15)
     public void shouldPromoteRepository() throws URISyntaxException, InterruptedException {
-        //given
+        // given
         Request callbackRequest = new Request(
                 Request.Method.POST,
                 new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
                 Collections.singletonList(
                         new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
-        PromoteRequest request = PromoteRequest.builder()
+        RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
                 .buildContentId("build-X")
                 .buildType(BuildType.MVN)
                 .tempBuild(false)
@@ -117,7 +121,7 @@ public class DriverTest {
                 .callback(callbackRequest)
                 .build();
 
-        //when
+        // when
         given().contentType(MediaType.APPLICATION_JSON)
                 .headers(requestHeaders())
                 .body(request)
@@ -126,12 +130,12 @@ public class DriverTest {
                 .then()
                 .statusCode(204);
 
-        //then
+        // then
         Request callback = callbackRequests.take();
-        PromoteResult promoteResult = mapper
-                .convertValue(callback.getAttachment(), PromoteResult.class);
+        RepositoryPromoteResult promoteResult = mapper
+                .convertValue(callback.getAttachment(), RepositoryPromoteResult.class);
         logger.info("Promotion completed with status: {}", promoteResult.getStatus());
-        Assertions.assertEquals(Status.SUCCESS, promoteResult.getStatus());
+        Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
     }
 
     private Map<String, String> requestHeaders() {
