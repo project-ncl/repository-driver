@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
@@ -56,18 +57,24 @@ public class ArtifactFilterImpl implements ArtifactFilter {
 
     private PatternsList ignoredRepoPatterns;
 
-    public ArtifactFilterImpl() {
+    @PostConstruct
+    public void init() {
         ignoredPathPatternsPromotion = new IgnoredPatterns();
-        ignoredPathPatternsPromotion.setGeneric(configuration.getIgnoredPathPatternsPromotionGeneric());
-        ignoredPathPatternsPromotion.setMaven(configuration.getIgnoredPathPatternsPromotionMaven());
-        ignoredPathPatternsPromotion.setNpm(configuration.getIgnoredPathPatternsPromotionNpm());
+        configuration.getIgnoredPathPatternsPromotionGeneric()
+                .ifPresent(p -> ignoredPathPatternsPromotion.setGeneric(p));
+        configuration.getIgnoredPathPatternsPromotionMaven().ifPresent(p -> ignoredPathPatternsPromotion.setMaven(p));
+        configuration.getIgnoredPathPatternsPromotionNpm().ifPresent(p -> ignoredPathPatternsPromotion.setNpm(p));
 
         ignoredPathPatternsData = new IgnoredPatterns();
-        ignoredPathPatternsData.setGeneric(configuration.getIgnoredPathPatternsDataGeneric());
-        ignoredPathPatternsData.setMaven(configuration.getIgnoredPathPatternsDataMaven());
-        ignoredPathPatternsData.setNpm(configuration.getIgnoredPathPatternsDataNpm());
+        configuration.getIgnoredPathPatternsResultGeneric().ifPresent(p -> ignoredPathPatternsData.setGeneric(p));
+        configuration.getIgnoredPathPatternsResultMaven().ifPresent(p -> ignoredPathPatternsData.setMaven(p));
+        configuration.getIgnoredPathPatternsResultNpm().ifPresent(p -> ignoredPathPatternsData.setNpm(p));
 
-        ignoredRepoPatterns = new PatternsList(configuration.getIgnoredRepoPatterns());
+        if (configuration.getIgnoredRepoPatterns().isPresent()) {
+            ignoredRepoPatterns = new PatternsList(configuration.getIgnoredRepoPatterns().get());
+        } else {
+            ignoredRepoPatterns = new PatternsList(Collections.emptyList());
+        }
     }
 
     @Override

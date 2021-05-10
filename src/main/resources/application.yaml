@@ -14,24 +14,49 @@ quarkus:
       secret: secret
     tls:
       verification: none
-    keycloak:
-      policy-enforcer:
-        enable: false
   oidc-client:
     auth-server-url: http://localhost:8180/auth/realms/quarkus/
     client-id: my-app
     credentials:
       secret: secret
-
-
 repository-driver:
+  ignored-path-patterns:
+    promotion:
+      maven:
+      npm:
+      generic:
+    result:
+      maven:
+      npm:
+      generic:
+  ignored-repo-patterns:
+  build-promotion-target:
+  self-base-url:
+  indy-client:
+    api-url:
 
 "%test":
   quarkus:
     oidc:
       enabled: false
+    oidc-client:
+      enabled: false
   repository-driver:
     http-client:
       connect-timeout: 1
       request-timeout: 3
-
+    build-promotion-target: "build-target"
+    temp-build-promotion-target: "temp-target"
+    ignored-path-patterns:
+      promotion:
+        maven: [".*/maven-metadata\\.xml$", ".*\\.sha1$"]
+        npm:
+        generic:
+      result:
+        maven:
+        npm:
+        generic:
+    ignored-repo-patterns: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
+    self-base-url: "http://localhost:8081/"
+    indy-client:
+      api-url: "http://indy-host/api/"

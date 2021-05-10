@@ -7,7 +7,6 @@ import java.time.Duration;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
 import javax.inject.Inject;
 import javax.net.ssl.SSLContext;
@@ -18,6 +17,7 @@ import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.IndyClientModule;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
+import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
@@ -42,9 +42,9 @@ public class BeanFactory {
     @Inject
     ServiceTokens serviceTokens;
 
-    private SiteConfig indySiteConfig;
-    private IndyClientModule[] indyModules;
-    private Indy indy;
+    protected SiteConfig indySiteConfig;
+    protected IndyClientModule[] indyModules;
+    protected Indy indy;
 
     @Inject
     ManagedExecutor executor;
@@ -66,8 +66,7 @@ public class BeanFactory {
 
         indySiteConfig = new SiteConfigBuilder("indy", baseUrl)
                 .withRequestTimeoutSeconds(configuration.getIndyClientRequestTimeout())
-                // this client is used in single build, we don't need more than 1 connection at a time
-                .withMaxConnections(1)
+                .withMaxConnections(10)
                 .build();
 
         indyModules = new IndyClientModule[] { new IndyFoloAdminClientModule(), new IndyFoloContentClientModule(),
@@ -75,8 +74,7 @@ public class BeanFactory {
     }
 
     @Produces
-    @RequestScoped
-    Indy createIndyServiceAccountClient() {
+    synchronized Indy createIndyServiceAccountClient() {
         IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator(serviceTokens.getAccessToken());
         try {
             indy = new Indy(
@@ -93,9 +91,13 @@ public class BeanFactory {
     }
 
     @Produces
-    @ApplicationScoped
     public HttpClient getHttpClient() {
         return httpClient;
+    }
+
+    @Produces
+    public IndyContentClientModule getIndyContentClientModule() {
+        return new IndyContentClientModule();
     }
 
     @PreDestroy

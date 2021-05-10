@@ -17,9 +17,11 @@
  */
 package org.jboss.pnc.repositorydriver;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 
-import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.context.Dependent;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -27,7 +29,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Getter
 @Setter
-@ApplicationScoped
+@Dependent
 public class Configuration {
 
     @ConfigProperty(name = "repository-driver.self-base-url")
@@ -36,7 +38,7 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.indy-client.api-url")
     String indyUrl;
 
-    @ConfigProperty(name = "repository-driver.indy-client.request-timeout")
+    @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
 
     @ConfigProperty(name = "repository-driver.http-client.connect-timeout", defaultValue = "5")
@@ -48,6 +50,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.callback-retry-duration", defaultValue = "600")
     long callbackRetryDuration;
 
+    @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
+    private Duration keyCloakRequestTimeout;
+
     @ConfigProperty(name = "repository-driver.build-promotion-target")
     String buildPromotionTarget;
 
@@ -55,27 +60,25 @@ public class Configuration {
     String tempBuildPromotionTarget;
 
     @ConfigProperty(name = "repository-driver.ignored-repo-patterns")
-    List<String> ignoredRepoPatterns;
+    Optional<List<String>> ignoredRepoPatterns;
 
-    //// ArtifactFilterImpl.IgnoredPathPatterns ignoredPathPatterns;
-    // ArtifactFilterImpl.IgnoredPatterns ignoredPathPatterns.promotion
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.generic")
-    List<String> ignoredPathPatternsPromotionGeneric;
+    Optional<List<String>> ignoredPathPatternsPromotionGeneric;
 
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.maven")
-    List<String> ignoredPathPatternsPromotionMaven;
+    Optional<List<String>> ignoredPathPatternsPromotionMaven;
 
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.npm")
-    List<String> ignoredPathPatternsPromotionNpm;
+    Optional<List<String>> ignoredPathPatternsPromotionNpm;
 
     // ArtifactFilterImpl.IgnoredPatterns ignoredPathPatterns.data
-    @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.generic")
-    List<String> ignoredPathPatternsDataGeneric;
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.result.generic")
+    Optional<List<String>> ignoredPathPatternsResultGeneric;
 
-    @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.maven")
-    List<String> ignoredPathPatternsDataMaven;
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.result.maven")
+    Optional<List<String>> ignoredPathPatternsResultMaven;
 
-    @ConfigProperty(name = "repository-driver.ignored-path-patterns.data.npm")
-    List<String> ignoredPathPatternsDataNpm;
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.result.npm")
+    Optional<List<String>> ignoredPathPatternsResultNpm;
 
 }

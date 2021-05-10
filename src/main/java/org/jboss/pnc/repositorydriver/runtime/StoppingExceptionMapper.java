@@ -17,21 +17,11 @@
  */
 package org.jboss.pnc.repositorydriver.runtime;
 
-import java.util.List;
-import java.util.Map;
-
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;
 import javax.ws.rs.ext.Provider;
 
 import org.jboss.pnc.repositorydriver.StoppingException;
-import org.jboss.pnc.repositorydriver.dto.ErrorResponse;
-import org.jboss.resteasy.spi.Failure;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * @author Matej Lazar &lt;mlazar@redhat.com&gt;

@@ -26,16 +26,16 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import io.quarkus.security.Authenticated;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCollectRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.repositorydriver.Driver;
 import org.jboss.pnc.repositorydriver.RepositoryDriverException;
-import org.jboss.pnc.repositorydriver.dto.CreateRequest;
-import org.jboss.pnc.repositorydriver.dto.CreateResponse;
-import org.jboss.pnc.repositorydriver.dto.PromoteRequest;
-import org.jboss.pnc.repositorydriver.dto.PromoteResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,36 +54,45 @@ public class Public {
     Driver driver;
 
     /**
-     * Create a new repository session tuned to the parameters of that build collection and the build that will use this
-     * repository session.
+     * Create a new repository for the build. If Indy responds with en error an error response is returned to the
+     * invoker.
      */
     @Authenticated
     @POST
     @Path("/create")
-    public CreateResponse create(CreateRequest createRequest) throws RepositoryDriverException {
-        logger.info("Requested new repository: {}", createRequest.getBuildContentId());
-        return driver.create(createRequest);
+    public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
+            throws RepositoryDriverException {
+        logger.info("Requested new repository: {}", repositoryCreateRequest.getBuildContentId());
+        return driver.create(repositoryCreateRequest);
     }
 
+    /**
+     * Retrieves the tracking report from Indy and promotes the repository. The endpoint returns after tracking report
+     * retrieval, if the retrieval fails and error response is returned. The promotion is an async operation, the result
+     * is sent via callback defined in the {@link RepositoryPromoteRequest}
+     */
     @Authenticated
     @PUT
     @Path("/promote")
-    public void promote(PromoteRequest promoteRequest) throws RepositoryDriverException {
+    public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
         logger.info("Requested promotion: {}", promoteRequest.getBuildContentId());
         driver.promote(promoteRequest);
     }
 
     /**
-     * Gets repository manager result for a specific Build Record. It generates a successful result from tracking report
-     * even for builds that failed because of a system error with a sealed tracking record.
+     * Gets repository manager result for a specific buildContentId. It generates a successful result from tracking
+     * report even for builds that failed because of a system error with a sealed tracking record.
      */
     @GET
     @Path("/{id}/repository-manager-result")
-    public PromoteResult collectRepoManagerResult(
-            @PathParam("id") String buildRecordId,
-            @QueryParam("temp") boolean tempBuild) throws RepositoryDriverException {
-        logger.info("Getting repository manager result for build record id {}.", buildRecordId);
-        return driver.collectRepoManagerResult(buildRecordId, tempBuild);
+    public RepositoryPromoteResult collectRepoManagerResult(
+            @PathParam("id") String buildContentId,
+            RepositoryCollectRequest collectRequest) throws RepositoryDriverException {
+        logger.info("Getting repository manager result for build record id {}.", buildContentId);
+        return driver.collectRepoManagerResult(
+                buildContentId,
+                collectRequest.isTempBuild(),
+                collectRequest.getBuildCategory());
     }
 
 }
