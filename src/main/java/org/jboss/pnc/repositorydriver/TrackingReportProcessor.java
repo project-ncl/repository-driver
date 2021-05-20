@@ -150,8 +150,11 @@ public class TrackingReportProcessor {
     }
 
     public PromotionPaths collectDownloadsPromotions(TrackedContentDTO report) {
-        Set<TrackedContentEntryDTO> downloads = report.getDownloads();
         PromotionPaths promotionPaths = new PromotionPaths();
+        Set<TrackedContentEntryDTO> downloads = report.getDownloads();
+        if (downloads == null) {
+            return promotionPaths;
+        }
         Map<String, StoreKey> promotionTargetsCache = new HashMap<>();
         for (TrackedContentEntryDTO download : downloads) {
             String path = download.getPath();
@@ -195,7 +198,11 @@ public class TrackingReportProcessor {
             RepositoryType repositoryType,
             String buildContentId) {
         PromotionPaths promotionPaths = new PromotionPaths();
-        for (TrackedContentEntryDTO upload : report.getUploads()) {
+        Set<TrackedContentEntryDTO> uploads = report.getUploads();
+        if (uploads == null) {
+            return promotionPaths;
+        }
+        for (TrackedContentEntryDTO upload : uploads) {
             String path = upload.getPath();
             StoreKey storeKey = upload.getStoreKey();
             if (artifactFilter.acceptsForPromotion(upload, false)) {
