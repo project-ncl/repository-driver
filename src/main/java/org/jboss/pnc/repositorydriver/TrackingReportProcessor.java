@@ -3,6 +3,7 @@ package org.jboss.pnc.repositorydriver;
 import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,9 @@ public class TrackingReportProcessor {
     public List<RepositoryArtifact> collectDownloadedArtifacts(TrackedContentDTO report)
             throws RepositoryDriverException {
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
+        if (downloads == null) {
+            return Collections.emptyList();
+        }
 
         List<RepositoryArtifact> deps = new ArrayList<>(downloads.size());
         for (TrackedContentEntryDTO download : downloads) {
@@ -111,9 +115,12 @@ public class TrackingReportProcessor {
             boolean tempBuild,
             BuildCategory buildCategory) throws RepositoryDriverException {
 
-        List<RepositoryArtifact> artifacts = new ArrayList<>();
-
-        for (TrackedContentEntryDTO upload : report.getUploads()) {
+        Set<TrackedContentEntryDTO> uploads = report.getUploads();
+        if (uploads == null) {
+            return Collections.emptyList();
+        }
+        List<RepositoryArtifact> artifacts = new ArrayList<>(uploads.size());
+        for (TrackedContentEntryDTO upload : uploads) {
             String path = upload.getPath();
             StoreKey storeKey = upload.getStoreKey();
 

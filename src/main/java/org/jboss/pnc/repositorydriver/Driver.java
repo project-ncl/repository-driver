@@ -24,6 +24,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;
@@ -300,7 +301,6 @@ public class Driver {
         HttpRequest request = builder.build();
 
         RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
-                .handleIf((response, throwable) -> throwable != null || !isHttpSuccess(response.statusCode()))
                 .withMaxDuration(Duration.ofSeconds(configuration.getCallbackRetryDuration()))
                 .withMaxRetries(Integer.MAX_VALUE) // retry until maxDuration is reached
                 .withBackoff(500, 5000, ChronoUnit.MILLIS)
@@ -328,7 +328,9 @@ public class Driver {
                 .onAbort(e -> logger.warn("Callback aborted: {}.", e.getFailure().getMessage()));
         Failsafe.with(retryPolicy)
                 .with(executor)
-                .getStageAsync(() -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
+                .getStageAsync(
+                        () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                                .thenApply(validateResponse()));
     }
 
     public RepositoryPromoteResult collectRepoManagerResult(
@@ -623,10 +625,6 @@ public class Driver {
         }
     }
 
-    private boolean isHttpSuccess(int responseCode) {
-        return responseCode >= 200 && responseCode < 300;
-    }
-
     private Runnable heartBeatSender(Request heartBeat) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
                 .uri(heartBeat.getUri())
@@ -684,5 +682,15 @@ public class Driver {
             throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", buildContentId);
         }
         return report;
+    }
+
+    private Function<HttpResponse<String>, HttpResponse<String>> validateResponse() {
+        return response -> {
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                return response;
+            } else {
+                throw new FailedResponseException("Response status code: " + response.statusCode());
+            }
+        };
     }
 }
