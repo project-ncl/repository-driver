@@ -157,9 +157,20 @@ public class Driver {
         BuildType buildType = promoteRequest.getBuildType();
         TrackedContentDTO report = retrieveTrackingReport(buildContentId, true);
 
+        // fire and forget
+        executor.runAsync(() -> {
+            try {
+                logger.info("Deleting build group {} {} ...", buildType.getRepoType(), buildContentId);
+                deleteBuildGroup(buildType.getRepoType(), buildContentId);
+            } catch (Throwable e) {
+                logger.error("Failed to delete build group.", e);
+            }
+        });
+
+        // removeActivePromotion is called as the last step of Driver#notifyInvoker
+        lifecycle.addActivePromotion();
         // schedule promotion
         executor.runAsync(() -> {
-            lifecycle.addActivePromotion();
             Request heartBeat = promoteRequest.getHeartBeat();
             Runnable heartBeatSender;
             if (heartBeat != null) {
@@ -204,20 +215,6 @@ public class Driver {
                 return;
             }
 
-            String logEventKeyDeleteGroup = "DELETE_BUILD_GROUP";
-            try {
-                heartBeatSender.run();
-                ProcessStageUtils.logProcessStageBegin(logEventKeyDeleteGroup);
-                deleteBuildGroup(buildType.getRepoType(), buildContentId);
-                ProcessStageUtils.logProcessStageEnd(logEventKeyDeleteGroup);
-            } catch (RepositoryDriverException e) {
-                ProcessStageUtils.logProcessStageEnd(logEventKeyDeleteGroup, "Failed with: " + e.getMessage());
-                logger.error("Failed " + logEventKeyDeleteGroup, e);
-                notifyInvoker(
-                        promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, e.getMessage(), ResultStatus.SYSTEM_ERROR));
-            }
-
             String logEventKeyDownloadsPromote = "PROMOTING_DOWNLOADED_ARTIFACTS";
             try {
                 // the promotion is done only after a successfully collected downloads and uploads
@@ -238,6 +235,7 @@ public class Driver {
                                 e.getMessage(),
                                 e instanceof RepositoryDriverException ? ResultStatus.SYSTEM_ERROR
                                         : ResultStatus.FAILED));
+                return;
             }
 
             String logEventKeyUploadsPromote = "PROMOTING_UPLOADED_ARTIFACTS";
@@ -263,6 +261,7 @@ public class Driver {
                                 e.getMessage(),
                                 e instanceof RepositoryDriverException ? ResultStatus.SYSTEM_ERROR
                                         : ResultStatus.FAILED));
+                return;
             }
             logger.info(
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
@@ -330,7 +329,11 @@ public class Driver {
                 .with(executor)
                 .getStageAsync(
                         () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                                .thenApply(validateResponse()));
+                                .thenApply(validateResponse()))
+                .handle((r, t) -> {
+                    lifecycle.removeActivePromotion();
+                    return null;
+                });
     }
 
     public RepositoryPromoteResult collectRepoManagerResult(
@@ -372,7 +375,6 @@ public class Driver {
      * the repository manager can keep track of downloads and uploads for the build.
      *
      * @param packageType the package type key used by Indy
-     * @throws IndyClientException
      */
     private void setupBuildRepos(
             String buildContentId,
@@ -609,10 +611,6 @@ public class Driver {
      * Cleans up the repo group from Indy. The group is not needed for promotion. It shouldn't be done if the build
      * fails, to leave the group for debugging a build. All the groups are deleted by a cleaner(not part of this driver)
      * after 7 days.
-     *
-     * @param repositoryType
-     * @param buildContentId
-     * @throws RepositoryDriverException
      */
     private void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
             throws RepositoryDriverException {
