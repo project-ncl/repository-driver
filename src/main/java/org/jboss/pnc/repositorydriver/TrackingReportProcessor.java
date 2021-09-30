@@ -42,6 +42,7 @@ import com.github.packageurl.PackageURLBuilder;
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
 import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
+import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedContentEntry;
 import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.SHARED_IMPORTS_ID;
 
 /**
@@ -197,6 +198,28 @@ public class TrackingReportProcessor {
             }
         }
         return promotionPaths;
+    }
+
+    public List<ArchiveDownloadEntry> collectArchivalArtifacts(TrackedContentDTO report)
+            throws RepositoryDriverException {
+        List<RepositoryArtifact> downloads = collectDownloadedArtifacts(report);
+        if (downloads == null) {
+            return Collections.emptyList();
+        }
+
+        List<ArchiveDownloadEntry> deps = new ArrayList<>(downloads.size());
+        for (RepositoryArtifact download : downloads) {
+            if (download.getTargetRepository().getRepositoryType() == RepositoryType.GENERIC_PROXY) {
+                // Don't archive GENERIC_PROXY artifacts
+                break;
+            }
+
+            ArchiveDownloadEntry entry = fromTrackedContentEntry(download);
+            deps.add(entry);
+
+        }
+        deps.sort(Comparator.comparing(ArchiveDownloadEntry::getStoreKey));
+        return deps;
     }
 
     public PromotionPaths collectUploadsPromotions(

@@ -53,6 +53,8 @@ repository-driver:
   callback-retry-duration: 600
   callback-retry-delay-msec: 500
   callback-retry-max-delay-msec: 5000
+  archive-service:
+    api-url:
 
 "%test":
   quarkus:
@@ -82,3 +84,5 @@ repository-driver:
     self-base-url: "http://localhost:8081/"
     indy-client:
       api-url: "http://indy-host/api/"
+    archive-service:
+      api-url: "http://archive-service/archive/"
