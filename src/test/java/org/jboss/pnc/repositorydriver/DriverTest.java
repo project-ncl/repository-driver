@@ -12,6 +12,7 @@ import javax.inject.Inject;
 import javax.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.RestAssured;
@@ -21,6 +22,7 @@ import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.ResultStatus;
+import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
@@ -28,6 +30,7 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
 import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
+import org.jboss.pnc.repositorydriver.testresource.WiremockArchiveServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,12 +40,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static io.restassured.RestAssured.given;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
+@QuarkusTestResource(WiremockArchiveServer.class)
 public class DriverTest {
 
     private static final String BIND_HOST = "127.0.0.1";
@@ -144,6 +149,20 @@ public class DriverTest {
                 .convertValue(callback.getAttachment(), RepositoryPromoteResult.class);
         logger.info("Promotion completed with status: {}", promoteResult.getStatus());
         Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
+    }
+
+    @Test
+    public void testArchiveRequest() {
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
+                .when()
+                .post("/archive")
+                .then()
+                .statusCode(204);
+
+        verify(1, postRequestedFor(urlEqualTo("/archival"))
+                .withRequestBody(matchingJsonPath("$.buildConfigId", containing("10"))));
     }
 
     public static Map<String, String> requestHeaders() {

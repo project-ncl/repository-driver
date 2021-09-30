@@ -234,4 +234,84 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(originPomUrl, artifact.getOriginUrl());
     }
 
+    @Test
+    void shouldNotArchiveGenericProxyArtifacts() throws RepositoryDriverException {
+        TrackedContentDTO report = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+
+        String buildContentId = "build-X";
+        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_GENERIC_HTTP, StoreType.remote, buildContentId);
+        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
+                buildKey,
+                AccessChannel.GENERIC_PROXY,
+                TrackingReportMocks.indyJar);
+        trackedIndyJar.setOriginUrl("originJarUrl");
+        downloads.add(trackedIndyJar);
+
+        report.setDownloads(downloads);
+        List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
+
+        Assertions.assertEquals(entries.size(), 0);
+    }
+
+    @Test
+    void archivalShouldRespectInternalRepos() throws RepositoryDriverException {
+        TrackedContentDTO report = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+
+        String buildContentId = "ignored";
+        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, buildContentId);
+        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
+                buildKey,
+                AccessChannel.NATIVE,
+                TrackingReportMocks.indyJar);
+        trackedIndyJar.setOriginUrl("originJarUrl");
+        downloads.add(trackedIndyJar);
+
+        report.setDownloads(downloads);
+        List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
+
+        Assertions.assertEquals(entries.size(), 1);
+        Assertions.assertEquals(entries.get(0).getStoreKey(), buildKey);
+    }
+
+    @Test
+    void archivalShouldRespectPromotionToSharedImports() throws RepositoryDriverException {
+        TrackedContentDTO report = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+
+        String buildContentId = "build-x";
+        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, buildContentId);
+        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
+                buildKey,
+                AccessChannel.NATIVE,
+                TrackingReportMocks.indyJar);
+        trackedIndyJar.setOriginUrl("originJarUrl");
+        downloads.add(trackedIndyJar);
+
+        String buildContentId2 = "build-y";
+        StoreKey buildKey2 = new StoreKey(PackageTypeConstants.PKG_TYPE_NPM, StoreType.remote, buildContentId2);
+        TrackedContentEntryDTO trackedIndyNpmArt = new TrackedContentEntryDTO(
+                buildKey2,
+                AccessChannel.NATIVE,
+                TrackingReportMocks.indyPom);
+        trackedIndyNpmArt.setOriginUrl("originUrl");
+        downloads.add(trackedIndyNpmArt);
+
+        report.setDownloads(downloads);
+        List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
+
+        Assertions.assertEquals(entries.size(), 2);
+
+        for (ArchiveDownloadEntry entry : entries) {
+            if (entry.getPath().equals(TrackingReportMocks.indyJar)) {
+                Assertions.assertEquals(entry.getStoreKey().getPackageType(), "maven");
+            } else {
+                Assertions.assertEquals(entry.getStoreKey().getPackageType(), "npm");
+            }
+            Assertions.assertEquals(entry.getStoreKey().getType(), StoreType.hosted);
+            Assertions.assertEquals(entry.getStoreKey().getName(), "shared-imports");
+        }
+    }
+
 }
