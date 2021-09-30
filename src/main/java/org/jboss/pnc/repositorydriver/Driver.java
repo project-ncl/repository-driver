@@ -18,6 +18,7 @@
 package org.jboss.pnc.repositorydriver;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -32,8 +33,10 @@ import javax.inject.Inject;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
+import net.jodah.failsafe.event.ExecutionAttemptedEvent;
 import org.apache.commons.lang.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
@@ -56,6 +59,7 @@ import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.enums.ResultStatus;
+import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
@@ -66,6 +70,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
+import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
+import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -99,6 +105,9 @@ public class Driver {
 
     @Inject
     TrackingReportProcessor trackingReportProcessor;
+
+    @Inject
+    Tokens serviceTokens;
 
     public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
@@ -263,6 +272,78 @@ public class Driver {
         });
     }
 
+    public void archive(ArchiveRequest request) throws RepositoryDriverException {
+        if (lifecycle.isShuttingDown()) {
+            throw new StoppingException();
+        }
+        logger.info("Retrieving tracking report and filtering artifacts to archive.");
+        TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
+        List<ArchiveDownloadEntry> toArchive = trackingReportProcessor.collectArchivalArtifacts(report);
+
+        logger.info("Retrieved these artifacts {}", toArchive);
+
+        ArchivePayload archiveRequest = ArchivePayload.builder()
+                .buildConfigId(request.getBuildConfigId())
+                .downloads(toArchive)
+                .build();
+
+        requestArchival(archiveRequest);
+    }
+
+    private void requestArchival(ArchivePayload request) {
+
+        logger.info("Invoking archive service. Request: {}", request);
+        String body;
+        try {
+            body = jsonMapper.writeValueAsString(request);
+        } catch (JsonProcessingException e) {
+            logger.error("Cannot serialize callback object.", e);
+            body = "";
+        }
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(configuration.getArchiveEndpoint()))
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
+                .header(AUTHORIZATION_STRING, "Bearer " + serviceTokens.getAccessToken())
+                .header(CONTENT_TYPE_STRING, "application/json");
+        HttpRequest httpRequest = builder.build();
+
+        RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
+                .withMaxDuration(Duration.ofSeconds(configuration.getCallbackRetryDuration()))
+                .withMaxRetries(Integer.MAX_VALUE) // retry until maxDuration is reached
+                .withBackoff(500, 5000, ChronoUnit.MILLIS)
+                .onSuccess(
+                        ctx -> logger.info(
+                                "Archival request successful, response status: {}.",
+                                ctx.getResult().statusCode()))
+                .onRetry(ctx -> onRetry(ctx, "Archive"))
+                .onFailure(ctx -> logger.warn("Unable to send archive request.")) // warn because archival is optional
+                .onAbort(ctx -> logger.warn("Archive operation aborted. {}", ctx.getFailure().getMessage()));
+        Failsafe.with(retryPolicy)
+                .get(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
+    }
+
+    private static void onRetry(ExecutionAttemptedEvent<HttpResponse<String>> ctx, String operation) {
+        String lastError;
+        if (ctx.getLastFailure() != null) {
+            lastError = ctx.getLastFailure().getMessage();
+        } else {
+            lastError = "";
+        }
+        Integer lastStatus;
+        if (ctx.getLastResult() != null) {
+            lastStatus = ctx.getLastResult().statusCode();
+        } else {
+            lastStatus = null;
+        }
+        logger.warn(
+                "{} retry attempt #{}, last error: [{}], last status: [{}].",
+                operation,
+                ctx.getAttemptCount(),
+                lastError,
+                lastStatus);
+    }
+
     private void notifyInvoker(Request callback, RepositoryPromoteResult promoteResult) {
         String body;
         try {
@@ -286,25 +367,7 @@ public class Driver {
                         configuration.getCallbackRetryMaxDelayMsec(),
                         ChronoUnit.MILLIS)
                 .onSuccess(ctx -> logger.info("Callback sent, response status: {}.", ctx.getResult().statusCode()))
-                .onRetry(ctx -> {
-                    String lastError;
-                    if (ctx.getLastFailure() != null) {
-                        lastError = ctx.getLastFailure().getMessage();
-                    } else {
-                        lastError = "";
-                    }
-                    Integer lastStatus;
-                    if (ctx.getLastResult() != null) {
-                        lastStatus = ctx.getLastResult().statusCode();
-                    } else {
-                        lastStatus = null;
-                    }
-                    logger.warn(
-                            "Callback retry attempt #{}, last error: [{}], last status: [{}].",
-                            ctx.getAttemptCount(),
-                            lastError,
-                            lastStatus);
-                })
+                .onRetry(ctx -> onRetry(ctx, "Callback"))
                 .onFailure(ctx -> logger.error("Unable to send callback."))
                 .onAbort(e -> logger.warn("Callback aborted: {}.", e.getFailure().getMessage()));
         Failsafe.with(retryPolicy)
