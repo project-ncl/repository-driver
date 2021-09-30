@@ -319,8 +319,7 @@ public class Driver {
                 .onRetry(ctx -> onRetry(ctx, "Archive"))
                 .onFailure(ctx -> logger.warn("Unable to send archive request.")) // warn because archival is optional
                 .onAbort(ctx -> logger.warn("Archive operation aborted. {}", ctx.getFailure().getMessage()));
-        Failsafe.with(retryPolicy)
-                .get(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
+        Failsafe.with(retryPolicy).get(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
     }
 
     private static void onRetry(ExecutionAttemptedEvent<HttpResponse<String>> ctx, String operation) {

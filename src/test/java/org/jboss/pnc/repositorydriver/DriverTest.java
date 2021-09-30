@@ -161,8 +161,10 @@ public class DriverTest {
                 .then()
                 .statusCode(204);
 
-        verify(1, postRequestedFor(urlEqualTo("/archival"))
-                .withRequestBody(matchingJsonPath("$.buildConfigId", containing("10"))));
+        verify(
+                1,
+                postRequestedFor(urlEqualTo("/archival"))
+                        .withRequestBody(matchingJsonPath("$.buildConfigId", containing("10"))));
     }
 
     public static Map<String, String> requestHeaders() {
