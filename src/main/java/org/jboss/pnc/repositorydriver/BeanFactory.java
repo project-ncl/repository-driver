@@ -28,6 +28,8 @@ import org.eclipse.microprofile.context.ManagedExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.quarkus.oidc.client.Tokens;
+
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
@@ -40,7 +42,7 @@ public class BeanFactory {
     Configuration configuration;
 
     @Inject
-    ServiceTokens serviceTokens;
+    Tokens serviceTokens;
 
     protected SiteConfig indySiteConfig;
     protected IndyClientModule[] indyModules;

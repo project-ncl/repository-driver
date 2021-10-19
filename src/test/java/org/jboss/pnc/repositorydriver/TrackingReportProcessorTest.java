@@ -7,6 +7,7 @@ import java.util.Set;
 import javax.inject.Inject;
 
 import io.quarkus.test.junit.QuarkusTest;
+
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.AccessChannel;
