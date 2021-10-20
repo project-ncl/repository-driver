@@ -188,7 +188,6 @@ public class TrackingReportProcessor {
                         String remoteName = source.getName();
                         String hostedName = getGenericHostedRepoName(remoteName);
                         target = new StoreKey(packageType, StoreType.hosted, hostedName);
-                        promotionPaths.add(source, target, path + ".sha1");
                         break;
 
                     default:
