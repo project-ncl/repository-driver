@@ -50,6 +50,12 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.callback-retry-duration", defaultValue = "600")
     long callbackRetryDuration;
 
+    @ConfigProperty(name = "repository-driver.callback-retry-delay-msec", defaultValue = "500")
+    long callbackRetryDelayMsec;
+
+    @ConfigProperty(name = "repository-driver.callback-retry-max-delay-msec", defaultValue = "5000")
+    long callbackRetryMaxDelayMsec;
+
     @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
     private Duration keyCloakRequestTimeout;
 

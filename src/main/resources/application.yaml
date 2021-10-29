@@ -38,10 +38,18 @@ repository-driver:
       npm:
       generic:
   ignored-repo-patterns:
+  temp-build-promotion-target:
   build-promotion-target:
   self-base-url:
   indy-client:
     api-url:
+    request-timeout: 30
+  http-client:
+    connect-timeout: 5
+    request-timeout: 15
+  callback-retry-duration: 600
+  callback-retry-delay-msec: 500
+  callback-retry-max-delay-msec: 5000
 
 "%test":
   quarkus:

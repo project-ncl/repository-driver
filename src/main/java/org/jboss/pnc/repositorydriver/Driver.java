@@ -302,7 +302,10 @@ public class Driver {
         RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
                 .withMaxDuration(Duration.ofSeconds(configuration.getCallbackRetryDuration()))
                 .withMaxRetries(Integer.MAX_VALUE) // retry until maxDuration is reached
-                .withBackoff(500, 5000, ChronoUnit.MILLIS)
+                .withBackoff(
+                        configuration.getCallbackRetryDelayMsec(),
+                        configuration.getCallbackRetryMaxDelayMsec(),
+                        ChronoUnit.MILLIS)
                 .onSuccess(ctx -> logger.info("Callback sent, response status: {}.", ctx.getResult().statusCode()))
                 .onRetry(ctx -> {
                     String lastError;
