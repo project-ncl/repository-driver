@@ -59,7 +59,6 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
-import org.jboss.pnc.common.log.ProcessStageUtils;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -179,69 +178,32 @@ public class Driver {
                 heartBeatSender = () -> {};
             }
 
-            String logEventKeyDownloads = "COLLECTING_DOWNLOADED_ARTIFACTS";
             List<RepositoryArtifact> downloadedArtifacts;
-            try {
-                ProcessStageUtils.logProcessStageBegin(logEventKeyDownloads);
-                downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
-                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloads);
-            } catch (RepositoryDriverException e) {
-                String message = e.getMessage();
-                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloads, "Failed with: " + message);
-                logger.error("Failed " + logEventKeyDownloads, e);
-                notifyInvoker(
-                        promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.SYSTEM_ERROR));
-                return;
-            }
-
-            String logEventKeyUploads = "COLLECTING_UPLOADED_ARTIFACTS";
             List<RepositoryArtifact> uploadedArtifacts;
             try {
+                downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
                 heartBeatSender.run();
-                ProcessStageUtils.logProcessStageBegin(logEventKeyUploads);
                 uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                         report,
                         promoteRequest.isTempBuild(),
                         promoteRequest.getBuildCategory());
-                ProcessStageUtils.logProcessStageEnd(logEventKeyUploads);
             } catch (RepositoryDriverException e) {
+                logger.error("Failed collecting downloaded or uploaded artifacts.", e);
                 String message = e.getMessage();
-                ProcessStageUtils.logProcessStageEnd(logEventKeyUploads, "Failed with: " + message);
-                logger.error("Failed " + logEventKeyUploads, e);
                 notifyInvoker(
                         promoteRequest.getCallback(),
                         RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.SYSTEM_ERROR));
                 return;
             }
 
-            String logEventKeyDownloadsPromote = "PROMOTING_DOWNLOADED_ARTIFACTS";
             try {
                 // the promotion is done only after a successfully collected downloads and uploads
                 heartBeatSender.run();
-                ProcessStageUtils.logProcessStageBegin(logEventKeyDownloadsPromote);
                 promoteDownloads(
                         trackingReportProcessor.collectDownloadsPromotions(report),
                         heartBeatSender,
                         promoteRequest.isTempBuild());
-                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloadsPromote);
-            } catch (RepositoryDriverException | PromotionValidationException e) {
-                ProcessStageUtils.logProcessStageEnd(logEventKeyDownloadsPromote, "Failed with: " + e.getMessage());
-                logger.error("Failed " + logEventKeyDownloadsPromote, e);
-                notifyInvoker(
-                        promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(
-                                buildContentId,
-                                e.getMessage(),
-                                e instanceof RepositoryDriverException ? ResultStatus.SYSTEM_ERROR
-                                        : ResultStatus.FAILED));
-                return;
-            }
-
-            String logEventKeyUploadsPromote = "PROMOTING_UPLOADED_ARTIFACTS";
-            try {
                 heartBeatSender.run();
-                ProcessStageUtils.logProcessStageBegin(logEventKeyUploadsPromote);
                 promoteUploads(
                         trackingReportProcessor.collectUploadsPromotions(
                                 report,
@@ -250,10 +212,8 @@ public class Driver {
                                 buildContentId),
                         promoteRequest.isTempBuild(),
                         heartBeatSender);
-                ProcessStageUtils.logProcessStageEnd(logEventKeyUploadsPromote);
             } catch (RepositoryDriverException | PromotionValidationException e) {
-                ProcessStageUtils.logProcessStageEnd(logEventKeyUploadsPromote, "Failed with: " + e.getMessage());
-                logger.error("Failed " + logEventKeyUploadsPromote, e);
+                logger.error("Failed promoting downloaded or uploaded artifacts.", e);
                 notifyInvoker(
                         promoteRequest.getCallback(),
                         RepositoryPromoteResult.failed(
@@ -263,6 +223,7 @@ public class Driver {
                                         : ResultStatus.FAILED));
                 return;
             }
+
             logger.info(
                     "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
                     StringUtils.join(uploadedArtifacts, "\n  "),
