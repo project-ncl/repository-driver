@@ -300,6 +300,9 @@
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>quarkus-maven-plugin</artifactId>
         <version>${quarkus.platform.version}</version>
+        <configuration>
+            <finalName>repository-driver</finalName>
+        </configuration>
         <extensions>true</extensions>
         <executions>
           <execution>
@@ -397,9 +400,6 @@
           </plugin>
         </plugins>
       </build>
-      <properties>
-        <quarkus.package.type>uber-jar</quarkus.package.type>
-      </properties>
     </profile>
     <profile>
       <id>release</id>
