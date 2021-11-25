@@ -44,6 +44,9 @@ repository-driver:
   indy-client:
     api-url:
     request-timeout: 30
+  indy-sidecar:
+    enabled: false
+    url:
   http-client:
     connect-timeout: 5
     request-timeout: 15
@@ -72,6 +75,9 @@ repository-driver:
         maven:
         npm:
         generic:
+    indy-sidecar:
+      enabled: false
+      url: http://sidecar:8093/
     ignored-repo-patterns: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
     self-base-url: "http://localhost:8081/"
     indy-client:

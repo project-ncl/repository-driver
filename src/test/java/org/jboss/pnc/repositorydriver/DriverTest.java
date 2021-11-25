@@ -138,7 +138,7 @@ public class DriverTest {
         Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
     }
 
-    private Map<String, String> requestHeaders() {
+    public static Map<String, String> requestHeaders() {
         Map<String, String> headers = new HashMap<>();
         headers.put(MDCHeaderKeys.PROCESS_CONTEXT.getHeaderName(), "A");
         headers.put(MDCHeaderKeys.TMP.getHeaderName(), "false");

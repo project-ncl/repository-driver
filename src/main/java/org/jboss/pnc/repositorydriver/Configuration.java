@@ -87,4 +87,10 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.result.npm")
     Optional<List<String>> ignoredPathPatternsResultNpm;
 
+    @ConfigProperty(name = "repository-driver.indy-sidecar.enabled", defaultValue = "false")
+    boolean sidecarEnabled;
+
+    @ConfigProperty(name = "repository-driver.indy-sidecar.url")
+    String sidecarUrl;
+
 }
