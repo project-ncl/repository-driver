@@ -17,6 +17,7 @@
  */
 package org.jboss.pnc.repositorydriver;
 
+import java.net.MalformedURLException;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
@@ -131,6 +132,17 @@ public class Driver {
 
             StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
             deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
+
+            if (configuration.isSidecarEnabled()) {
+                logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
+                try {
+                    downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException(
+                            "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!"
+                                    .format(configuration.getSidecarUrl(), downloadsUrl, deployUrl));
+                }
+            }
 
             logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
         } catch (IndyClientException e) {
