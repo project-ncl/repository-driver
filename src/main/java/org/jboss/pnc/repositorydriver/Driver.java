@@ -36,6 +36,7 @@ import net.jodah.failsafe.RetryPolicy;
 import org.apache.commons.lang.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
+import org.commonjava.indy.client.core.module.IndyStoresClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
@@ -124,7 +125,9 @@ public class Driver {
 
         try {
             // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
-            indy.module(IndyFoloAdminClientModule.class).initReport(buildId);
+            IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
+            foloAdminModule.clearTrackingRecord(buildId);
+            foloAdminModule.initReport(buildId);
 
             StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
             downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
@@ -351,40 +354,45 @@ public class Driver {
         StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
         StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
 
-        if (!indy.stores().exists(groupKey)) {
-            // if the product-level storage repo (for in-progress product builds) doesn't exist, create it.
-            if (!indy.stores().exists(hostedKey)) {
-                HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
-                buildArtifacts.setAllowSnapshots(false);
-                buildArtifacts.setAllowReleases(true);
-
-                buildArtifacts.setDescription(
-                        String.format("Build output for PNC %s build #%s", packageType, buildContentId));
-
-                indy.stores()
-                        .create(
-                                buildArtifacts,
-                                "Creating hosted repository for " + packageType + " build: " + buildContentId
-                                        + " (repo: " + buildContentId + ")",
-                                HostedRepository.class);
-            }
-
-            Group buildGroup = BuildGroupBuilder.builder(indy, packageType, buildContentId)
-                    .withDescription(
-                            String.format(
-                                    "Aggregation group for PNC %sbuild #%s",
-                                    tempBuild ? "temporary " : "",
-                                    buildContentId))
-                    // build-local artifacts
-                    .addConstituent(hostedKey)
-                    // Global-level repos, for captured/shared artifacts and access to the outside world
-                    .addGlobalConstituents(buildType, tempBuild)
-                    .addExtraConstituents(extraDependencyRepositories)
-                    .build();
-
-            String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId + ").";
-            indy.stores().create(buildGroup, changelog, Group.class);
+        // if the group and repo exist, delete them and recreate them from scratch
+        IndyStoresClientModule storesModule = indy.stores();
+        if (storesModule.exists(groupKey)) {
+            storesModule.delete(groupKey, "Cleanup before build run.");
         }
+        if (storesModule.exists(hostedKey)) {
+            storesModule.delete(hostedKey, "Cleanup before build run.", true);
+        }
+
+        // create build repo
+        HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
+        buildArtifacts.setAllowSnapshots(false);
+        buildArtifacts.setAllowReleases(true);
+
+        buildArtifacts.setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
+
+        storesModule.create(
+                buildArtifacts,
+                "Creating hosted repository for " + packageType + " build: " + buildContentId + " (repo: "
+                        + buildContentId + ")",
+                HostedRepository.class);
+
+        // create build group
+        Group buildGroup = BuildGroupBuilder.builder(indy, packageType, buildContentId)
+                .withDescription(
+                        String.format(
+                                "Aggregation group for PNC %sbuild #%s",
+                                tempBuild ? "temporary " : "",
+                                buildContentId))
+                // build-local artifacts
+                .addConstituent(hostedKey)
+                // Global-level repos, for captured/shared artifacts and access to the outside world
+                .addGlobalConstituents(buildType, tempBuild)
+                // build-specific repos
+                .addExtraConstituents(extraDependencyRepositories)
+                .build();
+
+        String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId + ").";
+        storesModule.create(buildGroup, changelog, Group.class);
     }
 
     /**

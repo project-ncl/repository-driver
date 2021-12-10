@@ -152,6 +152,10 @@ public class IndyMock extends Indy {
         }
 
         @Override
+        public void clearTrackingRecord(String trackingId) throws IndyClientException {
+        }
+
+        @Override
         public boolean sealTrackingRecord(String trackingId) throws IndyClientException {
             return true;
         }
