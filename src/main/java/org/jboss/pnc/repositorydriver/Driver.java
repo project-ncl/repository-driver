@@ -142,8 +142,11 @@ public class Driver {
                     downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
                 } catch (MalformedURLException e) {
                     throw new RuntimeException(
-                            "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!"
-                                    .format(configuration.getSidecarUrl(), downloadsUrl, deployUrl));
+                            String.format(
+                                    "Indy sidecar url ('%s') or Indy urls ('%s', '%s') are url malformed!",
+                                    configuration.getSidecarUrl(),
+                                    downloadsUrl,
+                                    deployUrl));
                 }
             }
 
