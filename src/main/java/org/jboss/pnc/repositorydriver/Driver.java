@@ -172,7 +172,7 @@ public class Driver {
         }
         String buildContentId = promoteRequest.getBuildContentId();
         BuildType buildType = promoteRequest.getBuildType();
-        TrackedContentDTO report = retrieveTrackingReport(buildContentId, true);
+        TrackedContentDTO report = retrieveTrackingReport(buildContentId);
 
         // fire and forget
         executor.runAsync(() -> {
@@ -322,7 +322,7 @@ public class Driver {
             String buildContentId,
             boolean tempBuild,
             BuildCategory buildCategory) throws RepositoryDriverException {
-        TrackedContentDTO report = retrieveTrackingReport(buildContentId, false);
+        TrackedContentDTO report = retrieveTrackingReport(buildContentId);
         try {
             List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
             List<RepositoryArtifact> uploadedArtifacts = trackingReportProcessor
@@ -631,8 +631,33 @@ public class Driver {
         };
     }
 
-    private TrackedContentDTO retrieveTrackingReport(String buildContentId, boolean seal)
-            throws RepositoryDriverException {
+    public void sealTrackingReport(String buildContentId) throws RepositoryDriverException {
+        IndyFoloAdminClientModule foloAdmin;
+        try {
+            foloAdmin = indy.module(IndyFoloAdminClientModule.class);
+        } catch (IndyClientException e) {
+            throw new RepositoryDriverException(
+                    "Failed to retrieve Indy client module for the artifact tracker: %s",
+                    e,
+                    e.getMessage());
+        }
+
+        try {
+            userLog.info("Sealing tracking record");
+            boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
+            if (!sealed) {
+                throw new RepositoryDriverException("Failed to seal content-tracking record for: %s.", buildContentId);
+            }
+        } catch (IndyClientException e) {
+            throw new RepositoryDriverException(
+                    "Failed to seal tracking report for: %s. Reason: %s",
+                    e,
+                    buildContentId,
+                    e.getMessage());
+        }
+    }
+
+    private TrackedContentDTO retrieveTrackingReport(String buildContentId) throws RepositoryDriverException {
         IndyFoloAdminClientModule foloAdmin;
         try {
             foloAdmin = indy.module(IndyFoloAdminClientModule.class);
@@ -645,15 +670,6 @@ public class Driver {
 
         TrackedContentDTO report;
         try {
-            if (seal) {
-                userLog.info("Sealing tracking record");
-                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-                if (!sealed) {
-                    throw new RepositoryDriverException(
-                            "Failed to seal content-tracking record for: %s.",
-                            buildContentId);
-                }
-            }
             userLog.info("Getting tracking report");
             report = foloAdmin.getTrackingReport(buildContentId);
         } catch (IndyClientException e) {
