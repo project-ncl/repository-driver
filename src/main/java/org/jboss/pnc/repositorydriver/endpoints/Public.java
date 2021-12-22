@@ -67,6 +67,19 @@ public class Public {
     }
 
     /**
+     * Seals the tracking report.
+     *
+     * @param buildContentId
+     */
+    @Authenticated
+    @PUT
+    @Path("/seal")
+    public void seal(String buildContentId) throws RepositoryDriverException {
+        logger.info("Sealing: {}", buildContentId);
+        driver.sealTrackingReport(buildContentId);
+    }
+
+    /**
      * Retrieves the tracking report from Indy and promotes the repository. The endpoint returns after tracking report
      * retrieval, if the retrieval fails and error response is returned. The promotion is an async operation, the result
      * is sent via callback defined in the {@link RepositoryPromoteRequest}

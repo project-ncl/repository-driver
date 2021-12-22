@@ -126,6 +126,14 @@ public class DriverTest {
                 .headers(requestHeaders())
                 .body(request)
                 .when()
+                .put("/seal")
+                .then()
+                .statusCode(204);
+
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
                 .put("/promote")
                 .then()
                 .statusCode(204);
