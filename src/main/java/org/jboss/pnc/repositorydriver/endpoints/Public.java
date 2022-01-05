@@ -29,6 +29,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
 import io.quarkus.security.Authenticated;
+import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCollectRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
@@ -90,6 +91,14 @@ public class Public {
     public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
         logger.info("Requested promotion: {}", promoteRequest.getBuildContentId());
         driver.promote(promoteRequest);
+    }
+
+    @Authenticated
+    @POST
+    @Path("/archive")
+    public void archive(ArchiveRequest archiveRequest) throws RepositoryDriverException {
+        logger.info("Requested archival: {}", archiveRequest.getBuildContentId());
+        driver.archive(archiveRequest);
     }
 
     /**
