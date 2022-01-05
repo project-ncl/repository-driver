@@ -73,8 +73,8 @@ public class TrackingReportProcessor {
 
         List<RepositoryArtifact> deps = new ArrayList<>(downloads.size());
         for (TrackedContentEntryDTO download : downloads) {
-            String path = download.getPath();
             if (artifactFilter.acceptsForData(download)) {
+                String path = download.getPath();
                 String identifier = computeIdentifier(download);
                 String purl = computePurl(download);
 
