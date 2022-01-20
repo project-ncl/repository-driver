@@ -239,15 +239,19 @@ public class Driver {
                                 buildContentId),
                         promoteRequest.isTempBuild(),
                         heartBeatSender);
-            } catch (RepositoryDriverException | PromotionValidationException e) {
+            } catch (RepositoryDriverException e) {
                 logger.error("Failed promoting downloaded or uploaded artifacts.", e);
+
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(
-                                buildContentId,
-                                e.getMessage(),
-                                e instanceof RepositoryDriverException ? ResultStatus.SYSTEM_ERROR
-                                        : ResultStatus.FAILED));
+                        RepositoryPromoteResult.failed(buildContentId, e.getMessage(), ResultStatus.SYSTEM_ERROR));
+                return;
+            } catch (PromotionValidationException e) {
+                logger.warn("Failed promoting downloaded or uploaded artifacts.", e);
+
+                notifyInvoker(
+                        promoteRequest.getCallback(),
+                        RepositoryPromoteResult.failed(buildContentId, e.getMessage(), ResultStatus.FAILED));
                 return;
             }
 
