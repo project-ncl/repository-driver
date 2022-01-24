@@ -434,10 +434,15 @@ public class Driver {
         // if the group and repo exist, delete them and recreate them from scratch
         IndyStoresClientModule storesModule = indy.stores();
         if (storesModule.exists(groupKey)) {
-            storesModule.delete(groupKey, "Cleanup before build run.");
+            storesModule.delete(groupKey, "Cleanup " + groupKey + " before build run.");
         }
         if (storesModule.exists(hostedKey)) {
-            storesModule.delete(hostedKey, "Cleanup before build run.", true);
+            HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
+            if (hosted.isReadonly()) {
+                hosted.setReadonly(false);
+                storesModule.update(hosted, "Make " + hostedKey + " writable before delete.");
+            }
+            storesModule.delete(hostedKey, "Cleanup " + hostedKey + " before build run.", true);
         }
 
         // create build repo
