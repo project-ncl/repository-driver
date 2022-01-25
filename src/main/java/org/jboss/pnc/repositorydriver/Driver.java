@@ -17,6 +17,7 @@
  */
 package org.jboss.pnc.repositorydriver;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -35,6 +36,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.Fallback;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.event.ExecutionAttemptedEvent;
 import org.apache.commons.lang.StringUtils;
@@ -277,9 +279,6 @@ public class Driver {
     }
 
     public void archive(ArchiveRequest request) throws RepositoryDriverException {
-        if (lifecycle.isShuttingDown()) {
-            throw new StoppingException();
-        }
         logger.info("Retrieving tracking report and filtering artifacts to archive.");
         TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
         List<ArchiveDownloadEntry> toArchive = trackingReportProcessor.collectArchivalArtifacts(report);
@@ -294,8 +293,7 @@ public class Driver {
         requestArchival(archiveRequest);
     }
 
-    private void requestArchival(ArchivePayload request) {
-
+    private void requestArchival(ArchivePayload request) throws RepositoryDriverException {
         logger.info("Invoking archive service. Request: {}", request);
         String body;
         try {
@@ -310,20 +308,22 @@ public class Driver {
                 .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
                 .header(AUTHORIZATION_STRING, "Bearer " + serviceTokens.getAccessToken())
                 .header(CONTENT_TYPE_STRING, "application/json");
-        HttpRequest httpRequest = builder.build();
 
-        RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
-                .withMaxDuration(Duration.ofSeconds(configuration.getCallbackRetryDuration()))
-                .withMaxRetries(Integer.MAX_VALUE) // retry until maxDuration is reached
-                .withBackoff(500, 5000, ChronoUnit.MILLIS)
-                .onSuccess(
-                        ctx -> logger.info(
-                                "Archival request successful, response status: {}.",
-                                ctx.getResult().statusCode()))
-                .onRetry(ctx -> onRetry(ctx, "Archive"))
-                .onFailure(ctx -> logger.warn("Unable to send archive request.")) // warn because archival is optional
-                .onAbort(ctx -> logger.warn("Archive operation aborted. {}", ctx.getFailure().getMessage()));
-        Failsafe.with(retryPolicy).get(() -> httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString()));
+        try {
+            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+
+            // Validate status code
+            validateResponse().apply(response);
+
+            // on success
+            logger.info("Archival request successful, response status {}", response.statusCode());
+        } catch (IOException e) {
+            logger.warn("Archival request failed. Caught an network IO exception while invoking archive service ", e);
+            throw new RepositoryDriverException("Network IO error while invoking archive service.");
+        } catch (InterruptedException e) {
+            logger.warn("Archival request failed. The thread was interrupted in the process");
+            throw new RepositoryDriverException("The archival operation was interrupted");
+        }
     }
 
     private static void onRetry(ExecutionAttemptedEvent<HttpResponse<String>> ctx, String operation) {
