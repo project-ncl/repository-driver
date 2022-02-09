@@ -36,7 +36,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.Fallback;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.event.ExecutionAttemptedEvent;
 import org.apache.commons.lang.StringUtils;
@@ -257,10 +256,17 @@ public class Driver {
                 return;
             }
 
-            logger.info(
-                    "Returning built artifacts / dependencies:\nUploads:\n  {}\n\nDownloads:\n  {}\n\n",
-                    StringUtils.join(uploadedArtifacts, "\n  "),
-                    StringUtils.join(downloadedArtifacts, "\n  "));
+            logger.info("{} uploaded {} artifacts", buildContentId, uploadedArtifacts.size());
+            logger.info("{} downloaded {} artifacts", buildContentId, downloadedArtifacts.size());
+
+            if (logger.isDebugEnabled()) {
+                logger.debug("Returning built artifacts / dependencies");
+                uploadedArtifacts
+                        .forEach(artifact -> logger.debug("{} uploaded: {}", buildContentId, artifact.toString()));
+                downloadedArtifacts
+                        .forEach(artifact -> logger.debug("{} downloaded: {}", buildContentId, artifact.toString()));
+            }
+
             notifyInvoker(
                     promoteRequest.getCallback(),
                     new RepositoryPromoteResult(
@@ -686,7 +692,7 @@ public class Driver {
                 .uri(heartBeat.getUri())
                 .method(heartBeat.getMethod().name(), HttpRequest.BodyPublishers.noBody())
                 .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
-        heartBeat.getHeaders().stream().forEach(h -> builder.header(h.getName(), h.getValue()));
+        heartBeat.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
         HttpRequest request = builder.build();
         return () -> {
             CompletableFuture<HttpResponse<String>> response = httpClient
