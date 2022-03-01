@@ -3,6 +3,7 @@ package org.jboss.pnc.repositorydriver;
 import java.io.File;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -158,7 +159,7 @@ public class TrackingReportProcessor {
         return artifacts;
     }
 
-    public PromotionPaths collectDownloadsPromotions(TrackedContentDTO report) {
+    public PromotionPaths collectDownloadsPromotions(TrackedContentDTO report, Collection<StoreKey> genericRepos) {
         PromotionPaths promotionPaths = new PromotionPaths();
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
         if (downloads == null) {
@@ -187,6 +188,7 @@ public class TrackingReportProcessor {
 
                     case GENERIC_PKG_KEY:
                         String remoteName = source.getName();
+                        genericRepos.add(source);
                         String hostedName = getGenericHostedRepoName(remoteName);
                         target = new StoreKey(packageType, StoreType.hosted, hostedName);
                         break;

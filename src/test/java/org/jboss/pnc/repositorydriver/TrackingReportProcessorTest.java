@@ -50,7 +50,8 @@ public class TrackingReportProcessorTest {
         report.setDownloads(downloads);
 
         // when
-        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
+        Set<StoreKey> genericRepos = new HashSet<>();
+        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
         // then
@@ -129,7 +130,8 @@ public class TrackingReportProcessorTest {
         report.setDownloads(downloads);
 
         // when
-        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
+        Set<StoreKey> genericRepos = new HashSet<>();
+        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
         // then
@@ -153,7 +155,8 @@ public class TrackingReportProcessorTest {
         report.setDownloads(downloads);
 
         // when
-        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report);
+        Set<StoreKey> genericRepos = new HashSet<>();
+        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
         // then

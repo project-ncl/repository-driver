@@ -24,8 +24,11 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -183,16 +186,7 @@ public class Driver {
         String buildContentId = promoteRequest.getBuildContentId();
         BuildType buildType = promoteRequest.getBuildType();
         TrackedContentDTO report = retrieveTrackingReport(buildContentId);
-
-        // fire and forget
-        executor.runAsync(() -> {
-            try {
-                logger.info("Deleting build group {} {} ...", buildType.getRepoType(), buildContentId);
-                deleteBuildGroup(buildType.getRepoType(), buildContentId);
-            } catch (Throwable e) {
-                logger.error("Failed to delete build group.", e);
-            }
-        });
+        Set<StoreKey> genericRepos = new HashSet<>();
 
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
@@ -227,10 +221,9 @@ public class Driver {
             try {
                 // the promotion is done only after a successfully collected downloads and uploads
                 heartBeatSender.run();
-                promoteDownloads(
-                        trackingReportProcessor.collectDownloadsPromotions(report),
-                        heartBeatSender,
-                        promoteRequest.isTempBuild());
+                PromotionPaths downloadsPromotions = trackingReportProcessor
+                        .collectDownloadsPromotions(report, genericRepos);
+                promoteDownloads(downloadsPromotions, heartBeatSender, promoteRequest.isTempBuild());
                 heartBeatSender.run();
                 promoteUploads(
                         trackingReportProcessor.collectUploadsPromotions(
@@ -275,13 +268,27 @@ public class Driver {
                             buildContentId,
                             "",
                             ResultStatus.SUCCESS));
-        }).handle((nul, throwable) -> {
-            if (throwable != null) {
-                logger.error("Unhanded promotion exception.", throwable);
-            }
-            lifecycle.removeActivePromotion();
-            return null;
-        });
+        })
+                .thenRunAsync(
+                        () -> {
+                            // CLEANUP
+                            try {
+                                logger.info(
+                                        "Deleting build group {} {} and the generic http repositories...",
+                                        buildType.getRepoType(),
+                                        buildContentId);
+                                deleteBuildRepos(buildType.getRepoType(), buildContentId, genericRepos);
+                            } catch (Throwable e) {
+                                logger.error("Failed to delete build group.", e);
+                            }
+                        })
+                .handle((nul, throwable) -> {
+                    if (throwable != null) {
+                        logger.error("Unhanded promotion exception.", throwable);
+                    }
+                    lifecycle.removeActivePromotion();
+                    return null;
+                });
     }
 
     public void archive(ArchiveRequest request) throws RepositoryDriverException {
@@ -672,19 +679,87 @@ public class Driver {
     }
 
     /**
-     * Cleans up the repo group from Indy. The group is not needed for promotion. It shouldn't be done if the build
-     * fails, to leave the group for debugging a build. All the groups are deleted by a cleaner(not part of this driver)
-     * after 7 days.
+     * Cleans up the repo group and used generic-http remote repos and groups from Indy. The generic-http remote repos
+     * are needed for promotion.
+     *
+     * The cleanup shouldn't be called if the build failed to leave the group for debugging the build. All the groups
+     * are deleted by PNC Cleaner (not part of this driver) after 7 days.
+     *
+     * @param genericRepos a collection of generic repos containing dependencies
      */
-    private void deleteBuildGroup(RepositoryType repositoryType, String buildContentId)
-            throws RepositoryDriverException {
+    private void deleteBuildRepos(
+            RepositoryType repositoryType,
+            String buildContentId,
+            Collection<StoreKey> genericRepos) throws RepositoryDriverException {
         try {
             String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
             StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
-            indy.stores().delete(key, "[Post-Build] Removing build aggregation group: " + buildContentId);
+            IndyStoresClientModule indyStores = indy.stores();
+            indyStores.delete(key, "[Post-Build] Removing build aggregation group: " + buildContentId);
+
+            for (StoreKey genericRepo : genericRepos) {
+                StoreKey other = null;
+                if (genericRepo.getType() == StoreType.group) {
+                    String remoteName = getGenericRemoteName(genericRepo.getName());
+                    if (remoteName != null) {
+                        other = new StoreKey(genericRepo.getPackageType(), StoreType.remote, remoteName);
+                    }
+                } else if (genericRepo.getType() == StoreType.group) {
+                    String remoteName = getGenericRemoteName(genericRepo.getName());
+                    if (remoteName != null) {
+                        other = new StoreKey(genericRepo.getPackageType(), StoreType.remote, remoteName);
+                    }
+                } else {
+                    logger.error("Unexpected store type in " + genericRepo + " which should be cleaned. Skipping.");
+                }
+
+                if (other != null) {
+                    indyStores.delete(
+                            genericRepo,
+                            "[Post-Build] Removing generic http " + genericRepo.getType() + ": "
+                                    + genericRepo.getName());
+                    indyStores.delete(
+                            other,
+                            "[Post-Build] Removing generic http " + other.getType() + ": " + other.getName());
+                }
+            }
         } catch (IndyClientException e) {
             throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
         }
+    }
+
+    /**
+     * For a remote generic http repo/group computes matching hosted repo name.
+     *
+     * @param remoteName the remote repo name
+     * @return computed hosted repo name
+     */
+    private String getGenericGroupName(String remoteName) {
+        String groupName;
+        if (remoteName.startsWith("r-")) {
+            groupName = "g-" + remoteName.substring(2);
+        } else {
+            logger.error("Unexpected generic http remote repo name {}. Cannot convert it to a group name.", remoteName);
+            groupName = null;
+        }
+        return groupName;
+    }
+
+    /**
+     * For a generic group computes matching remote repo name.
+     *
+     * @param groupName the group name
+     * @return computed remote repo name
+     */
+    private String getGenericRemoteName(String groupName) {
+        String remoteName;
+        if (groupName.startsWith("g-")) {
+            remoteName = "r-" + groupName.substring(2);
+        } else {
+            logger.error("Unexpected generic http group name {}. Cannot convert it to a remote repo name.", groupName);
+            remoteName = null;
+        }
+        return remoteName;
     }
 
     private Runnable heartBeatSender(Request heartBeat) {
