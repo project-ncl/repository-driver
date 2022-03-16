@@ -704,10 +704,10 @@ public class Driver {
                     if (remoteName != null) {
                         other = new StoreKey(genericRepo.getPackageType(), StoreType.remote, remoteName);
                     }
-                } else if (genericRepo.getType() == StoreType.group) {
-                    String remoteName = getGenericRemoteName(genericRepo.getName());
-                    if (remoteName != null) {
-                        other = new StoreKey(genericRepo.getPackageType(), StoreType.remote, remoteName);
+                } else if (genericRepo.getType() == StoreType.remote) {
+                    String groupName = getGenericGroupName(genericRepo.getName());
+                    if (groupName != null) {
+                        other = new StoreKey(genericRepo.getPackageType(), StoreType.group, groupName);
                     }
                 } else {
                     logger.error("Unexpected store type in " + genericRepo + " which should be cleaned. Skipping.");
