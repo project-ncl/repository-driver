@@ -20,8 +20,6 @@ public class MdcUtils {
         }
         if (mdcMap.get(mdcHeaderKeys.getMdcKey()) != null) {
             result.put(mdcHeaderKeys.getHeaderName(), mdcMap.get(mdcHeaderKeys.getMdcKey()));
-        } else {
-            throw new RepositoryDriverException("Missing MDC value " + mdcHeaderKeys.getMdcKey());
         }
     }
 
