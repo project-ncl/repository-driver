@@ -62,6 +62,9 @@ repository-driver:
       enabled: false
     oidc-client:
       enabled: false
+    log:
+      console:
+        json: false
   repository-driver:
     http-client:
       connect-timeout: 1
@@ -86,3 +89,9 @@ repository-driver:
       api-url: "http://indy-host/api/"
     archive-service:
       api-url: "http://archive-service/archive/"
+
+"%dev":
+  quarkus:
+    log:
+      console:
+        json: false
