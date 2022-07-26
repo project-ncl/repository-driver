@@ -2,6 +2,7 @@ package org.jboss.pnc.repositorydriver;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -102,7 +103,18 @@ public class BuildGroupBuilder {
      */
     public BuildGroupBuilder addExtraConstituents(List<String> repositoryUrls) throws IndyClientException {
         if (repositoryUrls != null && !repositoryUrls.isEmpty()) {
-            Set<ArtifactRepository> repositories = repositoryUrls.stream()
+            List<String> splittedRepos = new ArrayList<>();
+            for (String repoToSplit : repositoryUrls) {
+                if (repoToSplit.contains("\\n")) {
+                    for (String repoUrl : repoToSplit.split("\\\\n")) {
+                        splittedRepos.add(repoUrl.trim());
+                    }
+                } else {
+                    splittedRepos.add(repoToSplit.trim());
+                }
+            }
+
+            Set<ArtifactRepository> repositories = splittedRepos.stream()
                     .map(this::createArtifactRepository)
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
@@ -160,7 +172,7 @@ public class BuildGroupBuilder {
             userLog.warn("Malformed repository URL entered: {}. Skipping!", url);
             return null;
         }
-        return ArtifactRepository.builder().id(id).name(id).url(url.trim()).releases(true).snapshots(false).build();
+        return ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
     }
 
     public Group build() {
