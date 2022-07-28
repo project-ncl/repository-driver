@@ -268,27 +268,24 @@ public class Driver {
                             buildContentId,
                             "",
                             ResultStatus.SUCCESS));
-        })
-                .thenRunAsync(
-                        () -> {
-                            // CLEANUP
-                            try {
-                                logger.info(
-                                        "Deleting build group {} {} and the generic http repositories...",
-                                        buildType.getRepoType(),
-                                        buildContentId);
-                                deleteBuildRepos(buildType.getRepoType(), buildContentId, genericRepos);
-                            } catch (Throwable e) {
-                                logger.error("Failed to delete build group.", e);
-                            }
-                        })
-                .handle((nul, throwable) -> {
-                    if (throwable != null) {
-                        logger.error("Unhanded promotion exception.", throwable);
-                    }
-                    lifecycle.removeActivePromotion();
-                    return null;
-                });
+        }).thenRunAsync(() -> {
+            // CLEANUP
+            try {
+                logger.info(
+                        "Deleting build group {} {} and the generic http repositories...",
+                        buildType.getRepoType(),
+                        buildContentId);
+                deleteBuildRepos(buildType.getRepoType(), buildContentId, genericRepos);
+            } catch (Throwable e) {
+                logger.error("Failed to delete build group.", e);
+            }
+        }).handle((nul, throwable) -> {
+            if (throwable != null) {
+                logger.error("Unhanded promotion exception.", throwable);
+            }
+            lifecycle.removeActivePromotion();
+            return null;
+        });
     }
 
     public void archive(ArchiveRequest request) throws RepositoryDriverException {
