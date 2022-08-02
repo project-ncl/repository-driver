@@ -16,7 +16,7 @@ public class TokensProducerMock {
     @Produces
     @RequestScoped
     public Tokens produceTokens() {
-        Tokens tokens = new Tokens("theToken", Long.MAX_VALUE, Duration.ofDays(1), "refreshToken", null);
+        Tokens tokens = new Tokens("theToken", Long.MAX_VALUE, Duration.ofDays(1), "refreshToken", null, null);
 
         return tokens;
     }
