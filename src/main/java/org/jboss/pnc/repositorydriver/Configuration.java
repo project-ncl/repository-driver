@@ -44,6 +44,18 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
 
+    @ConfigProperty(name = "repository-driver.indy-client.metrics.enabled", defaultValue = "false")
+    Boolean indyClientMetricsEnabled;
+
+    @ConfigProperty(name = "repository-driver.indy-client.metrics.honeycombDataset", defaultValue = "")
+    Optional<String> indyClientMetricsHoneycombDataset;
+
+    @ConfigProperty(name = "repository-driver.indy-client.metrics.honeycombWriteKey", defaultValue = "")
+    Optional<String> indyClientMetricsHoneycombWriteKey;
+
+    @ConfigProperty(name = "repository-driver.indy-client.metrics.baseSampleRate", defaultValue = "0")
+    Optional<Integer> indyClientMetricsBaseSampleRate;
+
     @ConfigProperty(name = "repository-driver.http-client.connect-timeout", defaultValue = "5")
     int httpClientConnectTimeout;
 

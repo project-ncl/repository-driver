@@ -3,6 +3,7 @@ package org.jboss.pnc.repositorydriver;
 import java.net.http.HttpClient;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.Optional;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -12,16 +13,25 @@ import javax.inject.Inject;
 import javax.net.ssl.SSLContext;
 
 import org.apache.commons.lang.StringUtils;
+import org.commonjava.cdi.util.weft.config.DefaultWeftConfig;
+import org.commonjava.cdi.util.weft.config.WeftConfig;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.IndyClientModule;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
+import org.commonjava.indy.client.core.metric.ClientGoldenSignalsMetricSet;
+import org.commonjava.indy.client.core.metric.ClientTrafficClassifier;
 import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
 import org.commonjava.indy.promote.client.IndyPromoteClientModule;
+import org.commonjava.o11yphant.metrics.TrafficClassifier;
+import org.commonjava.o11yphant.metrics.conf.DefaultMetricsConfig;
+import org.commonjava.o11yphant.metrics.conf.MetricsConfig;
+import org.commonjava.o11yphant.metrics.sli.GoldenSignalsMetricSet;
+import org.commonjava.o11yphant.metrics.system.StoragePathProvider;
 import org.commonjava.util.jhttpc.model.SiteConfig;
 import org.commonjava.util.jhttpc.model.SiteConfigBuilder;
 import org.eclipse.microprofile.context.ManagedExecutor;
@@ -66,10 +76,26 @@ public class BeanFactory {
             baseUrl += "/api";
         }
 
-        indySiteConfig = new SiteConfigBuilder("indy", baseUrl)
+        Boolean indyClientMetricsEnabled = configuration.getIndyClientMetricsEnabled();
+        SiteConfigBuilder indySiteConfigBuilder = new SiteConfigBuilder("indy", baseUrl)
                 .withRequestTimeoutSeconds(configuration.getIndyClientRequestTimeout())
                 .withMaxConnections(10)
-                .build();
+                .withMetricEnabled(indyClientMetricsEnabled);
+        if (indyClientMetricsEnabled) {
+            Optional<String> honeycombDataset = configuration.getIndyClientMetricsHoneycombDataset();
+            Optional<String> honeycombWriteKey = configuration.getIndyClientMetricsHoneycombWriteKey();
+            Optional<Integer> baseSampleRate = configuration.getIndyClientMetricsBaseSampleRate();
+            if (honeycombDataset.isPresent()) {
+                indySiteConfigBuilder.withHoneycombDataset(honeycombDataset.get());
+            }
+            if (honeycombWriteKey.isPresent()) {
+                indySiteConfigBuilder.withHoneycombWriteKey(honeycombWriteKey.get());
+            }
+            if (baseSampleRate.isPresent()) {
+                indySiteConfigBuilder.withBaseSampleRate(baseSampleRate.get());
+            }
+        }
+        indySiteConfig = indySiteConfigBuilder.build();
 
         indyModules = new IndyClientModule[] { new IndyFoloAdminClientModule(), new IndyFoloContentClientModule(),
                 new IndyPromoteClientModule() };
@@ -101,6 +127,35 @@ public class BeanFactory {
     public IndyContentClientModule getIndyContentClientModule() {
         return new IndyContentClientModule();
     }
+
+    // >>> Indy client required beans - start
+
+    @Produces
+    public GoldenSignalsMetricSet clientMetricSet() {
+        return new ClientGoldenSignalsMetricSet();
+    }
+
+    @Produces
+    public MetricsConfig metricsConfig() {
+        return new DefaultMetricsConfig();
+    }
+
+    @Produces
+    public StoragePathProvider storagePathProvider() {
+        return () -> null;
+    }
+
+    @Produces
+    public TrafficClassifier trafficClassifier() {
+        return new ClientTrafficClassifier();
+    }
+
+    @Produces
+    public WeftConfig weftConfig() {
+        return new DefaultWeftConfig();
+    }
+
+    // <<< Indy client required beans - end
 
     @PreDestroy
     void destroy() {
