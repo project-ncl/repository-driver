@@ -32,6 +32,7 @@ import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
+import org.jboss.pnc.common.Strings;
 import org.jboss.pnc.repositorydriver.constants.Checksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -428,8 +429,11 @@ public class TrackingReportProcessor {
     private String computeGenericPurl(String path, String originUrl, String localUrl, String sha256)
             throws MalformedPackageURLException {
         // See https://github.com/package-url/purl-spec/blob/master/PURL-TYPES.rst#generic
-        String name = new File(path).getName();
         String downloadUrl = originUrl != null ? originUrl : localUrl;
+        String name = new File(path).getName();
+        if (Strings.isEmpty(name)) {
+            name = new File(downloadUrl).getName();
+        }
 
         PackageURLBuilder purlBuilder = PackageURLBuilder.aPackageURL()
                 .withType(PackageURL.StandardTypes.GENERIC)
