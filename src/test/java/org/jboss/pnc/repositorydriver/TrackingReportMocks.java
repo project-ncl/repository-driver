@@ -28,6 +28,9 @@ public class TrackingReportMocks {
             "nottobeignored");
 
     public static String indyPom = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
+    public static String noFileExtensionArtifact = "/org/jboss/shrinkwrap/shrinkwrap-api/1.2.6/shrinkwrap-api-1.2.6";
+    public static String noFileExtensionArtifactIdentifier = "org.jboss.shrinkwrap:shrinkwrap-api:empty:1.2.6";
+    public static String getNoFileExtensionArtifactPurl = "pkg:maven/org.jboss.shrinkwrap/shrinkwrap-api@1.2.6?type=empty";
     public static TrackedContentEntryDTO indyPomFromCentral;
 
     public static String indyJar = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar";
