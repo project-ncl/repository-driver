@@ -59,6 +59,9 @@ public class TrackingReportProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(TrackingReportProcessor.class);
 
+    /** NCL-7238: Add this extension to parse for maven urls with no extensions */
+    public final static String MAVEN_SUBSTITUTE_EXTENSION = ".empty";
+
     @Inject
     ArtifactFilter artifactFilter;
 
@@ -284,6 +287,13 @@ public class TrackingReportProcessor {
         switch (transfer.getStoreKey().getPackageType()) {
             case MAVEN_PKG_KEY:
                 ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
+
+                if (pathInfo == null) {
+                    // NCL-7238: handle cases where url has no file extension. we add the extension
+                    // MAVEN_SUBSTITUTE_EXTENSION and see if that helps to parse the pathInfo. Otherwise this causes
+                    // nasty artifact duplicates
+                    pathInfo = ArtifactPathInfo.parse(transfer.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
+                }
                 if (pathInfo != null) {
                     ArtifactRef aref = new SimpleArtifactRef(
                             pathInfo.getProjectId(),
@@ -337,6 +347,12 @@ public class TrackingReportProcessor {
                 case MAVEN_PKG_KEY:
 
                     ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
+                    if (pathInfo == null) {
+                        // NCL-7238: handle cases where url has no file extension. we add the extension
+                        // MAVEN_SUBSTITUTE_EXTENSION and see if that helps to parse the pathInfo. Otherwise this causes
+                        // nasty artifact duplicates
+                        pathInfo = ArtifactPathInfo.parse(transfer.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
+                    }
                     if (pathInfo != null) {
                         // See https://github.com/package-url/purl-spec/blob/master/PURL-TYPES.rst#maven
                         PackageURLBuilder purlBuilder = PackageURLBuilder.aPackageURL()

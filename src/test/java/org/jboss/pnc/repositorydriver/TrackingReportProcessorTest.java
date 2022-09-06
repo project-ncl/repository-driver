@@ -237,6 +237,44 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(originPomUrl, artifact.getOriginUrl());
     }
 
+    /**
+     * Test if we properly handle maven urls with no extension and see if the right identifier and purl are generated
+     *
+     * @throws RepositoryDriverException
+     */
+    @Test
+    public void verifyNoFileExtensionArtifacts() throws RepositoryDriverException {
+        // given
+        TrackedContentDTO report = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+
+        String buildContentId = "build-Y";
+        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
+
+        // NCL-7238: Handle urls with no file extension
+        TrackedContentEntryDTO trackedNoFileExtensionArtifact = new TrackedContentEntryDTO(
+                buildKey,
+                AccessChannel.NATIVE,
+                TrackingReportMocks.noFileExtensionArtifact);
+        String noFileExtensionUrl = "originNoFileExtensionUrl";
+        trackedNoFileExtensionArtifact.setOriginUrl(noFileExtensionUrl);
+        downloads.add(trackedNoFileExtensionArtifact);
+
+        report.setDownloads(downloads);
+
+        // when
+        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+
+        // then
+        Assertions.assertEquals(1, artifacts.size());
+        RepositoryArtifact artifact = artifacts.stream()
+                .filter(a -> a.getDeployPath().equals(TrackingReportMocks.noFileExtensionArtifact))
+                .filter(a -> a.getIdentifier().equals(TrackingReportMocks.noFileExtensionArtifactIdentifier))
+                .filter(a -> a.getPurl().equals(TrackingReportMocks.getNoFileExtensionArtifactPurl))
+                .findAny()
+                .orElseThrow();
+    }
+
     @Test
     void shouldNotArchiveGenericProxyArtifacts() throws RepositoryDriverException {
         TrackedContentDTO report = new TrackedContentDTO();
