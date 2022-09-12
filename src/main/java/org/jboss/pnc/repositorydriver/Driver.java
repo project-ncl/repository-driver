@@ -448,15 +448,22 @@ public class Driver {
         // if the group and repo exist, delete them and recreate them from scratch
         IndyStoresClientModule storesModule = indy.stores();
         if (storesModule.exists(groupKey)) {
-            storesModule.delete(groupKey, "Cleanup " + groupKey + " before build run.");
+            String logCleanupGroupKey = "Cleanup " + groupKey + " before build run.";
+            logger.info(logCleanupGroupKey);
+            storesModule.delete(groupKey, logCleanupGroupKey);
         }
         if (storesModule.exists(hostedKey)) {
             HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
             if (hosted.isReadonly()) {
                 hosted.setReadonly(false);
-                storesModule.update(hosted, "Make " + hostedKey + " writable before delete.");
+                String logWritableHostKey = "Make " + hostedKey + " writable before delete.";
+                logger.info(logWritableHostKey);
+                storesModule.update(hosted, logWritableHostKey);
             }
-            storesModule.delete(hostedKey, "Cleanup " + hostedKey + " before build run.", true);
+
+            String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
+            logger.info(logCleanupHostedKey);
+            storesModule.delete(hostedKey, logCleanupHostedKey, true);
         }
 
         // create build repo
@@ -466,17 +473,16 @@ public class Driver {
 
         buildArtifacts.setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
 
-        storesModule.create(
-                buildArtifacts,
-                "Creating hosted repository for " + packageType + " build: " + buildContentId + " (repo: "
-                        + buildContentId + ")",
-                HostedRepository.class);
+        String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " + buildContentId
+                + " (repo: " + buildContentId + ")";
+        logger.info(logCreatingHostedRepo);
+        storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
 
         // create build group
         Group buildGroup = BuildGroupBuilder.builder(indy, packageType, buildContentId)
                 .withDescription(
                         String.format(
-                                "Aggregation group for PNC %sbuild #%s",
+                                "Aggregation group for PNC %s build #%s",
                                 tempBuild ? "temporary " : "",
                                 buildContentId))
                 // build-local artifacts
@@ -488,6 +494,7 @@ public class Driver {
                 .build();
 
         String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId + ").";
+        logger.info(changelog);
         storesModule.create(buildGroup, changelog, Group.class);
     }
 
