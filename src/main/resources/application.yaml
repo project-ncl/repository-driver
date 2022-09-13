@@ -1,4 +1,24 @@
 quarkus:
+  application:
+    name: repository-driver
+  opentelemetry:
+    enabled: true
+    tracer:
+      enabled: true
+      # reflect sampling on collector
+      resource-attributes: "sampler_ratio=0.05,service.name=repository-driver,environment=devel"
+      sampler:
+        ratio: 0.05
+      exporter:
+        otlp:
+          # This is for sending to something like opentelemetry-collector
+          #endpoint: http://localhost:4317
+          # This is for sending to Honeycomb
+          endpoint: "https://api.honeycomb.io:443"
+          headers:
+            - "X-honeycomb-team=9hgiRLNvRni1e2FwAmcfYC"
+            - "X-honeycomb-dataset=otel-testing-dataset"
+
   shutdown:
     timeout: 300
   log:
@@ -6,7 +26,7 @@ quarkus:
       "org.jboss.pnc":
         level: DEBUG
     console:
-      format: "%d{HH:mm:ss,SSS} %-5p [%c{3.}] (%t) %s%e mdc:[%X]%n"
+      format: "%d{HH:mm:ss,SSS} %-5p traceId=%X{traceId}, parentId=%X{parentId}, spanId=%X{spanId}, sampled=%X{sampled} [%c{3.}] (%t) %s%e mdc:[%X]%n"
     handler:
       kafka:
         enabled: false
@@ -29,6 +49,7 @@ quarkus:
     client-id: my-app
     credentials:
       secret: secret
+
 repository-driver:
   ignored-path-patterns:
     promotion:
