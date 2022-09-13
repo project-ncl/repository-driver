@@ -14,10 +14,10 @@ quarkus:
           # This is for sending to something like opentelemetry-collector
           #endpoint: http://localhost:4317
           # This is for sending to Honeycomb
-          endpoint: "https://api.honeycomb.io:443"
-          headers:
-            - "X-honeycomb-team=9hgiRLNvRni1e2FwAmcfYC"
-            - "X-honeycomb-dataset=otel-testing-dataset"
+          #endpoint: "https://api.honeycomb.io:443"
+          #headers:
+          #  - "X-honeycomb-team=<write-key>"
+          #  - "X-honeycomb-dataset=test"
 
   shutdown:
     timeout: 300
