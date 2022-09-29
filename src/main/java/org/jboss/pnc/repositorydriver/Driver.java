@@ -37,6 +37,9 @@ import javax.inject.Inject;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.opentelemetry.extension.annotations.SpanAttribute;
+import io.opentelemetry.extension.annotations.WithSpan;
 import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
@@ -113,7 +116,9 @@ public class Driver {
     @Inject
     Tokens serviceTokens;
 
-    public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
+    @WithSpan()
+    public RepositoryCreateResponse create(
+            @SpanAttribute("repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
         BuildType buildType = repositoryCreateRequest.getBuildType();
         String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
@@ -179,7 +184,9 @@ public class Driver {
      * result. Add each tracked upload to the built artifacts of the build result. Promote uploaded artifacts to the
      * product-level storage. Finally delete the group associated with the completed build.
      */
-    public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
+    @WithSpan()
+    public void promote(@SpanAttribute("promoteRequest") RepositoryPromoteRequest promoteRequest)
+            throws RepositoryDriverException {
         if (lifecycle.isShuttingDown()) {
             throw new StoppingException();
         }
@@ -288,7 +295,8 @@ public class Driver {
         });
     }
 
-    public void archive(ArchiveRequest request) throws RepositoryDriverException {
+    @WithSpan()
+    public void archive(@SpanAttribute("archiveRequest") ArchiveRequest request) throws RepositoryDriverException {
         logger.info("Retrieving tracking report and filtering artifacts to archive.");
         TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
         List<ArchiveDownloadEntry> toArchive = trackingReportProcessor.collectArchivalArtifacts(report);
@@ -394,10 +402,11 @@ public class Driver {
                 });
     }
 
+    @WithSpan
     public RepositoryPromoteResult collectRepoManagerResult(
-            String buildContentId,
-            boolean tempBuild,
-            BuildCategory buildCategory) throws RepositoryDriverException {
+            @SpanAttribute("buildContentId") String buildContentId,
+            @SpanAttribute("tempBuild") boolean tempBuild,
+            @SpanAttribute("buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
         TrackedContentDTO report = retrieveTrackingReport(buildContentId);
         try {
             List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
@@ -787,7 +796,9 @@ public class Driver {
         };
     }
 
-    public void sealTrackingReport(String buildContentId) throws RepositoryDriverException {
+    @WithSpan
+    public void sealTrackingReport(@SpanAttribute("buildContentId") String buildContentId)
+            throws RepositoryDriverException {
         IndyFoloAdminClientModule foloAdmin;
         try {
             foloAdmin = indy.module(IndyFoloAdminClientModule.class);

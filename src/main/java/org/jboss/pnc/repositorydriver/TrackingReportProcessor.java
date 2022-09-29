@@ -41,6 +41,9 @@ import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
 
+import io.opentelemetry.extension.annotations.SpanAttribute;
+import io.opentelemetry.extension.annotations.WithSpan;
+
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
 import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
@@ -67,7 +70,8 @@ public class TrackingReportProcessor {
     @Inject
     IndyContentClientModule indyContentModule;
 
-    public List<RepositoryArtifact> collectDownloadedArtifacts(TrackedContentDTO report)
+    @WithSpan
+    public List<RepositoryArtifact> collectDownloadedArtifacts(@SpanAttribute("report") TrackedContentDTO report)
             throws RepositoryDriverException {
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
         if (downloads == null) {
@@ -119,10 +123,11 @@ public class TrackingReportProcessor {
      * @throws RepositoryDriverException In case of a client API transport error or an error during promotion of
      *         artifacts
      */
+    @WithSpan
     public List<RepositoryArtifact> collectUploadedArtifacts(
-            TrackedContentDTO report,
-            boolean tempBuild,
-            BuildCategory buildCategory) throws RepositoryDriverException {
+            @SpanAttribute("report") TrackedContentDTO report,
+            @SpanAttribute("tempBuild") boolean tempBuild,
+            @SpanAttribute("buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
 
         Set<TrackedContentEntryDTO> uploads = report.getUploads();
         if (uploads == null) {
@@ -160,7 +165,10 @@ public class TrackingReportProcessor {
         return artifacts;
     }
 
-    public PromotionPaths collectDownloadsPromotions(TrackedContentDTO report, Collection<StoreKey> genericRepos) {
+    @WithSpan
+    public PromotionPaths collectDownloadsPromotions(
+            @SpanAttribute("report") TrackedContentDTO report,
+            @SpanAttribute("genericRepos") Collection<StoreKey> genericRepos) {
         PromotionPaths promotionPaths = new PromotionPaths();
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
         if (downloads == null) {
@@ -203,7 +211,8 @@ public class TrackingReportProcessor {
         return promotionPaths;
     }
 
-    public List<ArchiveDownloadEntry> collectArchivalArtifacts(TrackedContentDTO report)
+    @WithSpan
+    public List<ArchiveDownloadEntry> collectArchivalArtifacts(@SpanAttribute("report") TrackedContentDTO report)
             throws RepositoryDriverException {
         List<RepositoryArtifact> downloads = collectDownloadedArtifacts(report);
         if (downloads == null) {
@@ -225,11 +234,12 @@ public class TrackingReportProcessor {
         return deps;
     }
 
+    @WithSpan
     public PromotionPaths collectUploadsPromotions(
-            TrackedContentDTO report,
-            boolean tempBuild,
-            RepositoryType repositoryType,
-            String buildContentId) {
+            @SpanAttribute("report") TrackedContentDTO report,
+            @SpanAttribute("tempBuild") boolean tempBuild,
+            @SpanAttribute("repositoryType") RepositoryType repositoryType,
+            @SpanAttribute("buildContentId") String buildContentId) {
         PromotionPaths promotionPaths = new PromotionPaths();
         Set<TrackedContentEntryDTO> uploads = report.getUploads();
         if (uploads == null) {
