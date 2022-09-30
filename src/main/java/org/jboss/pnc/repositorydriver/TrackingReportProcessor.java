@@ -71,8 +71,8 @@ public class TrackingReportProcessor {
     IndyContentClientModule indyContentModule;
 
     @WithSpan
-    public List<RepositoryArtifact> collectDownloadedArtifacts(@SpanAttribute("report") TrackedContentDTO report)
-            throws RepositoryDriverException {
+    public List<RepositoryArtifact> collectDownloadedArtifacts(
+            @SpanAttribute(value = "report") TrackedContentDTO report) throws RepositoryDriverException {
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
         if (downloads == null) {
             return Collections.emptyList();
@@ -125,9 +125,9 @@ public class TrackingReportProcessor {
      */
     @WithSpan
     public List<RepositoryArtifact> collectUploadedArtifacts(
-            @SpanAttribute("report") TrackedContentDTO report,
-            @SpanAttribute("tempBuild") boolean tempBuild,
-            @SpanAttribute("buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
+            @SpanAttribute(value = "report") TrackedContentDTO report,
+            @SpanAttribute(value = "tempBuild") boolean tempBuild,
+            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
 
         Set<TrackedContentEntryDTO> uploads = report.getUploads();
         if (uploads == null) {
@@ -167,8 +167,8 @@ public class TrackingReportProcessor {
 
     @WithSpan
     public PromotionPaths collectDownloadsPromotions(
-            @SpanAttribute("report") TrackedContentDTO report,
-            @SpanAttribute("genericRepos") Collection<StoreKey> genericRepos) {
+            @SpanAttribute(value = "report") TrackedContentDTO report,
+            @SpanAttribute(value = "genericRepos") Collection<StoreKey> genericRepos) {
         PromotionPaths promotionPaths = new PromotionPaths();
         Set<TrackedContentEntryDTO> downloads = report.getDownloads();
         if (downloads == null) {
@@ -212,8 +212,8 @@ public class TrackingReportProcessor {
     }
 
     @WithSpan
-    public List<ArchiveDownloadEntry> collectArchivalArtifacts(@SpanAttribute("report") TrackedContentDTO report)
-            throws RepositoryDriverException {
+    public List<ArchiveDownloadEntry> collectArchivalArtifacts(
+            @SpanAttribute(value = "report") TrackedContentDTO report) throws RepositoryDriverException {
         List<RepositoryArtifact> downloads = collectDownloadedArtifacts(report);
         if (downloads == null) {
             return Collections.emptyList();
@@ -236,10 +236,10 @@ public class TrackingReportProcessor {
 
     @WithSpan
     public PromotionPaths collectUploadsPromotions(
-            @SpanAttribute("report") TrackedContentDTO report,
-            @SpanAttribute("tempBuild") boolean tempBuild,
-            @SpanAttribute("repositoryType") RepositoryType repositoryType,
-            @SpanAttribute("buildContentId") String buildContentId) {
+            @SpanAttribute(value = "report") TrackedContentDTO report,
+            @SpanAttribute(value = "tempBuild") boolean tempBuild,
+            @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
+            @SpanAttribute(value = "buildContentId") String buildContentId) {
         PromotionPaths promotionPaths = new PromotionPaths();
         Set<TrackedContentEntryDTO> uploads = report.getUploads();
         if (uploads == null) {

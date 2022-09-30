@@ -118,7 +118,7 @@ public class Driver {
 
     @WithSpan()
     public RepositoryCreateResponse create(
-            @SpanAttribute("repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
+            @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
         BuildType buildType = repositoryCreateRequest.getBuildType();
         String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
@@ -185,7 +185,7 @@ public class Driver {
      * product-level storage. Finally delete the group associated with the completed build.
      */
     @WithSpan()
-    public void promote(@SpanAttribute("promoteRequest") RepositoryPromoteRequest promoteRequest)
+    public void promote(@SpanAttribute(value = "promoteRequest") RepositoryPromoteRequest promoteRequest)
             throws RepositoryDriverException {
         if (lifecycle.isShuttingDown()) {
             throw new StoppingException();
@@ -296,7 +296,8 @@ public class Driver {
     }
 
     @WithSpan()
-    public void archive(@SpanAttribute("archiveRequest") ArchiveRequest request) throws RepositoryDriverException {
+    public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
+            throws RepositoryDriverException {
         logger.info("Retrieving tracking report and filtering artifacts to archive.");
         TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
         List<ArchiveDownloadEntry> toArchive = trackingReportProcessor.collectArchivalArtifacts(report);
@@ -404,9 +405,9 @@ public class Driver {
 
     @WithSpan
     public RepositoryPromoteResult collectRepoManagerResult(
-            @SpanAttribute("buildContentId") String buildContentId,
-            @SpanAttribute("tempBuild") boolean tempBuild,
-            @SpanAttribute("buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
+            @SpanAttribute(value = "buildContentId") String buildContentId,
+            @SpanAttribute(value = "tempBuild") boolean tempBuild,
+            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
         TrackedContentDTO report = retrieveTrackingReport(buildContentId);
         try {
             List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
@@ -797,7 +798,7 @@ public class Driver {
     }
 
     @WithSpan
-    public void sealTrackingReport(@SpanAttribute("buildContentId") String buildContentId)
+    public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId)
             throws RepositoryDriverException {
         IndyFoloAdminClientModule foloAdmin;
         try {
