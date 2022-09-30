@@ -2,9 +2,9 @@ quarkus:
   application:
     name: repository-driver
   opentelemetry:
-    enabled: false
+    enabled: true
     tracer:
-      enabled: false
+      enabled: true
       # reflect sampling on collector
       resource-attributes: "sampler_ratio=0.05,service.name=repository-driver"
       sampler:
