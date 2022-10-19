@@ -25,6 +25,18 @@ public class MdcUtils {
         }
     }
 
+    public static void silentlyPutMdcToResultMap(
+            Map<String, String> result,
+            Map<String, String> mdcMap,
+            MDCHeaderKeys mdcHeaderKeys) throws RepositoryDriverException {
+        if (mdcMap == null) {
+            throw new RepositoryDriverException("Missing MDC map.");
+        }
+        if (mdcMap.get(mdcHeaderKeys.getMdcKey()) != null) {
+            result.put(mdcHeaderKeys.getHeaderName(), mdcMap.get(mdcHeaderKeys.getMdcKey()));
+        }
+    }
+
     public static Map<String, String> mdcToMapWithHeaderKeys() throws RepositoryDriverException {
         Map<String, String> result = new HashMap<>();
         Map<String, String> mdcMap = MDC.getCopyOfContextMap();
@@ -32,6 +44,9 @@ public class MdcUtils {
         putMdcToResultMap(result, mdcMap, MDCHeaderKeys.TMP);
         putMdcToResultMap(result, mdcMap, MDCHeaderKeys.EXP);
         putMdcToResultMap(result, mdcMap, MDCHeaderKeys.USER_ID);
+        silentlyPutMdcToResultMap(result, mdcMap, MDCHeaderKeys.TRACE_ID);
+        silentlyPutMdcToResultMap(result, mdcMap, MDCHeaderKeys.SPAN_ID);
+        silentlyPutMdcToResultMap(result, mdcMap, MDCHeaderKeys.PARENT_ID);
         return result;
     }
 }
