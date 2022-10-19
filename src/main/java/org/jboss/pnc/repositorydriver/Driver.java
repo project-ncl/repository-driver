@@ -38,8 +38,9 @@ import javax.inject.Inject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.opentelemetry.extension.annotations.SpanAttribute;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
@@ -198,7 +199,7 @@ public class Driver {
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
         // schedule promotion
-        executor.runAsync(() -> {
+        executor.runAsync(Context.current().wrap(() -> {
             Request heartBeat = promoteRequest.getHeartBeat();
             Runnable heartBeatSender;
             if (heartBeat != null) {
@@ -275,7 +276,7 @@ public class Driver {
                             buildContentId,
                             "",
                             ResultStatus.SUCCESS));
-        }).thenRunAsync(() -> {
+        })).thenRunAsync(Context.current().wrap(() -> {
             // CLEANUP
             try {
                 logger.info(
@@ -286,13 +287,13 @@ public class Driver {
             } catch (Throwable e) {
                 logger.error("Failed to delete build group.", e);
             }
-        }).handle((nul, throwable) -> {
+        })).handle(Context.current().wrapFunction((nul, throwable) -> {
             if (throwable != null) {
                 logger.error("Unhanded promotion exception.", throwable);
             }
             lifecycle.removeActivePromotion();
             return null;
-        });
+        }));
     }
 
     @WithSpan()
@@ -397,13 +398,13 @@ public class Driver {
                 .getStageAsync(
                         () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                                 .thenApply(validateResponse()))
-                .handle((r, t) -> {
+                .handle(Context.current().wrapFunction((r, t) -> {
                     lifecycle.removeActivePromotion();
                     return null;
-                });
+                }));
     }
 
-    @WithSpan
+    @WithSpan()
     public RepositoryPromoteResult collectRepoManagerResult(
             @SpanAttribute(value = "buildContentId") String buildContentId,
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
@@ -786,18 +787,18 @@ public class Driver {
         return () -> {
             CompletableFuture<HttpResponse<String>> response = httpClient
                     .sendAsync(request, HttpResponse.BodyHandlers.ofString());
-            response.handleAsync((r, t) -> {
+            response.handleAsync(Context.current().wrapFunction((r, t) -> {
                 if (t != null) {
                     logger.warn("Failed to send heartbeat.", t);
                 } else {
                     logger.debug("Heartbeat sent. Response status: {}", r.statusCode());
                 }
                 return null;
-            }, executor);
+            }), executor);
         };
     }
 
-    @WithSpan
+    @WithSpan()
     public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId)
             throws RepositoryDriverException {
         IndyFoloAdminClientModule foloAdmin;
