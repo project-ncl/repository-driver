@@ -28,6 +28,7 @@ import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.jboss.pnc.api.constants.ReposiotryIdentifier;
+import org.jboss.pnc.api.enums.ArtifactQuality;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
@@ -82,6 +83,7 @@ public class TrackingReportProcessor {
         for (TrackedContentEntryDTO download : downloads) {
             if (artifactFilter.acceptsForData(download)) {
                 String path = download.getPath();
+                StoreKey storeKey = download.getStoreKey();
                 String identifier = computeIdentifier(download);
                 String purl = computePurl(download);
 
@@ -95,6 +97,9 @@ public class TrackingReportProcessor {
 
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
 
+                // ignored dependency sources for promotion are the internal ones, so those artifacts are built inhouse
+                ArtifactQuality quality = artifactFilter.ignoreDependencySource(storeKey) ? ArtifactQuality.NEW
+                        : ArtifactQuality.IMPORTED;
                 RepositoryArtifact.Builder artifactBuilder = RepositoryArtifact.builder()
                         .md5(download.getMd5())
                         .sha1(download.getSha1())
@@ -106,6 +111,7 @@ public class TrackingReportProcessor {
                         .filename(new File(path).getName())
                         .identifier(identifier)
                         .purl(purl)
+                        .artifactQuality(quality)
                         .targetRepository(targetRepository);
 
                 RepositoryArtifact artifact = validateArtifact(artifactBuilder.build());
@@ -155,6 +161,7 @@ public class TrackingReportProcessor {
                         .filename(new File(path).getName())
                         .identifier(identifier)
                         .purl(purl)
+                        .artifactQuality(tempBuild ? ArtifactQuality.TEMPORARY : ArtifactQuality.NEW)
                         .targetRepository(targetRepository)
                         .buildCategory(buildCategory)
                         .build();
