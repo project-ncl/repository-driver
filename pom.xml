@@ -20,7 +20,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.jboss.pnc</groupId>
   <artifactId>repository-driver</artifactId>
-  <version>1.1.11-SNAPSHOT</version>
+  <version>1.1.11</version>
 
   <name>repository driver</name>
   <description>Artifact repository driver</description>
@@ -44,7 +44,7 @@
     <connection>scm:git:http://github.com/project-ncl/repository-driver.git</connection>
     <developerConnection>scm:git:git@github.com:project-ncl/repository-driver.git</developerConnection>
     <url>http://github.com/project-ncl/repository-driver</url>
-    <tag>1.1.8</tag>
+    <tag>1.1.11</tag>
   </scm>
 
   <developers>
