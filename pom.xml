@@ -329,6 +329,8 @@
         <version>${quarkus.platform.version}</version>
         <configuration>
             <finalName>repository-driver</finalName>
+            <!-- needed to publish to maven central -->
+            <skipOriginalJarRename>true</skipOriginalJarRename>
         </configuration>
         <extensions>true</extensions>
         <executions>
