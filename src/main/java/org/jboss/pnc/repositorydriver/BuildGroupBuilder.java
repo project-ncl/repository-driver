@@ -164,6 +164,18 @@ public class BuildGroupBuilder {
         return this;
     }
 
+    /**
+     * Add metadata to the build group
+     *
+     * @param key key of metadata
+     * @param value value of metadata
+     * @return
+     */
+    public BuildGroupBuilder addMetadata(String key, String value) {
+        buildGroup.setMetadata(key, value);
+        return this;
+    }
+
     private ArtifactRepository createArtifactRepository(String url) {
         String id;
         try {

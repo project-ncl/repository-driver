@@ -93,6 +93,8 @@ public class Driver {
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
+    public static final String BREW_PULL_METADATA_KEY = "koji-pull";
+
     @Inject
     ManagedExecutor executor;
 
@@ -131,6 +133,7 @@ public class Driver {
                     buildType,
                     packageType,
                     repositoryCreateRequest.isTempBuild(),
+                    repositoryCreateRequest.isBrewPullActive(),
                     repositoryCreateRequest.getExtraRepositories());
         } catch (IndyClientException e) {
             logger.debug("Failed to setup repository or repository group for this build");
@@ -450,6 +453,7 @@ public class Driver {
             BuildType buildType,
             String packageType,
             boolean tempBuild,
+            boolean brewPullActive,
             List<String> extraDependencyRepositories) throws IndyClientException {
 
         // if the build-level group doesn't exist, create it.
@@ -502,6 +506,8 @@ public class Driver {
                 .addGlobalConstituents(buildType, tempBuild)
                 // build-specific repos
                 .addExtraConstituents(extraDependencyRepositories)
+                // brew pull: see MMENG-1262
+                .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
                 .build();
 
         String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId + ").";
