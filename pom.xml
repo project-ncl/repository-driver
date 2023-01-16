@@ -65,7 +65,7 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.15.3.Final</quarkus.platform.version>
     <compiler-plugin.version>3.10.1</compiler-plugin.version>
-    <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
+    <surefire-plugin.version>3.0.0-M8</surefire-plugin.version>
     <quarkus.package.type>uber-jar</quarkus.package.type>
     <indy.version>2.7.5</indy.version>
     <wiremock.version>2.35.0</wiremock.version>
