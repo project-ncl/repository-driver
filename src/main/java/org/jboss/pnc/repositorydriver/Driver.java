@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -39,6 +40,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.opentelemetry.context.Context;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanBuilder;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.quarkus.oidc.client.Tokens;
@@ -62,6 +70,7 @@ import org.commonjava.indy.promote.model.PathsPromoteRequest;
 import org.commonjava.indy.promote.model.PathsPromoteResult;
 import org.commonjava.indy.promote.model.ValidationResult;
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.jboss.pnc.api.constants.MDCKeys;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
@@ -73,9 +82,11 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
@@ -195,6 +206,7 @@ public class Driver {
             throw new StoppingException();
         }
         String buildContentId = promoteRequest.getBuildContentId();
+        String buildConfigurationId = promoteRequest.getBuildConfigurationId();
         BuildType buildType = promoteRequest.getBuildType();
         TrackedContentDTO report = retrieveTrackingReport(buildContentId);
         Set<StoreKey> genericRepos = new HashSet<>();
@@ -293,6 +305,28 @@ public class Driver {
         })).handle(Context.current().wrapFunction((nul, throwable) -> {
             if (throwable != null) {
                 logger.error("Unhanded promotion exception.", throwable);
+            } else {
+                if (promoteRequest.isArchivalEnabled()) {
+                    // Archive the downloaded artifacts
+                    try {
+                        ArchiveRequest archiveRequest = ArchiveRequest.builder()
+                                .buildConfigId(buildConfigurationId)
+                                .buildContentId(buildContentId)
+                                .build();
+                        logger.info(
+                                "Archiving the downloaded content of {} for build {} ...",
+                                buildConfigurationId,
+                                buildContentId);
+
+                        doArchive(archiveRequest, report);
+                    } catch (Throwable e) {
+                        logger.error(
+                                "Failed to archive the downloaded content of {} for build {} ...",
+                                buildConfigurationId,
+                                buildContentId,
+                                e);
+                    }
+                }
             }
             lifecycle.removeActivePromotion();
             return null;
@@ -302,51 +336,105 @@ public class Driver {
     @WithSpan()
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
-        logger.info("Retrieving tracking report and filtering artifacts to archive.");
+
         TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
-        List<ArchiveDownloadEntry> toArchive = trackingReportProcessor.collectArchivalArtifacts(report);
-
-        logger.info("Retrieved these artifacts {}", toArchive);
-
-        ArchivePayload archiveRequest = ArchivePayload.builder()
-                .buildConfigId(request.getBuildConfigId())
-                .downloads(toArchive)
-                .build();
-
-        requestArchival(archiveRequest);
+        doArchive(request, report);
     }
 
-    private void requestArchival(ArchivePayload request) throws RepositoryDriverException {
-        logger.info("Invoking archive service. Request: {}", request);
+    private void doArchive(
+            @SpanAttribute(value = "archiveRequest") ArchiveRequest request,
+            @SpanAttribute(value = "report") TrackedContentDTO report) throws RepositoryDriverException {
+
+        // Create a parent child span with values from MDC
+        SpanBuilder spanBuilder = OtelUtils.buildChildSpan(
+                GlobalOpenTelemetry.get().getTracer(""),
+                "Driver.doArchive",
+                SpanKind.CLIENT,
+                MDC.get(MDCKeys.TRACE_ID_KEY),
+                MDC.get(MDCKeys.SPAN_ID_KEY),
+                MDC.get(MDCKeys.TRACE_FLAGS_KEY),
+                MDC.get(MDCKeys.TRACE_STATE_KEY),
+                Span.current().getSpanContext(),
+                Map.of("buildContentId", request.getBuildContentId(), "buildConfigId", request.getBuildConfigId()));
+        Span span = spanBuilder.startSpan();
+        logger.debug("Started a new span :{}", span);
+
+        // put the span into the current Context
+        try (Scope scope = span.makeCurrent()) {
+
+            logger.info("Retrieving tracking report and filtering artifacts to archive.");
+            List<ArchiveDownloadEntry> toArchive = trackingReportProcessor.collectArchivalArtifacts(report);
+
+            logger.info("Retrieved these artifacts {}", toArchive);
+
+            ArchivePayload archiveRequest = ArchivePayload.builder()
+                    .buildConfigId(request.getBuildConfigId())
+                    .downloads(toArchive)
+                    .build();
+
+            requestArchival(archiveRequest);
+        } finally {
+            span.end(); // closing the scope does not end the span, this has to be done manually
+        }
+    }
+
+    private HttpResponse<String> requestArchival(ArchivePayload archivePayload) {
+        logger.info("Invoking archival service. Request: {}", archivePayload);
         String body;
         try {
-            body = jsonMapper.writeValueAsString(request);
+            body = jsonMapper.writeValueAsString(archivePayload);
         } catch (JsonProcessingException e) {
             logger.error("Cannot serialize callback object.", e);
             body = "";
         }
+
         HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(configuration.getArchiveEndpoint()))
+                .uri(URI.create(configuration.getArchiveServiceEndpoint()))
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
                 .header(AUTHORIZATION_STRING, "Bearer " + serviceTokens.getAccessToken())
                 .header(CONTENT_TYPE_STRING, "application/json");
 
-        try {
-            HttpResponse<String> response = httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+        HttpRequest request = builder.build();
+        RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
+                .withMaxDuration(Duration.ofSeconds(configuration.getArchiveServiceRunningWaitFor()))
+                .withMaxRetries(Integer.MAX_VALUE) // retry until maxDuration is reached
+                .withBackoff(
+                        configuration.getArchiveServiceRunningRetryDelayMsec(),
+                        configuration.getArchiveServiceRunningRetryMaxDelayMsec(),
+                        ChronoUnit.MILLIS)
+                .onSuccess(
+                        ctx -> logger
+                                .info("Archival service responded, response status: {}.", ctx.getResult().statusCode()))
+                .onRetry(ctx -> {
+                    String lastError;
+                    if (ctx.getLastFailure() != null) {
+                        lastError = ctx.getLastFailure().getMessage();
+                    } else {
+                        lastError = "";
+                    }
+                    Integer lastStatus;
+                    if (ctx.getLastResult() != null) {
+                        lastStatus = ctx.getLastResult().statusCode();
+                    } else {
+                        lastStatus = null;
+                    }
+                    logger.warn(
+                            "Archival service call retry attempt #{}, last error: [{}], last status: [{}].",
+                            ctx.getAttemptCount(),
+                            lastError,
+                            lastStatus);
+                })
+                .onFailure(ctx -> logger.error("Unable to call archival service: {}.", ctx.getFailure().getMessage()))
+                .onAbort(e -> logger.warn("Archival service call aborted: {}.", e.getFailure().getMessage()));
 
-            // Validate status code
-            validateResponse().apply(response);
-
-            // on success
-            logger.info("Archival request successful, response status {}", response.statusCode());
-        } catch (IOException e) {
-            logger.warn("Archival request failed. Caught an network IO exception while invoking archive service ", e);
-            throw new RepositoryDriverException("Network IO error while invoking archive service.");
-        } catch (InterruptedException e) {
-            logger.warn("Archival request failed. The thread was interrupted in the process");
-            throw new RepositoryDriverException("The archival operation was interrupted");
-        }
+        logger.info("About to call archival service {}.", request.uri());
+        return Failsafe.with(retryPolicy)
+                .with(executor)
+                .getStageAsync(
+                        () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                                .thenApply(validateResponse()))
+                .join();
     }
 
     private static void onRetry(ExecutionAttemptedEvent<HttpResponse<String>> ctx, String operation) {
