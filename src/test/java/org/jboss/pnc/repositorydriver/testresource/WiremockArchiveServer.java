@@ -17,8 +17,8 @@ public class WiremockArchiveServer implements QuarkusTestResourceLifecycleManage
         wiremock = new WireMockServer();
         wiremock.start();
 
-        stubFor(post(urlEqualTo("/archival")).willReturn(aResponse().withStatus(204)));
-        return Collections.singletonMap("repository-driver.archive-service.api-url", wiremock.baseUrl() + "/archival");
+        stubFor(post(urlEqualTo("/archive")).willReturn(aResponse().withStatus(204)));
+        return Collections.singletonMap("repository-driver.archive-service.api-url", wiremock.baseUrl() + "/archive");
     }
 
     @Override
