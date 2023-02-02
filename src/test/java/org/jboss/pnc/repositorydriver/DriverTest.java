@@ -12,10 +12,14 @@ import javax.inject.Inject;
 import javax.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.honeycomb.libhoney.shaded.org.apache.http.HttpResponse;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.RestAssured;
+import io.restassured.response.ResponseBodyExtractionOptions;
+
 import org.jboss.pnc.api.constants.HttpHeaders;
 import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
@@ -153,18 +157,20 @@ public class DriverTest {
 
     @Test
     public void testArchiveRequest() {
-        given().contentType(MediaType.APPLICATION_JSON)
+        ResponseBodyExtractionOptions body = given().contentType(MediaType.APPLICATION_JSON)
                 .headers(requestHeaders())
                 .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
                 .when()
                 .post("/archive")
                 .then()
-                .statusCode(204);
+                .statusCode(204)
+                .extract()
+                .body();
 
         verify(
                 1,
-                postRequestedFor(urlEqualTo("/archival"))
-                        .withRequestBody(matchingJsonPath("$.buildConfigId", containing("10"))));
+                postRequestedFor(urlEqualTo("/archive"))
+                        .withRequestBody(matchingJsonPath("buildConfigId", containing("10"))));
     }
 
     public static Map<String, String> requestHeaders() {
