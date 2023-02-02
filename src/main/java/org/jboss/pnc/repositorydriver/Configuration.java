@@ -39,7 +39,7 @@ public class Configuration {
     String indyUrl;
 
     @ConfigProperty(name = "repository-driver.archive-service.api-url")
-    String archiveEndpoint;
+    String archiveServiceEndpoint;
 
     @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
@@ -107,5 +107,14 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.indy-sidecar.url")
     String sidecarUrl;
+
+    @ConfigProperty(name = "repository-driver.archive-service.running-wait-for", defaultValue = "30")
+    long archiveServiceRunningWaitFor;
+
+    @ConfigProperty(name = "repository-driver.archive-service.running-retry-delay-msec", defaultValue = "500")
+    long archiveServiceRunningRetryDelayMsec;
+
+    @ConfigProperty(name = "repository-driver.archive-service.running-retry-max-delay-msec", defaultValue = "5000")
+    long archiveServiceRunningRetryMaxDelayMsec;
 
 }
