@@ -318,7 +318,7 @@ public class Driver {
                                 buildConfigurationId,
                                 buildContentId);
 
-                        doArchive(archiveRequest, report);
+                        archive(archiveRequest);
                     } catch (Throwable e) {
                         logger.error(
                                 "Failed to archive the downloaded content of {} for build {} ...",
