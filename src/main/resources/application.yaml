@@ -71,7 +71,6 @@ repository-driver:
   callback-retry-max-delay-msec: 5000
   archive-service:
     api-url:
-    enabled: false
     running-wait-for: 60
     running-retry-delay-msec: 500
     running-retry-max-delay-msec: 5000
