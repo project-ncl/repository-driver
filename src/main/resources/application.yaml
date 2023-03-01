@@ -14,7 +14,7 @@ quarkus:
           # Send telemetry data to an opentelemetry-collector
           #endpoint: http://localhost:4317
   shutdown:
-    timeout: 30
+    timeout: 300
   log:
     category:
       "org.jboss.pnc":
