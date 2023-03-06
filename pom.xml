@@ -67,7 +67,7 @@
     <compiler-plugin.version>3.10.1</compiler-plugin.version>
     <surefire-plugin.version>3.0.0-M9</surefire-plugin.version>
     <quarkus.package.type>uber-jar</quarkus.package.type>
-    <indy.version>2.7.5</indy.version>
+    <indy.version>3.0.2</indy.version>
     <wiremock.version>2.35.0</wiremock.version>
     <!-- Package URL -->
     <version.com.github.package-url>1.4.1</version.com.github.package-url>
