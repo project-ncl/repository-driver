@@ -108,6 +108,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.indy-sidecar.url")
     String sidecarUrl;
 
+    @ConfigProperty(name = "repository-driver.indy-sidecar.archive-enabled", defaultValue = "false")
+    boolean sidecarArchiveEnabled;
+
     @ConfigProperty(name = "repository-driver.archive-service.running-wait-for", defaultValue = "30")
     long archiveServiceRunningWaitFor;
 
