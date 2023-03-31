@@ -191,7 +191,11 @@ public class Driver {
                     e,
                     e.getMessage());
         }
-        return new RepositoryCreateResponse(downloadsUrl, deployUrl);
+        return new RepositoryCreateResponse(
+                downloadsUrl,
+                deployUrl,
+                configuration.isSidecarEnabled(),
+                configuration.isSidecarArchiveEnabled());
     }
 
     /**
