@@ -310,7 +310,7 @@ public class Driver {
             if (throwable != null) {
                 logger.error("Unhanded promotion exception.", throwable);
             } else {
-                if (promoteRequest.isArchivalEnabled()) {
+                if (configuration.isSidecarArchiveEnabled()) {
                     // Archive the downloaded artifacts
                     try {
                         ArchiveRequest archiveRequest = ArchiveRequest.builder()
