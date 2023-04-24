@@ -32,18 +32,28 @@ public class TrackingReportMocks {
     public static String noFileExtensionArtifactIdentifier = "org.jboss.shrinkwrap:shrinkwrap-api:empty:1.2.6";
     public static String getNoFileExtensionArtifactPurl = "pkg:maven/org.jboss.shrinkwrap/shrinkwrap-api@1.2.6?type=empty";
     public static TrackedContentEntryDTO indyPomFromCentral;
+    public static TrackedContentEntryDTO indyPomSha1FromCentral;
 
     public static String indyJar = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar";
     public static TrackedContentEntryDTO indyJarFromCentral;
+    public static TrackedContentEntryDTO indyJarSha1FromCentral;
 
     static {
         indyPomFromCentral = new TrackedContentEntryDTO(
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
                 TrackingReportMocks.indyPom);
+        indyPomSha1FromCentral = new TrackedContentEntryDTO(
+                TrackingReportMocks.centralKey,
+                AccessChannel.NATIVE,
+                TrackingReportMocks.indyPom + ".sha1");
         indyJarFromCentral = new TrackedContentEntryDTO(
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
                 TrackingReportMocks.indyJar);
+        indyJarSha1FromCentral = new TrackedContentEntryDTO(
+                TrackingReportMocks.centralKey,
+                AccessChannel.NATIVE,
+                TrackingReportMocks.indyJar + ".sha1");
     }
 }

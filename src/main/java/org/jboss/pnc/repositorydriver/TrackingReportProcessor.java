@@ -34,7 +34,6 @@ import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
 import org.jboss.pnc.common.Strings;
-import org.jboss.pnc.repositorydriver.constants.Checksum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -197,12 +196,6 @@ public class TrackingReportProcessor {
                     case NPM_PKG_KEY:
                         target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
                         promotionPaths.add(source, target, path);
-                        if (MAVEN_PKG_KEY.equals(packageType) && isNotChecksum(path)) {
-                            // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
-                            // the other would be missing) but avoid adding checksums of checksums.
-                            promotionPaths.add(source, target, path + ".md5");
-                            promotionPaths.add(source, target, path + ".sha1");
-                        }
                         break;
 
                     case GENERIC_PKG_KEY:
@@ -263,12 +256,6 @@ public class TrackingReportProcessor {
                 StoreKey source = new StoreKey(packageType, StoreType.hosted, buildContentId);
                 StoreKey target = new StoreKey(packageType, StoreType.hosted, getBuildPromotionTarget(tempBuild));
                 promotionPaths.add(source, target, path);
-                if (MAVEN_PKG_KEY.equals(storeKey.getPackageType()) && isNotChecksum(path)) {
-                    // add the standard checksums to ensure, they are promoted (Maven usually uses only one, so
-                    // the other would be missing) but avoid adding checksums of checksums.
-                    promotionPaths.add(source, target, path + ".md5");
-                    promotionPaths.add(source, target, path + ".sha1");
-                }
             }
         }
         return promotionPaths;
@@ -586,11 +573,6 @@ public class TrackingReportProcessor {
                 .repositoryPath(repoPath)
                 .temporaryRepo(tempBuild)
                 .build();
-    }
-
-    private boolean isNotChecksum(String path) {
-        String suffix = StringUtils.substringAfterLast(path, ".");
-        return !Checksum.suffixes.contains(suffix);
     }
 
     private StoreKey getSharedImportsPromotionTarget(String packageType, Map<String, StoreKey> promotionTargetsCache) {
