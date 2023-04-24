@@ -46,7 +46,9 @@ public class TrackingReportProcessorTest {
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         downloads.add(TrackingReportMocks.indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyPomSha1FromCentral);
         downloads.add(TrackingReportMocks.indyJarFromCentral);
+        downloads.add(TrackingReportMocks.indyJarSha1FromCentral);
         report.setDownloads(downloads);
 
         // when
@@ -64,11 +66,7 @@ public class TrackingReportProcessorTest {
         Set<String> paths = fromCentralToSharedImports.getPaths();
         Set<String> expected = new HashSet<>();
         expected.add(TrackingReportMocks.indyPom);
-        expected.add(TrackingReportMocks.indyPom + ".sha1");
-        expected.add(TrackingReportMocks.indyPom + ".md5");
         expected.add(TrackingReportMocks.indyJar);
-        expected.add(TrackingReportMocks.indyJar + ".sha1");
-        expected.add(TrackingReportMocks.indyJar + ".md5");
 
         Assertions.assertLinesMatch(expected.stream(), paths.stream());
     }
@@ -88,7 +86,11 @@ public class TrackingReportProcessorTest {
                 tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget());
 
         uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar));
+        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar + ".md5"));
+        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar + ".sha1"));
         uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom));
+        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom + ".md5"));
+        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom + ".sha1"));
         report.setUploads(uploads);
 
         // when
@@ -106,10 +108,8 @@ public class TrackingReportProcessorTest {
         Set<String> paths = fromBuildToPromoted.getPaths();
         Set<String> expected = new HashSet<>();
         expected.add(TrackingReportMocks.indyPom);
-        expected.add(TrackingReportMocks.indyPom + ".sha1");
         expected.add(TrackingReportMocks.indyPom + ".md5");
         expected.add(TrackingReportMocks.indyJar);
-        expected.add(TrackingReportMocks.indyJar + ".sha1");
         expected.add(TrackingReportMocks.indyJar + ".md5");
 
         Assertions.assertLinesMatch(expected.stream(), paths.stream());
