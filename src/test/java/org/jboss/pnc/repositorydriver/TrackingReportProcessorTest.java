@@ -17,6 +17,7 @@ import org.commonjava.indy.pkg.PackageTypeConstants;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
+import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ public class TrackingReportProcessorTest {
 
     @Inject
     Configuration configuration;
+
+    @Inject
+    ArtifactFilterDatabase artifactFilter;
 
     @BeforeAll
     public static void beforeAll() {
@@ -226,7 +230,7 @@ public class TrackingReportProcessorTest {
         report.setDownloads(downloads);
 
         // when
-        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilter);
 
         // then
         Assertions.assertEquals(2, artifacts.size());
@@ -263,7 +267,7 @@ public class TrackingReportProcessorTest {
         report.setDownloads(downloads);
 
         // when
-        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilter);
 
         // then
         Assertions.assertEquals(1, artifacts.size());
@@ -331,7 +335,7 @@ public class TrackingReportProcessorTest {
         downloads.add(trackedIndyJar);
 
         String buildContentId2 = "build-y";
-        StoreKey buildKey2 = new StoreKey(PackageTypeConstants.PKG_TYPE_NPM, StoreType.remote, buildContentId2);
+        StoreKey buildKey2 = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, buildContentId2);
         TrackedContentEntryDTO trackedIndyNpmArt = new TrackedContentEntryDTO(
                 buildKey2,
                 AccessChannel.NATIVE,
@@ -342,14 +346,10 @@ public class TrackingReportProcessorTest {
         report.setDownloads(downloads);
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
-        Assertions.assertEquals(entries.size(), 2);
+        Assertions.assertEquals(2, entries.size());
 
         for (ArchiveDownloadEntry entry : entries) {
-            if (entry.getPath().equals(TrackingReportMocks.indyJar)) {
-                Assertions.assertEquals(entry.getStoreKey().getPackageType(), "maven");
-            } else {
-                Assertions.assertEquals(entry.getStoreKey().getPackageType(), "npm");
-            }
+            Assertions.assertEquals(entry.getStoreKey().getPackageType(), "maven");
             Assertions.assertEquals(entry.getStoreKey().getType(), StoreType.hosted);
             Assertions.assertEquals(entry.getStoreKey().getName(), "shared-imports");
         }

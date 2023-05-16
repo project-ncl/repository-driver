@@ -45,6 +45,8 @@ quarkus:
       secret: secret
 repository-driver:
   ignored-path-patterns:
+    archive:
+      maven:
     promotion:
       maven:
       npm:
@@ -91,6 +93,8 @@ repository-driver:
     build-promotion-target: "build-target"
     temp-build-promotion-target: "temp-target"
     ignored-path-patterns:
+      archive:
+        maven: [".*/maven-metadata\\.xml(\\..+)?$"]
       promotion:
         maven: [".*/maven-metadata\\.xml$", ".*\\.sha1$"]
         npm:
