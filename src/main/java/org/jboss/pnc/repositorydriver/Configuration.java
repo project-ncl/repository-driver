@@ -83,6 +83,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.ignored-repo-patterns")
     Optional<List<String>> ignoredRepoPatterns;
 
+    @ConfigProperty(name = "repository-driver.ignored-path-patterns.archive.maven")
+    Optional<List<String>> ignoredPathPatternsArchiveMaven;
+
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.generic")
     Optional<List<String>> ignoredPathPatternsPromotionGeneric;
 
