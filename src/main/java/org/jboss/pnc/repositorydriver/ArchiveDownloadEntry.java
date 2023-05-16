@@ -4,9 +4,11 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
+
+import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
-import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
+import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
 
 @AllArgsConstructor
 @Builder(toBuilder = true)
@@ -20,10 +22,10 @@ public class ArchiveDownloadEntry {
     private final String sha1;
     private final Long size;
 
-    public static ArchiveDownloadEntry fromTrackedContentEntry(RepositoryArtifact dto) {
+    public static ArchiveDownloadEntry fromTrackedContentEntry(TrackedContentEntryDTO dto, TargetRepository targetRepository) {
         return new ArchiveDownloadEntry(
-                getStoreKeyFromRepositoryPath(dto.getTargetRepository().getRepositoryPath()),
-                dto.getDeployPath(),
+                getStoreKeyFromRepositoryPath(targetRepository.getRepositoryPath()),
+                dto.getPath(),
                 dto.getMd5(),
                 dto.getSha256(),
                 dto.getSha1(),

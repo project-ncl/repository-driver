@@ -17,35 +17,11 @@
  */
 package org.jboss.pnc.repositorydriver;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-
-import javax.enterprise.context.RequestScoped;
-import javax.inject.Inject;
-
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.opentelemetry.context.Context;
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
-import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.SpanKind;
-import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
@@ -53,6 +29,10 @@ import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.event.ExecutionAttemptedEvent;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.commons.lang.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
@@ -83,10 +63,30 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.common.otel.OtelUtils;
+import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
+import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
+
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
@@ -105,6 +105,12 @@ public class Driver {
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
     public static final String BREW_PULL_METADATA_KEY = "koji-pull";
+
+    @Inject
+    ArtifactFilterDatabase artifactFilterDatabase;
+
+    @Inject
+    ArtifactFilterPromotion artifactFilterPromotion;
 
     @Inject
     ManagedExecutor executor;
@@ -230,7 +236,7 @@ public class Driver {
             List<RepositoryArtifact> downloadedArtifacts;
             List<RepositoryArtifact> uploadedArtifacts;
             try {
-                downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+                downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilterPromotion);
                 heartBeatSender.run();
                 uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                         report,
@@ -506,7 +512,7 @@ public class Driver {
             @SpanAttribute(value = "buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
         TrackedContentDTO report = retrieveTrackingReport(buildContentId);
         try {
-            List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report);
+            List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilterDatabase);
             List<RepositoryArtifact> uploadedArtifacts = trackingReportProcessor
                     .collectUploadedArtifacts(report, tempBuild, buildCategory);
 
