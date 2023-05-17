@@ -22,7 +22,9 @@ public class ArchiveDownloadEntry {
     private final String sha1;
     private final Long size;
 
-    public static ArchiveDownloadEntry fromTrackedContentEntry(TrackedContentEntryDTO dto, TargetRepository targetRepository) {
+    public static ArchiveDownloadEntry fromTrackedContentEntry(
+            TrackedContentEntryDTO dto,
+            TargetRepository targetRepository) {
         return new ArchiveDownloadEntry(
                 getStoreKeyFromRepositoryPath(targetRepository.getRepositoryPath()),
                 dto.getPath(),
