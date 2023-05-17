@@ -236,7 +236,8 @@ public class Driver {
             List<RepositoryArtifact> downloadedArtifacts;
             List<RepositoryArtifact> uploadedArtifacts;
             try {
-                downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilterPromotion);
+                downloadedArtifacts = trackingReportProcessor
+                        .collectDownloadedArtifacts(report, artifactFilterPromotion);
                 heartBeatSender.run();
                 uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                         report,
@@ -512,7 +513,8 @@ public class Driver {
             @SpanAttribute(value = "buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
         TrackedContentDTO report = retrieveTrackingReport(buildContentId);
         try {
-            List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilterDatabase);
+            List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor
+                    .collectDownloadedArtifacts(report, artifactFilterDatabase);
             List<RepositoryArtifact> uploadedArtifacts = trackingReportProcessor
                     .collectUploadedArtifacts(report, tempBuild, buildCategory);
 
