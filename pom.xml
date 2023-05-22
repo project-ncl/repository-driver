@@ -73,7 +73,7 @@
     <version.com.github.package-url>1.4.1</version.com.github.package-url>
 
     <version.javadoc.plugin>3.5.0</version.javadoc.plugin>
-    <version.source.plugin>3.2.1</version.source.plugin>
+    <version.source.plugin>3.3.0</version.source.plugin>
     <tagSuffix />
   </properties>
 
