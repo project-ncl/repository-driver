@@ -7,6 +7,7 @@ import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
 
+import io.quarkus.logging.Log;
 import org.apache.commons.lang.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
@@ -193,14 +194,17 @@ public class TrackingReportProcessor {
 
         Set<TrackedContentEntryDTO> uploads = report.getUploads();
         if (uploads == null) {
+            Log.warn("uploads are empty!");
             return Collections.emptyList();
         }
         List<RepositoryArtifact> artifacts = new ArrayList<>(uploads.size());
         for (TrackedContentEntryDTO upload : uploads) {
+            Log.warn("Processing: " + upload.toString());
             String path = upload.getPath();
             StoreKey storeKey = upload.getStoreKey();
 
             if (artifactFilterDatabase.accepts(upload)) {
+                Log.warn(upload.toString() + " accepted");
                 String identifier = computeIdentifier(upload);
                 String purl = computePurl(upload);
 
@@ -223,6 +227,8 @@ public class TrackingReportProcessor {
                         .build();
 
                 artifacts.add(validateArtifact(artifact));
+            } else {
+                Log.warn(upload.toString() + " rejected by filter");
             }
         }
         return artifacts;
