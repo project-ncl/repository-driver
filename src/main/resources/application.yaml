@@ -1,10 +1,11 @@
 quarkus:
   application:
     name: repository-driver
+  # [NCL-7901] Disable Opentelemtry for PNC 2.5
   opentelemetry:
-    enabled: true
+    enabled: false
     tracer:
-      enabled: true
+      enabled: false
       # reflect sampling on collector
       resource-attributes: "sampler_ratio=0.05,service.name=repository-driver"
       sampler:
