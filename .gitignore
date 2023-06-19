@@ -36,3 +36,6 @@ pom.xml.versionsBackup
 release.properties
 /.apt_generated/
 /.apt_generated_tests/
+
+# Ignore code-generated class containing build information
+src/main/java/org/jboss/pnc/repositorydriver/constants/BuildInformationConstants.java
