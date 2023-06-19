@@ -29,6 +29,8 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
 import io.quarkus.security.Authenticated;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.pnc.api.dto.ComponentVersion;
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCollectRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
@@ -37,8 +39,11 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.repositorydriver.Driver;
 import org.jboss.pnc.repositorydriver.RepositoryDriverException;
+import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.ZonedDateTime;
 
 /**
  *
@@ -48,6 +53,9 @@ import org.slf4j.LoggerFactory;
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
 public class Public {
+
+    @ConfigProperty(name = "quarkus.application.name")
+    String name;
 
     private static final Logger logger = LoggerFactory.getLogger(Public.class);
 
@@ -117,4 +125,14 @@ public class Public {
                 collectRequest.getBuildCategory());
     }
 
+    @GET
+    @Path("/version")
+    public ComponentVersion getVersion() {
+        return ComponentVersion.builder()
+                .name(name)
+                .version(BuildInformationConstants.VERSION)
+                .commit(BuildInformationConstants.COMMIT_HASH)
+                .builtOn(ZonedDateTime.parse(BuildInformationConstants.BUILD_TIME))
+                .build();
+    }
 }
