@@ -64,7 +64,6 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
-import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -108,9 +107,6 @@ public class Driver {
 
     @Inject
     ArtifactFilterDatabase artifactFilterDatabase;
-
-    @Inject
-    ArtifactFilterPromotion artifactFilterPromotion;
 
     @Inject
     ManagedExecutor executor;
@@ -237,7 +233,7 @@ public class Driver {
             List<RepositoryArtifact> uploadedArtifacts;
             try {
                 downloadedArtifacts = trackingReportProcessor
-                        .collectDownloadedArtifacts(report, artifactFilterPromotion);
+                        .collectDownloadedArtifacts(report, artifactFilterDatabase);
                 heartBeatSender.run();
                 uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                         report,
