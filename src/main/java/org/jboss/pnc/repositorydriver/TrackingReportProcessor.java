@@ -263,6 +263,7 @@ public class TrackingReportProcessor {
                         genericRepos.add(source);
                         String hostedName = getGenericHostedRepoName(remoteName);
                         target = new StoreKey(packageType, StoreType.hosted, hostedName);
+                        promotionPaths.add(source, target, path);
                         break;
 
                     default:
