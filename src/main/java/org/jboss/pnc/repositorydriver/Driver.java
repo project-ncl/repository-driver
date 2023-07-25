@@ -606,7 +606,8 @@ public class Driver {
                 .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
                 .build();
 
-        String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId + ").";
+        String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
+                + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
         logger.info(changelog);
         storesModule.create(buildGroup, changelog, Group.class);
     }
