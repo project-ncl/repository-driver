@@ -18,6 +18,7 @@
 
 package org.jboss.pnc.repositorydriver.endpoints;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -28,7 +29,6 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
-import io.quarkus.security.Authenticated;
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCollectRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
@@ -58,7 +58,7 @@ public class Public {
      * Create a new repository for the build. If Indy responds with en error an error response is returned to the
      * invoker.
      */
-    @Authenticated
+    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
     @POST
     @Path("/create")
     public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
@@ -72,7 +72,7 @@ public class Public {
      *
      * @param buildContentId
      */
-    @Authenticated
+    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
     @PUT
     @Path("/seal")
     public void seal(String buildContentId) throws RepositoryDriverException {
@@ -85,7 +85,7 @@ public class Public {
      * retrieval, if the retrieval fails and error response is returned. The promotion is an async operation, the result
      * is sent via callback defined in the {@link RepositoryPromoteRequest}
      */
-    @Authenticated
+    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
     @PUT
     @Path("/promote")
     public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
@@ -93,7 +93,7 @@ public class Public {
         driver.promote(promoteRequest);
     }
 
-    @Authenticated
+    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
     @POST
     @Path("/archive")
     public void archive(ArchiveRequest archiveRequest) throws RepositoryDriverException {
