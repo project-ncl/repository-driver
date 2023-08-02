@@ -25,6 +25,7 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.quarkus.oidc.client.OidcClient;
 import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
@@ -131,6 +132,9 @@ public class Driver {
 
     @Inject
     Tokens serviceTokens;
+
+    @Inject
+    OidcClient oidcClient;
 
     @WithSpan()
     public RepositoryCreateResponse create(
@@ -465,6 +469,12 @@ public class Driver {
                 lastStatus);
     }
 
+    /**
+     * Send the data to the requestor via the callback url
+     *
+     * @param callback
+     * @param promoteResult
+     */
     private void notifyInvoker(Request callback, RepositoryPromoteResult promoteResult) {
         String body;
         try {
@@ -478,6 +488,9 @@ public class Driver {
                 .method(callback.getMethod().name(), HttpRequest.BodyPublishers.ofString(body))
                 .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
         callback.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
+        // Add the service account's access token. We use a fresh one instead of serviceTokens since serviceTokens might
+        // already be closed to expiry when we hit this method inside the executor
+        builder.header(javax.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
         HttpRequest request = builder.build();
 
         RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
@@ -965,5 +978,15 @@ public class Driver {
                 throw new FailedResponseException("Response status code: " + response.statusCode());
             }
         };
+    }
+
+    /**
+     * Get a fresh access token for the service account. This is done because we want to get a super-new token to be
+     * used since we're not entirely sure when the http request will be done inside the completablefuture.
+     *
+     * @return fresh access token
+     */
+    private String getFreshAccessToken() {
+        return oidcClient.getTokens().await().indefinitely().getAccessToken();
     }
 }
