@@ -1,9 +1,8 @@
 quarkus:
   application:
-    name: repository-driver
-  # [NCL-7901] Disable Opentelemtry for PNC 2.5
+    name: pnc-repository-driver
   opentelemetry:
-    enabled: false
+    enabled: true
     tracer:
       enabled: true
       exporter:
