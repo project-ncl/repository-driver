@@ -325,7 +325,27 @@ public class Driver {
                                 buildConfigurationId,
                                 buildContentId);
 
-                        archive(archiveRequest);
+                        // Create a parent child span with values from MDC
+                        SpanBuilder spanBuilder = OtelUtils.buildChildSpan(
+                                GlobalOpenTelemetry.get().getTracer(""),
+                                "Driver.archive",
+                                SpanKind.CLIENT,
+                                MDC.get(MDCKeys.TRACE_ID_KEY),
+                                MDC.get(MDCKeys.SPAN_ID_KEY),
+                                MDC.get(MDCKeys.TRACE_FLAGS_KEY),
+                                MDC.get(MDCKeys.TRACE_STATE_KEY),
+                                Span.current().getSpanContext(),
+                                Map.of("buildContentId", buildContentId, "buildConfigId", buildConfigurationId));
+                        Span span = spanBuilder.startSpan();
+                        logger.debug("Started a new span :{}", span);
+
+                        // put the span into the current Context
+                        try (Scope scope = span.makeCurrent()) {
+                            archive(archiveRequest);
+                        } finally {
+                            span.end(); // closing the scope does not end the span, this has to be done manually
+                        }
+
                     } catch (Throwable e) {
                         logger.error(
                                 "Failed to archive the downloaded content of {} for build {} ...",
