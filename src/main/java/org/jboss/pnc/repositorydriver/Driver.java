@@ -411,22 +411,16 @@ public class Driver {
 
     private HttpResponse<String> requestArchival(ArchivePayload archivePayload) {
         logger.info("Invoking archival service. Request: {}", archivePayload);
-        String body;
+        final String body;
+        String body1;
         try {
-            body = jsonMapper.writeValueAsString(archivePayload);
+            body1 = jsonMapper.writeValueAsString(archivePayload);
         } catch (JsonProcessingException e) {
             logger.error("Cannot serialize callback object.", e);
-            body = "";
+            body1 = "";
         }
 
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(URI.create(configuration.getArchiveServiceEndpoint()))
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
-                .header(AUTHORIZATION_STRING, "Bearer " + serviceTokens.getAccessToken())
-                .header(CONTENT_TYPE_STRING, "application/json");
-
-        HttpRequest request = builder.build();
+        body = body1;
         RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
                 .withMaxDuration(Duration.ofSeconds(configuration.getArchiveServiceRunningWaitFor()))
                 .withMaxRetries(Integer.MAX_VALUE) // retry until maxDuration is reached
@@ -459,13 +453,30 @@ public class Driver {
                 .onFailure(ctx -> logger.error("Unable to call archival service: {}.", ctx.getFailure().getMessage()))
                 .onAbort(e -> logger.warn("Archival service call aborted: {}.", e.getFailure().getMessage()));
 
-        logger.info("About to call archival service {}.", request.uri());
+        logger.info("About to call archival service {}.", configuration.getArchiveServiceEndpoint());
         return Failsafe.with(retryPolicy)
                 .with(executor)
                 .getStageAsync(
-                        () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                        () -> httpClient.sendAsync(getArchivalHttpRequest(body), HttpResponse.BodyHandlers.ofString())
                                 .thenApply(validateResponse()))
                 .join();
+    }
+
+    /**
+     * Build the archival http request with authentication headers
+     *
+     * @param body body of request
+     * @return HttpRequest
+     */
+    private HttpRequest getArchivalHttpRequest(String body) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(URI.create(configuration.getArchiveServiceEndpoint()))
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
+                .header(AUTHORIZATION_STRING, "Bearer " + getFreshAccessToken())
+                .header(CONTENT_TYPE_STRING, "application/json");
+
+        return builder.build();
     }
 
     private static void onRetry(ExecutionAttemptedEvent<HttpResponse<String>> ctx, String operation) {
@@ -496,22 +507,15 @@ public class Driver {
      * @param promoteResult
      */
     private void notifyInvoker(Request callback, RepositoryPromoteResult promoteResult) {
-        String body;
+        final String body;
+        String body1;
         try {
-            body = jsonMapper.writeValueAsString(promoteResult);
+            body1 = jsonMapper.writeValueAsString(promoteResult);
         } catch (JsonProcessingException e) {
             logger.error("Cannot serialize callback object.", e);
-            body = "";
+            body1 = "";
         }
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(callback.getUri())
-                .method(callback.getMethod().name(), HttpRequest.BodyPublishers.ofString(body))
-                .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
-        callback.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
-        // Add the service account's access token. We use a fresh one instead of serviceTokens since serviceTokens might
-        // already be closed to expiry when we hit this method inside the executor
-        builder.header(javax.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
-        HttpRequest request = builder.build();
+        body = body1;
 
         RetryPolicy<HttpResponse<String>> retryPolicy = new RetryPolicy<HttpResponse<String>>()
                 .withMaxDuration(Duration.ofSeconds(configuration.getCallbackRetryDuration()))
@@ -527,12 +531,25 @@ public class Driver {
         Failsafe.with(retryPolicy)
                 .with(executor)
                 .getStageAsync(
-                        () -> httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                        () -> httpClient
+                                .sendAsync(getNotifyHttpRequest(callback, body), HttpResponse.BodyHandlers.ofString())
                                 .thenApply(validateResponse()))
                 .handle(Context.current().wrapFunction((r, t) -> {
                     lifecycle.removeActivePromotion();
                     return null;
                 }));
+    }
+
+    private HttpRequest getNotifyHttpRequest(Request callback, String body) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .uri(callback.getUri())
+                .method(callback.getMethod().name(), HttpRequest.BodyPublishers.ofString(body))
+                .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
+        callback.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
+        // Add the service account's access token. We use a fresh one instead of serviceTokens since serviceTokens might
+        // already be closed to expiry when we hit this method inside the executor
+        builder.header(javax.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
+        return builder.build();
     }
 
     @WithSpan()
@@ -914,13 +931,15 @@ public class Driver {
     }
 
     private Runnable heartBeatSender(Request heartBeat) {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(heartBeat.getUri())
-                .method(heartBeat.getMethod().name(), HttpRequest.BodyPublishers.noBody())
-                .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
-        heartBeat.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
-        HttpRequest request = builder.build();
         return () -> {
+            HttpRequest.Builder builder = HttpRequest.newBuilder()
+                    .uri(heartBeat.getUri())
+                    .method(heartBeat.getMethod().name(), HttpRequest.BodyPublishers.noBody())
+                    .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
+            heartBeat.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
+            builder.header(javax.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
+            HttpRequest request = builder.build();
+
             CompletableFuture<HttpResponse<String>> response = httpClient
                     .sendAsync(request, HttpResponse.BodyHandlers.ofString());
             response.handleAsync(Context.current().wrapFunction((r, t) -> {
@@ -1001,12 +1020,22 @@ public class Driver {
     }
 
     /**
-     * Get a fresh access token for the service account. This is done because we want to get a super-new token to be
-     * used since we're not entirely sure when the http request will be done inside the completablefuture.
+     * Get an access token for the service account. We can use the "cached" Tokens one if it's still valid, otherwise we
+     * can either refresh it or get a new access token
      *
      * @return fresh access token
      */
     private String getFreshAccessToken() {
-        return oidcClient.getTokens().await().indefinitely().getAccessToken();
+
+        // why would it be null? I don't know. Just give up and get a fresh one.
+        // if both access and refresh token are expired, also get a fresh one
+        if (serviceTokens == null || (serviceTokens.isAccessTokenExpired() && serviceTokens.isRefreshTokenExpired())) {
+            serviceTokens = oidcClient.getTokens().await().indefinitely();
+        } else if (serviceTokens.isAccessTokenExpired() && !serviceTokens.isRefreshTokenExpired()) {
+            // if we can still refresh the token!
+            serviceTokens = oidcClient.refreshTokens(serviceTokens.getRefreshToken()).await().indefinitely();
+        }
+
+        return serviceTokens.getAccessToken();
     }
 }
