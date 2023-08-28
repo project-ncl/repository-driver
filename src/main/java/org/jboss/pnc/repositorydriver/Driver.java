@@ -26,7 +26,6 @@ import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.quarkus.oidc.client.OidcClient;
-import io.quarkus.oidc.client.Tokens;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.event.ExecutionAttemptedEvent;
@@ -71,6 +70,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import javax.enterprise.context.RequestScoped;
+import javax.enterprise.context.control.ActivateRequestContext;
 import javax.inject.Inject;
 
 import java.net.MalformedURLException;
@@ -129,9 +129,6 @@ public class Driver {
 
     @Inject
     TrackingReportProcessor trackingReportProcessor;
-
-    @Inject
-    Tokens serviceTokens;
 
     @Inject
     OidcClient oidcClient;
@@ -1020,22 +1017,11 @@ public class Driver {
     }
 
     /**
-     * Get an access token for the service account. We can use the "cached" Tokens one if it's still valid, otherwise we
-     * can either refresh it or get a new access token
+     * Get an access token for the service account
      *
      * @return fresh access token
      */
     private String getFreshAccessToken() {
-
-        // why would it be null? I don't know. Just give up and get a fresh one.
-        // if both access and refresh token are expired, also get a fresh one
-        if (serviceTokens == null || (serviceTokens.isAccessTokenExpired() && serviceTokens.isRefreshTokenExpired())) {
-            serviceTokens = oidcClient.getTokens().await().indefinitely();
-        } else if (serviceTokens.isAccessTokenExpired() && !serviceTokens.isRefreshTokenExpired()) {
-            // if we can still refresh the token!
-            serviceTokens = oidcClient.refreshTokens(serviceTokens.getRefreshToken()).await().indefinitely();
-        }
-
-        return serviceTokens.getAccessToken();
+        return oidcClient.getTokens().await().indefinitely().getAccessToken();
     }
 }
