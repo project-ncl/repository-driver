@@ -313,6 +313,15 @@
     </repository>
 
     <repository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>central</id>
+      <name>Central Repository</name>
+      <url>https://repo.maven.apache.org/maven2</url>
+    </repository>
+
+    <repository>
       <id>Nexus Staging</id>
       <url>https://oss.sonatype.org/content/groups/staging</url>
       <snapshots>
