@@ -70,7 +70,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import javax.enterprise.context.RequestScoped;
-import javax.enterprise.context.control.ActivateRequestContext;
 import javax.inject.Inject;
 
 import java.net.MalformedURLException;
@@ -254,7 +253,7 @@ public class Driver {
                 heartBeatSender.run();
                 PromotionPaths downloadsPromotions = trackingReportProcessor
                         .collectDownloadsPromotions(report, genericRepos);
-                promoteDownloads(downloadsPromotions, heartBeatSender, promoteRequest.isTempBuild());
+                promoteDownloads(downloadsPromotions, heartBeatSender, promoteRequest.isTempBuild(), buildContentId);
                 heartBeatSender.run();
                 promoteUploads(
                         trackingReportProcessor.collectUploadsPromotions(
@@ -263,7 +262,8 @@ public class Driver {
                                 buildType.getRepoType(),
                                 buildContentId),
                         promoteRequest.isTempBuild(),
-                        heartBeatSender);
+                        heartBeatSender,
+                        buildContentId);
             } catch (RepositoryDriverException e) {
                 logger.error("Failed promoting downloaded or uploaded artifacts.", e);
 
@@ -666,8 +666,11 @@ public class Driver {
      * @throws RepositoryDriverException in case of an unexpected error during promotion
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    private void promoteDownloads(PromotionPaths promotionPaths, Runnable heartBeatSender, boolean tempBuild)
-            throws RepositoryDriverException, PromotionValidationException {
+    private void promoteDownloads(
+            PromotionPaths promotionPaths,
+            Runnable heartBeatSender,
+            boolean tempBuild,
+            String promotionTrackingId) throws RepositoryDriverException, PromotionValidationException {
         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
         // imports
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
@@ -677,6 +680,7 @@ public class Driver {
                     sourceTargetPaths.getTarget(),
                     sourceTargetPaths.getPaths());
             request.setPurgeSource(false);
+            request.setTrackingId(promotionTrackingId);
             // set read-only only the generic http proxy hosted repos, not shared-imports
             boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(sourceTargetPaths.getTarget().getPackageType());
 
@@ -702,8 +706,11 @@ public class Driver {
      *         in transport
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    private void promoteUploads(PromotionPaths promotionPaths, boolean tempBuild, Runnable heartBeatSender)
-            throws RepositoryDriverException, PromotionValidationException {
+    private void promoteUploads(
+            PromotionPaths promotionPaths,
+            boolean tempBuild,
+            Runnable heartBeatSender,
+            String promotionTrackingID) throws RepositoryDriverException, PromotionValidationException {
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             heartBeatSender.run();
             try {
@@ -711,6 +718,7 @@ public class Driver {
                         sourceTargetPaths.getSource(),
                         sourceTargetPaths.getTarget(),
                         sourceTargetPaths.getPaths());
+                request.setTrackingId(promotionTrackingID);
                 doPromoteByPath(request, !tempBuild, false);
             } catch (RepositoryDriverException | PromotionValidationException ex) {
                 userLog.error("Built artifact promotion failed. Error(s): {}", ex.getMessage());
