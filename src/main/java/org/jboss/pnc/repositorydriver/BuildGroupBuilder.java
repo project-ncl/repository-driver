@@ -105,60 +105,64 @@ public class BuildGroupBuilder {
         if (repositoryUrls != null && !repositoryUrls.isEmpty()) {
             List<String> splittedRepos = new ArrayList<>();
             for (String repoToSplit : repositoryUrls) {
-                if (repoToSplit.contains("\\n")) {
-                    for (String repoUrl : repoToSplit.split("\\\\n")) {
-                        splittedRepos.add(repoUrl.trim());
+                if (!StringUtils.isEmpty(repoToSplit)) {
+                    if (repoToSplit.contains("\\n")) {
+                        for (String repoUrl : repoToSplit.split("\\\\n")) {
+                            splittedRepos.add(repoUrl.trim());
+                        }
+                    } else {
+                        splittedRepos.add(repoToSplit.trim());
                     }
-                } else {
-                    splittedRepos.add(repoToSplit.trim());
                 }
             }
 
-            Set<ArtifactRepository> repositories = splittedRepos.stream()
-                    .map(this::createArtifactRepository)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
+            if (!splittedRepos.isEmpty()) {
+                Set<ArtifactRepository> repositories = splittedRepos.stream()
+                        .map(this::createArtifactRepository)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
 
-            StoreListingDTO<RemoteRepository> existingRepos = indy.stores().listRemoteRepositories(packageType);
-            for (ArtifactRepository repository : repositories) {
-                StoreKey remoteKey = null;
-                for (RemoteRepository existingRepo : existingRepos) {
-                    if (StringUtils.equals(existingRepo.getUrl(), repository.getUrl())) {
-                        remoteKey = existingRepo.getKey();
-                        break;
-                    }
-                }
-
-                if (remoteKey == null) {
-                    // this is basically an implied repo, so using the same prefix "i-"
-                    String remoteName = "i-" + convertIllegalCharacters(repository.getId());
-
-                    // find a free repository ID for the newly created repo
-                    remoteKey = new StoreKey(packageType, StoreType.remote, remoteName);
-                    int i = 2;
-                    while (indy.stores().exists(remoteKey)) {
-                        remoteKey = new StoreKey(packageType, StoreType.remote, remoteName + "-" + i++);
+                StoreListingDTO<RemoteRepository> existingRepos = indy.stores().listRemoteRepositories(packageType);
+                for (ArtifactRepository repository : repositories) {
+                    StoreKey remoteKey = null;
+                    for (RemoteRepository existingRepo : existingRepos) {
+                        if (StringUtils.equals(existingRepo.getUrl(), repository.getUrl())) {
+                            remoteKey = existingRepo.getKey();
+                            break;
+                        }
                     }
 
-                    RemoteRepository remoteRepo = new RemoteRepository(
-                            packageType,
-                            remoteKey.getName(),
-                            repository.getUrl());
-                    remoteRepo.setAllowReleases(repository.getReleases());
-                    remoteRepo.setAllowSnapshots(repository.getSnapshots());
-                    remoteRepo.setDescription(
-                            "Implicitly created " + packageType + " repo for: " + repository.getName() + " ("
-                                    + repository.getId() + ") from repository declaration removed by PME " + " (repo: "
-                                    + buildContentId + ")");
-                    indy.stores()
-                            .create(
-                                    remoteRepo,
-                                    "Creating extra remote repository " + repository.getName() + " ("
-                                            + repository.getId() + ") repo: " + buildContentId + "",
-                                    RemoteRepository.class);
-                }
+                    if (remoteKey == null) {
+                        // this is basically an implied repo, so using the same prefix "i-"
+                        String remoteName = "i-" + convertIllegalCharacters(repository.getId());
 
-                buildGroup.addConstituent(remoteKey);
+                        // find a free repository ID for the newly created repo
+                        remoteKey = new StoreKey(packageType, StoreType.remote, remoteName);
+                        int i = 2;
+                        while (indy.stores().exists(remoteKey)) {
+                            remoteKey = new StoreKey(packageType, StoreType.remote, remoteName + "-" + i++);
+                        }
+
+                        RemoteRepository remoteRepo = new RemoteRepository(
+                                packageType,
+                                remoteKey.getName(),
+                                repository.getUrl());
+                        remoteRepo.setAllowReleases(repository.getReleases());
+                        remoteRepo.setAllowSnapshots(repository.getSnapshots());
+                        remoteRepo.setDescription(
+                                "Implicitly created " + packageType + " repo for: " + repository.getName() + " ("
+                                        + repository.getId() + ") from repository declaration removed by PME (repo: "
+                                        + buildContentId + ")");
+                        indy.stores()
+                                .create(
+                                        remoteRepo,
+                                        "Creating extra remote repository " + repository.getName() + " ("
+                                                + repository.getId() + ") repo: " + buildContentId,
+                                        RemoteRepository.class);
+                    }
+
+                    buildGroup.addConstituent(remoteKey);
+                }
             }
         }
         return this;
@@ -177,14 +181,25 @@ public class BuildGroupBuilder {
     }
 
     private ArtifactRepository createArtifactRepository(String url) {
-        String id;
+        ArtifactRepository result = null;
+        URI uri = null;
         try {
-            id = new URI(url).getHost().replaceAll("\\.", "-");
+            uri = new URI(url);
         } catch (URISyntaxException e) {
             userLog.warn("Malformed repository URL entered: {}. Skipping!", url);
-            return null;
         }
-        return ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
+
+        if (uri != null) {
+            String host = uri.getHost();
+            if (host == null) {
+                userLog.warn("No host in repository URL entered: {}. Skipping!", url);
+            } else {
+                String id = host.replaceAll("\\.", "-");
+                result = ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
+            }
+        }
+
+        return result;
     }
 
     public Group build() {
