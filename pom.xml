@@ -70,7 +70,7 @@
     <indy.version>3.2.2</indy.version>
     <wiremock.version>2.35.1</wiremock.version>
     <!-- Package URL -->
-    <version.com.github.package-url>1.4.1</version.com.github.package-url>
+    <version.com.github.package-url>1.4.2</version.com.github.package-url>
 
     <version.javadoc.plugin>3.6.0</version.javadoc.plugin>
     <version.source.plugin>3.3.0</version.source.plugin>
