@@ -115,7 +115,6 @@ public class TrackingReportProcessor {
                 String path = download.getPath();
                 StoreKey storeKey = download.getStoreKey();
                 String identifier = computeIdentifier(download);
-                String purl = computePurl(download);
 
                 logger.info("Recording download: {}", identifier);
 
@@ -132,6 +131,7 @@ public class TrackingReportProcessor {
                         : ArtifactQuality.IMPORTED;
 
                 String filename = getDownloadFilename(path, originUrl, targetRepository.getRepositoryType());
+                String purl = computePurl(download, filename);
 
                 RepositoryArtifact.Builder artifactBuilder = RepositoryArtifact.builder()
                         .md5(download.getMd5())
@@ -171,7 +171,7 @@ public class TrackingReportProcessor {
             // for generic-http downloads the deploypath is hashed, so we use the originurl to get the filename
             try {
                 URL url = new URL(originUrl);
-                filename = url.getFile();
+                filename = new File(url.getFile()).getName();
             } catch (MalformedURLException ex) {
                 logger.error("Unable to parse the origin URL " + originUrl, ex);
             }
@@ -238,7 +238,8 @@ public class TrackingReportProcessor {
             if (artifactFilterDatabase.accepts(upload)) {
                 Log.warn(upload.toString() + " accepted");
                 String identifier = computeIdentifier(upload);
-                String purl = computePurl(upload);
+                String filename = new File(path).getName();
+                String purl = computePurl(upload, filename);
 
                 logger.info("Recording upload: {}", identifier);
                 RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
@@ -250,7 +251,7 @@ public class TrackingReportProcessor {
                         .sha256(upload.getSha256())
                         .size(upload.getSize())
                         .deployPath(upload.getPath())
-                        .filename(new File(path).getName())
+                        .filename(filename)
                         .identifier(identifier)
                         .purl(purl)
                         .artifactQuality(tempBuild ? ArtifactQuality.TEMPORARY : ArtifactQuality.NEW)
@@ -413,9 +414,10 @@ public class TrackingReportProcessor {
      * Computes purl string for an artifact.
      *
      * @param transfer the download or upload that we want to generate identifier for
+     * @param filename previously computed filename to avoid computing it again and maybe differently
      * @return generated purl
      */
-    private String computePurl(final TrackedContentEntryDTO transfer) {
+    private String computePurl(final TrackedContentEntryDTO transfer, final String filename) {
         String purl = null;
 
         try {
@@ -488,7 +490,7 @@ public class TrackingReportProcessor {
 
             if (purl == null) {
                 purl = computeGenericPurl(
-                        transfer.getPath(),
+                        filename,
                         transfer.getOriginUrl(),
                         transfer.getLocalUrl(),
                         transfer.getSha256());
@@ -527,19 +529,19 @@ public class TrackingReportProcessor {
     /**
      * Compute the purl string for a generic download, that does not match package type specific files structure. It
      * prefers to use the origin URL if it is not empty. In case it is then it uses local URL, which can never be empty,
-     * it is the local file mirror in Indy. After that it attaches the sha256 separated by a pipe.
+     * it is the local file mirror in Indy. Apart from that that it attaches the sha256 checksum.
      *
      * @param originUrl the origin URL of the transfer, it can be null
      * @param localUrl url where the artifact was backed up in Indy
      * @param sha256 the SHA-256 of the transfer
      * @return the generated purl
      * @throws MalformedPackageURLException
+     * @see https://github.com/package-url/purl-spec/blob/master/PURL-TYPES.rst#generic
      */
-    private String computeGenericPurl(String path, String originUrl, String localUrl, String sha256)
+    private String computeGenericPurl(String filename, String originUrl, String localUrl, String sha256)
             throws MalformedPackageURLException {
-        // See https://github.com/package-url/purl-spec/blob/master/PURL-TYPES.rst#generic
         String downloadUrl = originUrl != null ? originUrl : localUrl;
-        String name = new File(path).getName();
+        String name = filename;
         if (Strings.isEmpty(name)) {
             name = new File(downloadUrl).getName();
         }
