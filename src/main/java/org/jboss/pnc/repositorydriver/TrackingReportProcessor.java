@@ -41,6 +41,8 @@ import javax.validation.ConstraintViolation;
 import javax.validation.Validator;
 
 import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -128,6 +130,9 @@ public class TrackingReportProcessor {
                 // ignored dependency sources for promotion are the internal ones, so those artifacts are built inhouse
                 ArtifactQuality quality = ignoreDependencySource(storeKey) ? ArtifactQuality.NEW
                         : ArtifactQuality.IMPORTED;
+
+                String filename = getDownloadFilename(path, originUrl, targetRepository.getRepositoryType());
+
                 RepositoryArtifact.Builder artifactBuilder = RepositoryArtifact.builder()
                         .md5(download.getMd5())
                         .sha1(download.getSha1())
@@ -136,7 +141,7 @@ public class TrackingReportProcessor {
                         .deployPath(path)
                         .originUrl(originUrl)
                         .importDate(Instant.now())
-                        .filename(new File(path).getName())
+                        .filename(filename)
                         .identifier(identifier)
                         .purl(purl)
                         .artifactQuality(quality)
@@ -148,6 +153,33 @@ public class TrackingReportProcessor {
         }
         deps.sort(Comparator.comparing(RepositoryArtifact::getIdentifier));
         return deps;
+    }
+
+    /**
+     * Gets the download filename. For regular dependencies it uses the deploypath to get it. But for generic-http
+     * downloads the deploypath is hashed and can be longer than 255 characters, so it extracts the filename from the
+     * originUrl.
+     *
+     * @param deployPath the download's deploy path
+     * @param originUrl the origin URL, can be null for local dependencies
+     * @param repoType the repository type used to recognize generic-http downloads
+     * @return the extracted filename
+     */
+    private String getDownloadFilename(String deployPath, String originUrl, RepositoryType repoType) {
+        String filename = null;
+        if (RepositoryType.GENERIC_PROXY.equals(repoType)) {
+            // for generic-http downloads the deploypath is hashed, so we use the originurl to get the filename
+            try {
+                URL url = new URL(originUrl);
+                filename = url.getFile();
+            } catch (MalformedURLException ex) {
+                logger.error("Unable to parse the origin URL " + originUrl, ex);
+            }
+        }
+        if (filename == null) {
+            filename = new File(deployPath).getName();
+        }
+        return filename;
     }
 
     /**
