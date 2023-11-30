@@ -58,7 +58,7 @@ public class Public {
      * Create a new repository for the build. If Indy responds with en error an error response is returned to the
      * invoker.
      */
-    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
+    @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     @POST
     @Path("/create")
     public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
@@ -72,7 +72,7 @@ public class Public {
      *
      * @param buildContentId
      */
-    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
+    @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     @PUT
     @Path("/seal")
     public void seal(String buildContentId) throws RepositoryDriverException {
@@ -85,7 +85,7 @@ public class Public {
      * retrieval, if the retrieval fails and error response is returned. The promotion is an async operation, the result
      * is sent via callback defined in the {@link RepositoryPromoteRequest}
      */
-    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
+    @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     @PUT
     @Path("/promote")
     public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
@@ -93,7 +93,7 @@ public class Public {
         driver.promote(promoteRequest);
     }
 
-    @RolesAllowed({ "pnc-users-repository-driver-admin", "pnc-users-admin" })
+    @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     @POST
     @Path("/archive")
     public void archive(ArchiveRequest archiveRequest) throws RepositoryDriverException {
