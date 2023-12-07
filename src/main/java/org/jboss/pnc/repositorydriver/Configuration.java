@@ -114,6 +114,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.indy-sidecar.archive-enabled", defaultValue = "false")
     boolean sidecarArchiveEnabled;
 
+    @ConfigProperty(name = "repository-driver.archive-service.prefer-http-2", defaultValue = "true")
+    boolean archiveServicePreferHttp2;
+
     @ConfigProperty(name = "repository-driver.archive-service.running-wait-for", defaultValue = "30")
     long archiveServiceRunningWaitFor;
 

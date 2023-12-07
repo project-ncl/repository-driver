@@ -87,6 +87,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
+import static java.net.http.HttpClient.Version.HTTP_1_1;
+import static java.net.http.HttpClient.Version.HTTP_2;
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
@@ -467,6 +469,7 @@ public class Driver {
      */
     private HttpRequest getArchivalHttpRequest(String body) {
         HttpRequest.Builder builder = HttpRequest.newBuilder()
+                .version(configuration.isArchiveServicePreferHttp2() ? HTTP_2 : HTTP_1_1)
                 .uri(URI.create(configuration.getArchiveServiceEndpoint()))
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
