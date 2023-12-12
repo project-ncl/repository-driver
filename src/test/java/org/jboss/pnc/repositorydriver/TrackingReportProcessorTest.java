@@ -24,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
@@ -176,16 +179,10 @@ public class TrackingReportProcessorTest {
         String buildContentId = "build-X";
         StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
 
-        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar);
+        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         uploads.add(trackedIndyJar);
 
-        TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom);
+        TrackedContentEntryDTO trackedIndyPom = mavenEntry(buildContentId, TrackingReportMocks.indyPom, "originPomUrl");
         uploads.add(trackedIndyPom);
 
         report.setUploads(uploads);
@@ -212,19 +209,11 @@ public class TrackingReportProcessorTest {
         String buildContentId = "build-X";
         StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
 
-        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar);
-        trackedIndyJar.setOriginUrl("originJarUrl");
+        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         downloads.add(trackedIndyJar);
 
-        TrackedContentEntryDTO trackedIndyPom = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom);
         String originPomUrl = "originPomUrl";
-        trackedIndyPom.setOriginUrl(originPomUrl);
+        TrackedContentEntryDTO trackedIndyPom = mavenEntry(buildContentId, TrackingReportMocks.indyPom, originPomUrl);
         downloads.add(trackedIndyPom);
 
         report.setDownloads(downloads);
@@ -253,15 +242,13 @@ public class TrackingReportProcessorTest {
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         String buildContentId = "build-Y";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
-
-        // NCL-7238: Handle urls with no file extension
-        TrackedContentEntryDTO trackedNoFileExtensionArtifact = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.noFileExtensionArtifact);
         String noFileExtensionUrl = "originNoFileExtensionUrl";
-        trackedNoFileExtensionArtifact.setOriginUrl(noFileExtensionUrl);
+        // NCL-7238: Handle urls with no file extension
+        TrackedContentEntryDTO trackedNoFileExtensionArtifact = mavenEntry(
+                buildContentId,
+                TrackingReportMocks.noFileExtensionArtifact,
+                noFileExtensionUrl);
+
         downloads.add(trackedNoFileExtensionArtifact);
 
         report.setDownloads(downloads);
@@ -285,12 +272,10 @@ public class TrackingReportProcessorTest {
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         String buildContentId = "build-X";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_GENERIC_HTTP, StoreType.remote, buildContentId);
-        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.GENERIC_PROXY,
-                TrackingReportMocks.indyJar);
-        trackedIndyJar.setOriginUrl("originJarUrl");
+        TrackedContentEntryDTO trackedIndyJar = genericProxyEntry(
+                buildContentId,
+                TrackingReportMocks.indyJar,
+                "originJarUrl");
         downloads.add(trackedIndyJar);
 
         report.setDownloads(downloads);
@@ -305,12 +290,8 @@ public class TrackingReportProcessorTest {
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         String buildContentId = "ignored";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, buildContentId);
-        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar);
-        trackedIndyJar.setOriginUrl("originJarUrl");
+        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
+        StoreKey buildKey = trackedIndyJar.getStoreKey();
         downloads.add(trackedIndyJar);
 
         report.setDownloads(downloads);
@@ -326,21 +307,14 @@ public class TrackingReportProcessorTest {
         Set<TrackedContentEntryDTO> downloads = new HashSet<>();
 
         String buildContentId = "build-x";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, buildContentId);
-        TrackedContentEntryDTO trackedIndyJar = new TrackedContentEntryDTO(
-                buildKey,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyJar);
-        trackedIndyJar.setOriginUrl("originJarUrl");
+        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         downloads.add(trackedIndyJar);
 
         String buildContentId2 = "build-y";
-        StoreKey buildKey2 = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, buildContentId2);
-        TrackedContentEntryDTO trackedIndyNpmArt = new TrackedContentEntryDTO(
-                buildKey2,
-                AccessChannel.NATIVE,
-                TrackingReportMocks.indyPom);
-        trackedIndyNpmArt.setOriginUrl("originUrl");
+        TrackedContentEntryDTO trackedIndyNpmArt = mavenEntry(
+                buildContentId2,
+                TrackingReportMocks.indyJar,
+                "originJarUrl");
         downloads.add(trackedIndyNpmArt);
 
         report.setDownloads(downloads);
@@ -355,4 +329,77 @@ public class TrackingReportProcessorTest {
         }
     }
 
+    @Test
+    public void testPromotionPathGeneration() {
+        // given
+        TrackedContentDTO trackedContent = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+
+        String gpRepoName = "docs-oracle-com-build-ABCDEFGH";
+        String gpPath = "/javase/8/docs/api";
+        String gpOriginUrl = "http://docs.oracle.com/javase/8/docs/api";
+        TrackedContentEntryDTO genericProxyEntry = genericProxyEntry("r-" + gpRepoName, gpPath, gpOriginUrl);
+        downloads.add(genericProxyEntry);
+        StoreKey gpStoreKey = genericProxyEntry.getStoreKey();
+
+        String mavenRepoName = "build-ABCDEFGH";
+        String mavenMetadataPath = "/com/fasterxml/jackson/datatype/jackson-datatype-jaxrs/maven-metadata.xml";
+        String mavenMetadataOriginUrl = "http://indy.local/api/content/maven/hosted/build-A47MNG4KFVIAY/com/fasterxml/jackson/datatype/jackson-datatype-jaxrs/maven-metadata.xml";
+        TrackedContentEntryDTO metadataEntry = mavenEntry(mavenRepoName, mavenMetadataPath, mavenMetadataOriginUrl);
+        downloads.add(metadataEntry);
+
+        String jarPath = "/com/fasterxml/jackson/core/jackson-annotations/2.16.0.redhat-00001/jackson-annotations-2.16.0.redhat-00001.jar";
+        TrackedContentEntryDTO jarEntry = mavenEntry(mavenRepoName, jarPath, null);
+        downloads.add(jarEntry);
+        trackedContent.setDownloads(downloads);
+
+        // when
+        Set<StoreKey> genericRepos = new HashSet<>();
+        PromotionPaths promotionPaths = trackingReportProcessor
+                .collectDownloadsPromotions(trackedContent, genericRepos);
+        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
+
+        // then
+        Assertions.assertEquals(2, sourceTargetPaths.size());
+
+        // Generic repos
+        Assertions.assertEquals(1, genericRepos.size());
+        assertTrue(genericRepos.contains(gpStoreKey));
+
+        SourceTargetPaths gpToDedicatedRepo = sourceTargetPaths.stream()
+                .filter(a -> a.getSource().equals(gpStoreKey))
+                .findAny()
+                .orElseThrow();
+        StoreKey dedicatedRepo = new StoreKey(PKG_TYPE_GENERIC_HTTP, StoreType.hosted, "h-" + gpRepoName);
+        Assertions.assertEquals(dedicatedRepo, gpToDedicatedRepo.getTarget());
+
+        Set<String> gpExpectedPaths = new HashSet<>();
+        gpExpectedPaths.add(gpPath);
+        Assertions.assertLinesMatch(gpExpectedPaths.stream(), gpToDedicatedRepo.getPaths().stream());
+
+        // Maven repos
+        SourceTargetPaths mavenToSharedImports = sourceTargetPaths.stream()
+                .filter(a -> a.getSource().equals(metadataEntry.getStoreKey()))
+                .findAny()
+                .orElseThrow();
+        Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, mavenToSharedImports.getTarget());
+
+        Set<String> mavenExpectedPaths = new HashSet<>();
+        mavenExpectedPaths.add(jarPath);
+        Assertions.assertLinesMatch(mavenExpectedPaths.stream(), mavenToSharedImports.getPaths().stream());
+    }
+
+    private static TrackedContentEntryDTO genericProxyEntry(String name, String path, String originUrl) {
+        StoreKey storeKey = new StoreKey(PKG_TYPE_GENERIC_HTTP, StoreType.remote, name);
+        TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.GENERIC_PROXY, path);
+        entry.setOriginUrl(originUrl);
+        return entry;
+    }
+
+    private static TrackedContentEntryDTO mavenEntry(String name, String path, String originUrl) {
+        StoreKey storeKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, name);
+        TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.NATIVE, path);
+        entry.setOriginUrl(originUrl);
+        return entry;
+    }
 }
