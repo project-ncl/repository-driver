@@ -393,6 +393,9 @@ public class TrackingReportProcessorTest {
         StoreKey storeKey = new StoreKey(PKG_TYPE_GENERIC_HTTP, StoreType.remote, name);
         TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.GENERIC_PROXY, path);
         entry.setOriginUrl(originUrl);
+        entry.setMd5("0bee89b07a248e27c83fc3d5951213c1");
+        entry.setSha1("03cfd743661f07975fa2f1220c5194cbaff48451");
+        entry.setSha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb");
         return entry;
     }
 
@@ -400,6 +403,9 @@ public class TrackingReportProcessorTest {
         StoreKey storeKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, name);
         TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.NATIVE, path);
         entry.setOriginUrl(originUrl);
+        entry.setMd5("0bee89b07a248e27c83fc3d5951213c1");
+        entry.setSha1("03cfd743661f07975fa2f1220c5194cbaff48451");
+        entry.setSha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb");
         return entry;
     }
 }

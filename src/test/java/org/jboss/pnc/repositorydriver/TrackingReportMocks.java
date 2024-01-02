@@ -43,6 +43,9 @@ public class TrackingReportMocks {
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
                 TrackingReportMocks.indyPom);
+        indyPomFromCentral.setMd5("abc");
+        indyPomFromCentral.setSha1("abc");
+        indyPomFromCentral.setSha256("abc");
         indyPomSha1FromCentral = new TrackedContentEntryDTO(
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
@@ -51,6 +54,9 @@ public class TrackingReportMocks {
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,
                 TrackingReportMocks.indyJar);
+        indyJarFromCentral.setMd5("abc");
+        indyJarFromCentral.setSha1("abc");
+        indyJarFromCentral.setSha256("abc");
         indyJarSha1FromCentral = new TrackedContentEntryDTO(
                 TrackingReportMocks.centralKey,
                 AccessChannel.NATIVE,

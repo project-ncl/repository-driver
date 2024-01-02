@@ -175,8 +175,22 @@ public class IndyMock extends Indy {
             String buildContentId = "build-X";
             StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
 
-            uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar));
-            uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom));
+            TrackedContentEntryDTO indyJarEntry = new TrackedContentEntryDTO(
+                    buildKey,
+                    AccessChannel.NATIVE,
+                    TrackingReportMocks.indyJar);
+            indyJarEntry.setMd5("abc");
+            indyJarEntry.setSha1("abc");
+            indyJarEntry.setSha256("abc");
+            uploads.add(indyJarEntry);
+            TrackedContentEntryDTO indyPomEntry = new TrackedContentEntryDTO(
+                    buildKey,
+                    AccessChannel.NATIVE,
+                    TrackingReportMocks.indyPom);
+            indyPomEntry.setMd5("abc");
+            indyPomEntry.setSha1("abc");
+            indyPomEntry.setSha256("abc");
+            uploads.add(indyPomEntry);
             report.setUploads(uploads);
 
             return report;
