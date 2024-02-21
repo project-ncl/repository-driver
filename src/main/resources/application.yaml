@@ -9,6 +9,10 @@ quarkus:
         otlp:
           # Send telemetry data to an opentelemetry-collector
           #endpoint: http://localhost:4317
+  http:
+    cors:
+      ~: true
+      origins: "/.*/"
   shutdown:
     timeout: 300
   log:
