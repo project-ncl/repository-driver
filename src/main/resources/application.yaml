@@ -113,6 +113,8 @@ repository-driver:
       api-url: "http://indy-host/api/"
     archive-service:
       api-url: "http://archive-service/archive/"
+    bifrost-uploader:
+      api-url: "http://bifrost-host/"
 
 "%dev":
   quarkus:

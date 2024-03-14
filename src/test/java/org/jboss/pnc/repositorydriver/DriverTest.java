@@ -8,12 +8,14 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.core.MediaType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.RestAssured;
@@ -30,15 +32,18 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
 import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
+import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
 import org.jboss.pnc.repositorydriver.testresource.WiremockArchiveServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +81,12 @@ public class DriverTest {
                 CallbackHandler.class,
                 new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
         callbackServer.start(8082, BIND_HOST);
+
+        BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
+        Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
+        BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
+        Mockito.when(bifrostLogUploaderProducer.produce()).thenReturn(bifrostLogUploader);
+        QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
     }
 
     @AfterAll

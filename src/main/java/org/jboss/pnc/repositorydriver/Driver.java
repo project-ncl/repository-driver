@@ -62,6 +62,11 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
+import org.jboss.pnc.bifrost.upload.BifrostUploadException;
+import org.jboss.pnc.bifrost.upload.LogMetadata;
+import org.jboss.pnc.bifrost.upload.TagOption;
+import org.jboss.pnc.common.log.MDCUtils;
 import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
@@ -77,6 +82,7 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
@@ -134,72 +140,82 @@ public class Driver {
     @Inject
     OidcClient oidcClient;
 
+    @Inject
+    BifrostLogUploader bifrostLogUploader;
+
     @WithSpan()
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
-        BuildType buildType = repositoryCreateRequest.getBuildType();
-        String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
-        String buildId = repositoryCreateRequest.getBuildContentId();
-
         try {
-            setupBuildRepos(
-                    repositoryCreateRequest.getBuildContentId(),
-                    buildType,
-                    packageType,
-                    repositoryCreateRequest.isTempBuild(),
-                    repositoryCreateRequest.isBrewPullActive(),
-                    repositoryCreateRequest.getExtraRepositories());
-        } catch (IndyClientException e) {
-            logger.debug("Failed to setup repository or repository group for this build");
-            throw new RepositoryDriverException(
-                    "Failed to setup repository or repository group for this build: %s",
-                    e,
-                    e.getMessage());
-        }
+            BuildType buildType = repositoryCreateRequest.getBuildType();
+            String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
+            String buildId = repositoryCreateRequest.getBuildContentId();
 
-        String downloadsUrl;
-        String deployUrl;
-
-        try {
-            // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
-            IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
-            foloAdminModule.clearTrackingRecord(buildId);
-            foloAdminModule.initReport(buildId);
-
-            StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
-            downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
-
-            StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
-            deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
-
-            if (configuration.isSidecarEnabled()) {
-                logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
-                try {
-                    downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
-                } catch (MalformedURLException e) {
-                    throw new RuntimeException(
-                            String.format(
-                                    "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
-                                    configuration.getSidecarUrl(),
-                                    downloadsUrl,
-                                    deployUrl));
-                }
+            try {
+                setupBuildRepos(
+                        repositoryCreateRequest.getBuildContentId(),
+                        buildType,
+                        packageType,
+                        repositoryCreateRequest.isTempBuild(),
+                        repositoryCreateRequest.isBrewPullActive(),
+                        repositoryCreateRequest.getExtraRepositories());
+            } catch (IndyClientException e) {
+                logger.debug("Failed to setup repository or repository group for this build");
+                throw new RepositoryDriverException(
+                        "Failed to setup repository or repository group for this build: %s",
+                        e,
+                        e.getMessage());
             }
 
-            logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
-        } catch (IndyClientException e) {
-            logger.debug("Failed to retrieve Indy client module for the artifact tracker");
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy client module for the artifact tracker: %s",
-                    e,
-                    e.getMessage());
+            String downloadsUrl;
+            String deployUrl;
+
+            try {
+                // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
+                IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
+                foloAdminModule.clearTrackingRecord(buildId);
+                foloAdminModule.initReport(buildId);
+
+                StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
+                downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
+
+                StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
+                deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
+
+                if (configuration.isSidecarEnabled()) {
+                    logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
+                    try {
+                        downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
+                    } catch (MalformedURLException e) {
+                        throw new RuntimeException(
+                                String.format(
+                                        "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
+                                        configuration.getSidecarUrl(),
+                                        downloadsUrl,
+                                        deployUrl));
+                    }
+                }
+
+                logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
+            } catch (IndyClientException e) {
+                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
+                throw new RepositoryDriverException(
+                        "Failed to retrieve Indy client module for the artifact tracker: %s",
+                        e,
+                        e.getMessage());
+            }
+
+            uploadLogs("", "create");
+            return new RepositoryCreateResponse(
+                    downloadsUrl,
+                    deployUrl,
+                    configuration.isSidecarEnabled(),
+                    configuration.isSidecarArchiveEnabled());
+        } catch (Exception ex) {
+            uploadLogs(ex.getMessage(), "create");
+            throw ex;
         }
-        return new RepositoryCreateResponse(
-                downloadsUrl,
-                deployUrl,
-                configuration.isSidecarEnabled(),
-                configuration.isSidecarArchiveEnabled());
     }
 
     /**
@@ -244,6 +260,7 @@ public class Driver {
             } catch (RepositoryDriverException e) {
                 logger.error("Failed collecting downloaded or uploaded artifacts.", e);
                 String message = e.getMessage();
+                uploadLogs(message, "promote");
                 notifyInvoker(
                         promoteRequest.getCallback(),
                         RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.SYSTEM_ERROR));
@@ -269,16 +286,20 @@ public class Driver {
             } catch (RepositoryDriverException e) {
                 logger.error("Failed promoting downloaded or uploaded artifacts.", e);
 
+                String message = e.getMessage();
+                uploadLogs(message, "promote");
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, e.getMessage(), ResultStatus.SYSTEM_ERROR));
+                        RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.SYSTEM_ERROR));
                 return;
             } catch (PromotionValidationException e) {
                 logger.warn("Failed promoting downloaded or uploaded artifacts.", e);
 
+                String message = e.getMessage();
+                uploadLogs(message, "promote");
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, e.getMessage(), ResultStatus.FAILED));
+                        RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.FAILED));
                 return;
             }
 
@@ -293,6 +314,7 @@ public class Driver {
                         .forEach(artifact -> logger.debug("{} downloaded: {}", buildContentId, artifact.toString()));
             }
 
+            uploadLogs("", "promote");
             notifyInvoker(
                     promoteRequest.getCallback(),
                     new RepositoryPromoteResult(
@@ -361,6 +383,22 @@ public class Driver {
             lifecycle.removeActivePromotion();
             return null;
         }));
+    }
+
+    private void uploadLogs(String message, String operation) {
+        try {
+            LogMetadata logMetadata = LogMetadata.builder()
+                    .headers(MDCUtils.getHeadersFromMDC())
+                    .loggerName("org.jboss.pnc._userlog_.build-driver." + operation)
+                    .tag(TagOption.BUILD_LOG)
+                    .endTime(OffsetDateTime.now())
+                    .build();
+            bifrostLogUploader.uploadString(message, logMetadata);
+        } catch (BifrostUploadException ex) {
+            logger.error("Unable to upload logs to bifrost. Log was:\n" + message, ex);
+            // We don't want to fail the build when we couldn't upload to bifrost, because the repo driver log is not
+            // critical.
+        }
     }
 
     @WithSpan()
@@ -964,28 +1002,36 @@ public class Driver {
     @WithSpan()
     public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId)
             throws RepositoryDriverException {
-        IndyFoloAdminClientModule foloAdmin;
         try {
-            foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy client module for the artifact tracker: %s",
-                    e,
-                    e.getMessage());
-        }
-
-        try {
-            userLog.info("Sealing tracking record");
-            boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-            if (!sealed) {
-                throw new RepositoryDriverException("Failed to seal content-tracking record for: %s.", buildContentId);
+            IndyFoloAdminClientModule foloAdmin;
+            try {
+                foloAdmin = indy.module(IndyFoloAdminClientModule.class);
+            } catch (IndyClientException e) {
+                throw new RepositoryDriverException(
+                        "Failed to retrieve Indy client module for the artifact tracker: %s",
+                        e,
+                        e.getMessage());
             }
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to seal tracking report for: %s. Reason: %s",
-                    e,
-                    buildContentId,
-                    e.getMessage());
+
+            try {
+                userLog.info("Sealing tracking record");
+                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
+                if (!sealed) {
+                    String message = "Failed to seal content-tracking record for: " + buildContentId + ".";
+                    uploadLogs(message, "seal");
+                    throw new RepositoryDriverException(message);
+                }
+                uploadLogs("", "seal");
+            } catch (IndyClientException e) {
+                throw new RepositoryDriverException(
+                        "Failed to seal tracking report for: %s. Reason: %s",
+                        e,
+                        buildContentId,
+                        e.getMessage());
+            }
+        } catch (Exception ex) {
+            uploadLogs(ex.getMessage(), "seal");
+            throw ex;
         }
     }
 
