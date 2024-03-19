@@ -1018,7 +1018,6 @@ public class Driver {
                 boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
                 if (!sealed) {
                     String message = "Failed to seal content-tracking record for: " + buildContentId + ".";
-                    uploadLogs(message, "seal");
                     throw new RepositoryDriverException(message);
                 }
                 uploadLogs("", "seal");
