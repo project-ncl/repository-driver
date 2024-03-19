@@ -232,7 +232,13 @@ public class Driver {
         String buildContentId = promoteRequest.getBuildContentId();
         String buildConfigurationId = promoteRequest.getBuildConfigurationId();
         BuildType buildType = promoteRequest.getBuildType();
-        TrackedContentDTO report = retrieveTrackingReport(buildContentId);
+        TrackedContentDTO report;
+        try {
+            report = retrieveTrackingReport(buildContentId);
+        } catch (RepositoryDriverException ex) {
+            uploadLogs(ex.getMessage(), "promote");
+            throw ex;
+        }
         Set<StoreKey> genericRepos = new HashSet<>();
 
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
