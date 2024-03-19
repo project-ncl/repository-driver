@@ -389,7 +389,7 @@ public class Driver {
         try {
             LogMetadata logMetadata = LogMetadata.builder()
                     .headers(MDCUtils.getHeadersFromMDC())
-                    .loggerName("org.jboss.pnc._userlog_.build-driver." + operation)
+                    .loggerName("org.jboss.pnc._userlog_.repository-driver." + operation)
                     .tag(TagOption.BUILD_LOG)
                     .endTime(OffsetDateTime.now())
                     .build();
