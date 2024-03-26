@@ -213,6 +213,7 @@ public class Driver {
                     configuration.isSidecarEnabled(),
                     configuration.isSidecarArchiveEnabled());
         } catch (Exception ex) {
+            userLog.error(ex.getMessage());
             uploadLogs(ex.getMessage(), "create");
             throw ex;
         }
@@ -236,6 +237,7 @@ public class Driver {
         try {
             report = retrieveTrackingReport(buildContentId);
         } catch (RepositoryDriverException ex) {
+            userLog.error(ex.getMessage());
             uploadLogs(ex.getMessage(), "promote");
             throw ex;
         }
@@ -264,12 +266,12 @@ public class Driver {
                         promoteRequest.isTempBuild(),
                         promoteRequest.getBuildCategory());
             } catch (RepositoryDriverException e) {
-                logger.error("Failed collecting downloaded or uploaded artifacts.", e);
-                String message = e.getMessage();
-                uploadLogs(message, "promote");
+                String message = "Failed collecting downloaded or uploaded artifacts: ";
+                userLog.error(message, e);
+                uploadLogs(message + e.getMessage(), "promote");
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.SYSTEM_ERROR));
+                        RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
                 return;
             }
 
@@ -290,22 +292,20 @@ public class Driver {
                         heartBeatSender,
                         buildContentId);
             } catch (RepositoryDriverException e) {
-                logger.error("Failed promoting downloaded or uploaded artifacts.", e);
-
-                String message = e.getMessage();
-                uploadLogs(message, "promote");
+                String message = "Failed promoting downloaded or uploaded artifacts: ";
+                userLog.error(message, e);
+                uploadLogs(message + e.getMessage(), "promote");
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.SYSTEM_ERROR));
+                        RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
                 return;
             } catch (PromotionValidationException e) {
-                logger.warn("Failed promoting downloaded or uploaded artifacts.", e);
-
-                String message = e.getMessage();
-                uploadLogs(message, "promote");
+                String message = "Failed promoting downloaded or uploaded artifacts: ";
+                userLog.warn(message, e);
+                uploadLogs(message + e.getMessage(), "promote");
                 notifyInvoker(
                         promoteRequest.getCallback(),
-                        RepositoryPromoteResult.failed(buildContentId, message, ResultStatus.FAILED));
+                        RepositoryPromoteResult.failed(buildContentId, ResultStatus.FAILED));
                 return;
             }
 
@@ -327,7 +327,6 @@ public class Driver {
                             uploadedArtifacts,
                             downloadedArtifacts,
                             buildContentId,
-                            "",
                             ResultStatus.SUCCESS));
         })).thenRunAsync(Context.current().wrap(() -> {
             // CLEANUP
@@ -616,7 +615,6 @@ public class Driver {
                     uploadedArtifacts,
                     downloadedArtifacts,
                     buildContentId,
-                    "",
                     ResultStatus.SUCCESS);
         } catch (RepositoryDriverException e) {
             String message = e.getMessage();
@@ -625,7 +623,6 @@ public class Driver {
                     Collections.emptyList(),
                     Collections.emptyList(),
                     buildContentId,
-                    message,
                     ResultStatus.FAILED);
         }
     }
@@ -731,17 +728,12 @@ public class Driver {
             // set read-only only the generic http proxy hosted repos, not shared-imports
             boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(sourceTargetPaths.getTarget().getPackageType());
 
-            try {
-                userLog.info(
-                        "Promoting {} dependencies from {} to {}",
-                        request.getPaths().size(),
-                        request.getSource(),
-                        request.getTarget());
-                doPromoteByPath(request, false, readonly);
-            } catch (RepositoryDriverException ex) {
-                userLog.error("Failed to promote by path. Error(s): {}", ex.getMessage());
-                throw ex;
-            }
+            userLog.info(
+                    "Promoting {} dependencies from {} to {}",
+                    request.getPaths().size(),
+                    request.getSource(),
+                    request.getTarget());
+            doPromoteByPath(request, false, readonly);
         }
     }
 
@@ -760,17 +752,17 @@ public class Driver {
             String promotionTrackingID) throws RepositoryDriverException, PromotionValidationException {
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             heartBeatSender.run();
-            try {
-                PathsPromoteRequest request = new PathsPromoteRequest(
-                        sourceTargetPaths.getSource(),
-                        sourceTargetPaths.getTarget(),
-                        sourceTargetPaths.getPaths());
-                request.setTrackingId(promotionTrackingID);
-                doPromoteByPath(request, !tempBuild, false);
-            } catch (RepositoryDriverException | PromotionValidationException ex) {
-                userLog.error("Built artifact promotion failed. Error(s): {}", ex.getMessage());
-                throw ex;
-            }
+            PathsPromoteRequest request = new PathsPromoteRequest(
+                    sourceTargetPaths.getSource(),
+                    sourceTargetPaths.getTarget(),
+                    sourceTargetPaths.getPaths());
+            request.setTrackingId(promotionTrackingID);
+            userLog.info(
+                    "Promoting {} build output from {} to {}",
+                    request.getPaths().size(),
+                    request.getSource(),
+                    request.getTarget());
+            doPromoteByPath(request, !tempBuild, false);
         }
     }
 
@@ -1035,6 +1027,7 @@ public class Driver {
                         e.getMessage());
             }
         } catch (Exception ex) {
+            userLog.error(ex.getMessage());
             uploadLogs(ex.getMessage(), "seal");
             throw ex;
         }
