@@ -9,7 +9,6 @@ import org.commonjava.indy.client.core.IndyClientModule;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
-import org.commonjava.indy.promote.client.IndyPromoteClientModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +25,7 @@ public class BeanFactoryMock extends BeanFactory {
         IndyClientModule[] indyModules = new IndyClientModule[] { new IndyMock.IndyFoloAdminClientModuleMock(),
                 new IndyMock.IndyFoloContentClientModuleMock(), new IndyMock.IndyPromoteClientModuleMock() };
 
-        IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator(serviceTokens.getAccessToken());
+        IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator("hello");
         try {
             indy = new IndyMock(
                     indySiteConfig,

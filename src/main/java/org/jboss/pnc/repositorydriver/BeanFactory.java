@@ -18,8 +18,6 @@ import org.commonjava.cdi.util.weft.config.WeftConfig;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.IndyClientModule;
-import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
-import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
 import org.commonjava.indy.client.core.metric.ClientGoldenSignalsMetricSet;
 import org.commonjava.indy.client.core.metric.ClientTrafficClassifier;
 import org.commonjava.indy.client.core.module.IndyContentClientModule;
@@ -35,10 +33,9 @@ import org.commonjava.o11yphant.metrics.system.StoragePathProvider;
 import org.commonjava.util.jhttpc.model.SiteConfig;
 import org.commonjava.util.jhttpc.model.SiteConfigBuilder;
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.jboss.pnc.repositorydriver.indy.IndyPNCOAuthBearerAuthenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import io.quarkus.oidc.client.Tokens;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -52,7 +49,7 @@ public class BeanFactory {
     Configuration configuration;
 
     @Inject
-    Tokens serviceTokens;
+    IndyPNCOAuthBearerAuthenticator indyPNCOAuthBearerAuthenticator;
 
     protected SiteConfig indySiteConfig;
     protected IndyClientModule[] indyModules;
@@ -103,11 +100,10 @@ public class BeanFactory {
 
     @Produces
     synchronized Indy createIndyServiceAccountClient() {
-        IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator(serviceTokens.getAccessToken());
         try {
             indy = new Indy(
                     indySiteConfig,
-                    authenticator,
+                    indyPNCOAuthBearerAuthenticator,
                     new IndyObjectMapper(true),
                     MdcUtils.mdcToMapWithHeaderKeys(),
                     indyModules);
