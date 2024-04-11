@@ -1,5 +1,6 @@
 package org.jboss.pnc.repositorydriver.indy;
 
+import io.quarkus.logging.Log;
 import io.quarkus.oidc.client.OidcClient;
 import org.apache.http.Header;
 import org.apache.http.HttpRequestInterceptor;
@@ -33,6 +34,7 @@ public class IndyPNCOAuthBearerAuthenticator extends IndyClientAuthenticator {
     }
 
     private String getFreshAccessToken() {
+        Log.debug("Grabbing fresh access token for Indy");
         return oidcClient.getTokens().await().indefinitely().getAccessToken();
     }
 }
