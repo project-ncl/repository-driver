@@ -63,7 +63,7 @@
     <quarkus-logging-kafka.version>1.0.5</quarkus-logging-kafka.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>2.16.12.Final</quarkus.platform.version>
+    <quarkus.platform.version>3.9.4</quarkus.platform.version>
     <compiler-plugin.version>3.13.0</compiler-plugin.version>
     <surefire-plugin.version>3.2.5</surefire-plugin.version>
     <quarkus.package.type>uber-jar</quarkus.package.type>
