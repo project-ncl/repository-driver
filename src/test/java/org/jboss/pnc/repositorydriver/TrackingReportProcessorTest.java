@@ -25,6 +25,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -330,6 +331,47 @@ public class TrackingReportProcessorTest {
     }
 
     @Test
+    void archivalShouldFilterOutByRepoFilter() throws RepositoryDriverException {
+        TrackedContentDTO report = new TrackedContentDTO();
+        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+
+        String buildContentId = "build-x";
+        StoreKey storeKey = new StoreKey("maven", StoreType.hosted, "build-xxxxx"); // from app.yaml
+        TrackedContentEntryDTO shouldFilter = mavenEntry(
+                buildContentId,
+                TrackingReportMocks.indyJar,
+                "originJarUrl",
+                storeKey);
+        downloads.add(shouldFilter);
+
+        String buildContentId2 = "build-y";
+        StoreKey storeKey2 = new StoreKey("maven", StoreType.hosted, "build-yyyyy"); // from app.yaml
+        TrackedContentEntryDTO shouldFilter2 = mavenEntry(
+                buildContentId2,
+                TrackingReportMocks.indyJar,
+                "originJarUrl",
+                storeKey2);
+        downloads.add(shouldFilter2);
+
+        String buildContentId3 = "build-z";
+        StoreKey storeKey3 = new StoreKey("maven", StoreType.hosted, "ignored");
+        TrackedContentEntryDTO shouldNotFilter = mavenEntry(
+                buildContentId3,
+                TrackingReportMocks.indyPom,
+                "originJarUrl",
+                storeKey3);
+        downloads.add(shouldNotFilter);
+
+        report.setDownloads(downloads);
+        List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
+
+        Assertions.assertEquals(entries.size(), 1);
+
+        ArchiveDownloadEntry notFilteredOut = entries.iterator().next();
+        assertEquals(notFilteredOut.getPath(), TrackingReportMocks.indyPom);
+    }
+
+    @Test
     public void testPromotionPathGeneration() {
         // given
         TrackedContentDTO trackedContent = new TrackedContentDTO();
@@ -401,6 +443,10 @@ public class TrackingReportProcessorTest {
 
     private static TrackedContentEntryDTO mavenEntry(String name, String path, String originUrl) {
         StoreKey storeKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, name);
+        return mavenEntry(name, path, originUrl, storeKey);
+    }
+
+    private static TrackedContentEntryDTO mavenEntry(String name, String path, String originUrl, StoreKey storeKey) {
         TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.NATIVE, path);
         entry.setOriginUrl(originUrl);
         entry.setMd5("0bee89b07a248e27c83fc3d5951213c1");

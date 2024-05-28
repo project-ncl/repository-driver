@@ -189,25 +189,7 @@ public class TrackingReportProcessor {
      */
     private boolean ignoreDependencySource(StoreKey storeKey) {
         String strSK = storeKey.toString();
-        return matchesOne(strSK, ignoredRepoPatterns);
-    }
-
-    /**
-     * Checks if the given string matches one of the patterns.
-     *
-     * @param string the string
-     * @param patterns the patterns list
-     * @return true if there is a matching pattern, false otherwise
-     */
-    private boolean matchesOne(String string, PatternsList patterns) {
-        if (patterns != null) {
-            for (Pattern pattern : patterns.getPatterns()) {
-                if (pattern.matcher(string).matches()) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return ignoredRepoPatterns.matchesOne(strSK);
     }
 
     /**
