@@ -25,6 +25,8 @@ import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
+import java.util.Collections;
+
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
 import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
@@ -43,17 +45,24 @@ public class ArtifactFilterArchive implements ArtifactFilter {
 
     private IgnoredPatterns ignoredPathPatterns;
 
+    private PatternsList ignoredRepoPatterns;
+
     @PostConstruct
     public void init() {
         ignoredPathPatterns = new IgnoredPatterns();
         configuration.getIgnoredPathPatternsArchiveMaven().ifPresent(p -> ignoredPathPatterns.setMaven(p));
+
+        ignoredRepoPatterns = configuration.getIgnoredRepoPatternsArchive()
+                .map(PatternsList::new)
+                .orElse(new PatternsList(Collections.emptyList()));
     }
 
     @Override
     public boolean accepts(TrackedContentEntryDTO artifact) {
         String path = artifact.getPath();
         StoreKey storeKey = artifact.getStoreKey();
-        return !ignoreContent(ignoredPathPatterns, storeKey.getPackageType(), path);
+        return !ignoreContent(ignoredPathPatterns, storeKey.getPackageType(), path)
+                && !ignoredRepoPatterns.matchesOne(storeKey.toString());
     }
 
     private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, String packageType, String path) {
