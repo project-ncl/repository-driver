@@ -92,8 +92,8 @@ public class TrackingReportProcessor {
 
     @PostConstruct
     public void init() {
-        if (configuration.getIgnoredRepoPatterns().isPresent()) {
-            ignoredRepoPatterns = new PatternsList(configuration.getIgnoredRepoPatterns().get());
+        if (configuration.getIgnoredRepoPatternsPromotion().isPresent()) {
+            ignoredRepoPatterns = new PatternsList(configuration.getIgnoredRepoPatternsPromotion().get());
         } else {
             ignoredRepoPatterns = new PatternsList(Collections.emptyList());
         }

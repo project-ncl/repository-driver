@@ -72,7 +72,7 @@ public class Configuration {
     long callbackRetryMaxDelayMsec;
 
     @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
-    private Duration keyCloakRequestTimeout;
+    Duration keyCloakRequestTimeout;
 
     @ConfigProperty(name = "repository-driver.build-promotion-target")
     String buildPromotionTarget;
@@ -80,8 +80,8 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.temp-build-promotion-target")
     String tempBuildPromotionTarget;
 
-    @ConfigProperty(name = "repository-driver.ignored-repo-patterns")
-    Optional<List<String>> ignoredRepoPatterns;
+    @ConfigProperty(name = "repository-driver.ignored-repo-patterns.promotion")
+    Optional<List<String>> ignoredRepoPatternsPromotion;
 
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.archive.maven")
     Optional<List<String>> ignoredPathPatternsArchiveMaven;
