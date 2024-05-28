@@ -56,6 +56,7 @@ repository-driver:
       npm:
       generic:
   ignored-repo-patterns:
+    promotion:
     archive:
   temp-build-promotion-target:
   build-promotion-target:
@@ -108,7 +109,8 @@ repository-driver:
     indy-sidecar:
       enabled: false
       url: http://sidecar:8093/
-    ignored-repo-patterns: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
+    ignored-repo-patterns:
+      promotion: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
       archive: ["maven:.*:build-yyyyy", "maven:hosted:build-xxxxx"]
     self-base-url: "http://localhost:8081/"
     indy-client:
