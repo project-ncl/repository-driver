@@ -80,14 +80,14 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.temp-build-promotion-target")
     String tempBuildPromotionTarget;
 
+    @ConfigProperty(name = "repository-driver.ignored-repo-patterns.archive")
+    Optional<List<String>> ignoredRepoPatternsArchive;
+
     @ConfigProperty(name = "repository-driver.ignored-repo-patterns.promotion")
     Optional<List<String>> ignoredRepoPatternsPromotion;
 
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.archive.maven")
     Optional<List<String>> ignoredPathPatternsArchiveMaven;
-
-    @ConfigProperty(name = "repository-driver.ignored-repo-patterns.archive")
-    Optional<List<String>> ignoredRepoPatternsArchive;
 
     @ConfigProperty(name = "repository-driver.ignored-path-patterns.promotion.generic")
     Optional<List<String>> ignoredPathPatternsPromotionGeneric;
