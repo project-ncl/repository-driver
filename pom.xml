@@ -20,7 +20,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.jboss.pnc</groupId>
   <artifactId>repository-driver</artifactId>
-  <version>1.3.0-SNAPSHOT</version>
+  <version>3.0.0-SNAPSHOT</version>
 
   <name>repository driver</name>
   <description>Artifact repository driver</description>
