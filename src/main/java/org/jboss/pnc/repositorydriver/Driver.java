@@ -74,8 +74,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
-import javax.enterprise.context.RequestScoped;
-import javax.inject.Inject;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.inject.Inject;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -591,7 +591,7 @@ public class Driver {
         callback.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
         // Add the service account's access token. We use a fresh one instead of serviceTokens since serviceTokens might
         // already be closed to expiry when we hit this method inside the executor
-        builder.header(javax.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
+        builder.header(jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
         return builder.build();
     }
 
@@ -981,7 +981,7 @@ public class Driver {
                     .method(heartBeat.getMethod().name(), HttpRequest.BodyPublishers.noBody())
                     .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
             heartBeat.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
-            builder.header(javax.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
+            builder.header(jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
             HttpRequest request = builder.build();
 
             CompletableFuture<HttpResponse<String>> response = httpClient

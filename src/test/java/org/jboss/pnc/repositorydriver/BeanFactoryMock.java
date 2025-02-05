@@ -1,6 +1,6 @@
 package org.jboss.pnc.repositorydriver;
 
-import javax.enterprise.inject.Produces;
+import jakarta.enterprise.inject.Produces;
 
 import io.quarkus.test.Mock;
 import org.commonjava.indy.client.core.Indy;

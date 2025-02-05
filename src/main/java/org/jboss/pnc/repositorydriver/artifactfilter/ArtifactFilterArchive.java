@@ -17,13 +17,13 @@
  */
 package org.jboss.pnc.repositorydriver.artifactfilter;
 
+import jakarta.annotation.PostConstruct;
 import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.StoreKey;
 import org.jboss.pnc.repositorydriver.Configuration;
 
-import javax.annotation.PostConstruct;
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import java.util.Collections;
 

@@ -8,8 +8,8 @@ import org.apache.http.message.BasicHeader;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.util.jhttpc.JHttpCException;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 public class IndyPNCOAuthBearerAuthenticator extends IndyClientAuthenticator {

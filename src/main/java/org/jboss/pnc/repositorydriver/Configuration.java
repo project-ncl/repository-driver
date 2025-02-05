@@ -21,7 +21,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
-import javax.enterprise.context.Dependent;
+import jakarta.enterprise.context.Dependent;
 
 import lombok.Getter;
 import lombok.Setter;

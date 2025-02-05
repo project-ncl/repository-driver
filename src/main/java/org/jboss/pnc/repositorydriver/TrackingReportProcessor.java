@@ -6,7 +6,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
-
+import jakarta.annotation.PostConstruct;
 import org.apache.commons.lang.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
@@ -33,11 +33,10 @@ import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.PostConstruct;
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-import javax.validation.ConstraintViolation;
-import javax.validation.Validator;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 
 import java.io.File;
 import java.net.MalformedURLException;
