@@ -20,15 +20,14 @@ package org.jboss.pnc.repositorydriver.runtime;
 import java.util.List;
 import java.util.Map;
 
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.WebApplicationException;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.Provider;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
 
 import org.jboss.pnc.api.dto.ErrorResponse;
-import org.jboss.resteasy.spi.Failure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,13 +54,6 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
                 return response; // In case of 404 we want to return the empty body.
             }
             logger.debug("A WebApplicationExceptio occurred when processing REST response", e);
-        } else if (e instanceof Failure) { // Resteasy support
-            Failure failure = ((Failure) e);
-            if (failure.getErrorCode() > 0) {
-                status = failure.getErrorCode();
-            }
-            response = failure.getResponse();
-            logger.debug("A Failure occurred when processing REST response", e);
         } else {
             logger.error("An exception occurred when processing REST response", e);
         }
