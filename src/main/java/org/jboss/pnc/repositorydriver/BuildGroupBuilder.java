@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 import lombok.Builder;
 import lombok.Getter;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.model.core.Group;

@@ -12,24 +12,15 @@ import javax.net.ssl.SSLContext;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import org.apache.commons.lang.StringUtils;
-import org.commonjava.cdi.util.weft.config.DefaultWeftConfig;
-import org.commonjava.cdi.util.weft.config.WeftConfig;
+import org.apache.commons.lang3.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.IndyClientModule;
-import org.commonjava.indy.client.core.metric.ClientGoldenSignalsMetricSet;
-import org.commonjava.indy.client.core.metric.ClientTrafficClassifier;
 import org.commonjava.indy.client.core.module.IndyContentClientModule;
 import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
 import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
 import org.commonjava.indy.promote.client.IndyPromoteClientModule;
-import org.commonjava.o11yphant.metrics.TrafficClassifier;
-import org.commonjava.o11yphant.metrics.conf.DefaultMetricsConfig;
-import org.commonjava.o11yphant.metrics.conf.MetricsConfig;
-import org.commonjava.o11yphant.metrics.sli.GoldenSignalsMetricSet;
-import org.commonjava.o11yphant.metrics.system.StoragePathProvider;
 import org.commonjava.util.jhttpc.model.SiteConfig;
 import org.commonjava.util.jhttpc.model.SiteConfigBuilder;
 import org.eclipse.microprofile.context.ManagedExecutor;
@@ -126,30 +117,30 @@ public class BeanFactory {
 
     // >>> Indy client required beans - start
 
-    @Produces
-    public GoldenSignalsMetricSet clientMetricSet() {
-        return new ClientGoldenSignalsMetricSet();
-    }
-
-    @Produces
-    public MetricsConfig metricsConfig() {
-        return new DefaultMetricsConfig();
-    }
-
-    @Produces
-    public StoragePathProvider storagePathProvider() {
-        return () -> null;
-    }
-
-    @Produces
-    public TrafficClassifier trafficClassifier() {
-        return new ClientTrafficClassifier();
-    }
-
-    @Produces
-    public WeftConfig weftConfig() {
-        return new DefaultWeftConfig();
-    }
+    // @Produces
+    // public GoldenSignalsMetricSet clientMetricSet() {
+    // return new ClientGoldenSignalsMetricSet();
+    // }
+    //
+    // @Produces
+    // public MetricsConfig metricsConfig() {
+    // return new DefaultMetricsConfig();
+    // }
+    //
+    // @Produces
+    // public StoragePathProvider storagePathProvider() {
+    // return () -> null;
+    // }
+    //
+    // @Produces
+    // public TrafficClassifier trafficClassifier() {
+    // return new ClientTrafficClassifier();
+    // }
+    //
+    // @Produces
+    // public WeftConfig weftConfig() {
+    // return new DefaultWeftConfig();
+    // }
 
     // <<< Indy client required beans - end
 

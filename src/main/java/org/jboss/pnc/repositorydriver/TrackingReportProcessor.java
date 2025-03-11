@@ -7,7 +7,7 @@ import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
 import jakarta.annotation.PostConstruct;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
