@@ -65,7 +65,7 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.19.4</quarkus.platform.version>
     <compiler-plugin.version>3.14.0</compiler-plugin.version>
-    <surefire-plugin.version>3.5.2</surefire-plugin.version>
+    <surefire-plugin.version>3.5.3</surefire-plugin.version>
     <indy.version>3.4.1</indy.version>
     <wiremock.version>2.35.2</wiremock.version>
     <!-- Package URL -->
