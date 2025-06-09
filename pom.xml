@@ -63,7 +63,7 @@
     <quarkus-logging-kafka.version>1.0.6</quarkus-logging-kafka.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.23.0</quarkus.platform.version>
+    <quarkus.platform.version>3.23.2</quarkus.platform.version>
     <compiler-plugin.version>3.14.0</compiler-plugin.version>
     <surefire-plugin.version>3.5.3</surefire-plugin.version>
     <indy.version>3.4.1</indy.version>
