@@ -7,6 +7,7 @@ import com.github.packageurl.MalformedPackageURLException;
 import com.github.packageurl.PackageURL;
 import com.github.packageurl.PackageURLBuilder;
 import jakarta.annotation.PostConstruct;
+import lombok.Builder;
 import org.apache.commons.lang3.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
@@ -352,6 +354,11 @@ public class TrackingReportProcessor {
                             pathInfo.getType(),
                             pathInfo.getClassifier());
                     identifier = aref.toString();
+                } else if (transfer.getPath() != null && transfer.getPath().endsWith(".rpm")) {
+                    GAPVQ gapvq = parseRpmPathToGAPVQ(transfer.getPath());
+                    if (gapvq != null) {
+                        identifier = gapvq.identifier();
+                    }
                 }
                 break;
 
@@ -421,6 +428,19 @@ public class TrackingReportProcessor {
                             purlBuilder.withQualifier("classifier", pathInfo.getClassifier());
                         }
                         purl = purlBuilder.build().toString();
+                    } else if (transfer.getPath() != null && transfer.getPath().endsWith(".rpm")) {
+                        GAPVQ gapvq = parseRpmPathToGAPVQ(transfer.getPath());
+                        if (gapvq != null) {
+                            purl = PackageURLBuilder.aPackageURL()
+                                    .withType(PackageURL.StandardTypes.RPM)
+                                    .withNamespace(gapvq.groupId)
+                                    .withName(gapvq.artifactId)
+                                    .withVersion(gapvq.qualifier) // quarlifier will contain more detailed version of
+                                                                  // rpm
+                                    .withQualifier("type", "rpm")
+                                    .build()
+                                    .toString();
+                        }
                     }
                     break;
 
@@ -651,5 +671,73 @@ public class TrackingReportProcessor {
 
     private String getBuildPromotionTarget(boolean tempBuild) {
         return tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget();
+    }
+
+    /**
+     * Helper DTO method for parseRpmPathToGAPVQ
+     */
+    @Builder
+    static class GAPVQ {
+        String groupId;
+        String artifactId;
+        String packageType;
+        String version;
+        String qualifier;
+
+        public String identifier() {
+            return String.format("%s:%s:%s:%s:%s", groupId, artifactId, packageType, version, qualifier);
+        }
+    }
+
+    static GAPVQ parseRpmPathToGAPVQ(String path) {
+
+        // sanity check, the path needs to end with '.rpm'
+        if (!path.endsWith(".rpm")) {
+            return null;
+        }
+
+        // code inspired from Indy codebase
+        String groupRegex = "(([^/]+/)*[^/]+)"; // group 1~2
+        String artifactRegex = "([^/]+)"; // group 3
+        String versionRawRegex = "(([^/]+)(-SNAPSHOT)?)"; // group 4~6
+        String rpmFilenameRegex = "([^/]+\\.rpm)"; // group 7
+
+        int groupIdGroup = 1;
+        int artifactIdGroup = 3;
+        int versionGroup = 4;
+        int rpmFilenameGroup = 7;
+
+        // Regex explanation:
+        // - matches the hyphen we want to split on
+        // (?= ... ) is a positive lookahead, which checks for the pattern
+        // [^-]* matches zero or more characters that are NOT a hyphen
+        // - matches the last hyphen
+        // [^-]*$ matches zero or more characters that are not a hyphen, up to the end of the string
+        String rpmVersionRegex = "-(?=[^-]*-[^-]*$)";
+
+        String artifactPathRegex = "/?" + groupRegex + "/" + artifactRegex + "/" + versionRawRegex + "/"
+                + rpmFilenameRegex;
+
+        Matcher matcher = Pattern.compile(artifactPathRegex).matcher(path.replace('\\', '/'));
+
+        if (!matcher.matches()) {
+            return null;
+        }
+
+        String groupId = matcher.group(groupIdGroup).replace('/', '.');
+        String artifactId = matcher.group(artifactIdGroup);
+        String version = matcher.group(versionGroup);
+        String rpmFilename = matcher.group(rpmFilenameGroup);
+
+        // The limit of 2 ensures the split is performed only once.
+        String[] rpmFilenameParts = rpmFilename.split(rpmVersionRegex, 2);
+        String qualifier = rpmFilenameParts[1].replace(".rpm", "");
+        return GAPVQ.builder()
+                .groupId(groupId)
+                .artifactId(artifactId)
+                .packageType("rpm")
+                .version(version)
+                .qualifier(qualifier)
+                .build();
     }
 }
