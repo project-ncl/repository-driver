@@ -454,4 +454,12 @@ public class TrackingReportProcessorTest {
         entry.setSha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb");
         return entry;
     }
+
+    @Test
+    void parseRpmPathToIdentifier() {
+        String path1 = "/org/jboss/pnc/rpm/eap8-apache-sshd/2.14.0.redhat-00003/apache-sshd-2.14.0-3.redhat_00005.1.el8eap.noarch.rpm";
+        String identifier1 = "org.jboss.pnc.rpm:eap8-apache-sshd:rpm:2.14.0.redhat-00003:2.14.0-3.redhat_00005.1.el8eap.noarch";
+
+        assertEquals(TrackingReportProcessor.parseRpmPathToGAPVQ(path1).identifier(), identifier1);
+    }
 }
