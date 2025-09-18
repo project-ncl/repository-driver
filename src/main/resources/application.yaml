@@ -10,6 +10,8 @@ quarkus:
           # Send telemetry data to an opentelemetry-collector
           #endpoint: http://localhost:4317
   http:
+    enable-compression: true
+    enable-decompression: true
     cors:
       ~: true
       origins: "/.*/"
