@@ -81,6 +81,8 @@ repository-driver:
     running-wait-for: 60
     running-retry-delay-msec: 500
     running-retry-max-delay-msec: 5000
+  heartbeat:
+    interval: 30
 
 "%test":
   quarkus:
@@ -121,6 +123,8 @@ repository-driver:
       api-url: "http://archive-service/archive/"
     bifrost-uploader:
       api-url: "http://bifrost-host/"
+    heartbeat:
+      interval: 1
 
 "%dev":
   quarkus:

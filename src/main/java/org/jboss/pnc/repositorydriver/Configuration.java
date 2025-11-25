@@ -130,4 +130,7 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.archive-service.running-retry-max-delay-msec", defaultValue = "5000")
     long archiveServiceRunningRetryMaxDelayMsec;
 
+    @ConfigProperty(name = "repository-driver.heartbeat.interval", defaultValue = "5")
+    long heartbeatInterval;
+
 }
