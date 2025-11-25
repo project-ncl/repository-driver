@@ -91,6 +91,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static java.net.http.HttpClient.Version.HTTP_1_1;
@@ -110,6 +113,8 @@ public class Driver {
 
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
+
+    private static ScheduledExecutorService scheduler;
 
     public static final String BREW_PULL_METADATA_KEY = "koji-pull";
 
@@ -255,17 +260,20 @@ public class Driver {
                 heartBeatSender = () -> {};
             }
 
+            scheduler = Executors.newSingleThreadScheduledExecutor();
+            scheduler.scheduleAtFixedRate(heartBeatSender, 0, configuration.getHeartbeatInterval(), TimeUnit.SECONDS);
+
             List<RepositoryArtifact> downloadedArtifacts;
             List<RepositoryArtifact> uploadedArtifacts;
             try {
                 downloadedArtifacts = trackingReportProcessor
                         .collectDownloadedArtifacts(report, artifactFilterDatabase);
-                heartBeatSender.run();
                 uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                         report,
                         promoteRequest.isTempBuild(),
                         promoteRequest.getBuildCategory());
             } catch (RepositoryDriverException e) {
+                shutdownScheduler();
                 String message = "Failed collecting downloaded or uploaded artifacts: ";
                 userLog.error(message, e);
                 uploadLogs(message + e.getMessage(), "promote");
@@ -277,11 +285,9 @@ public class Driver {
 
             try {
                 // the promotion is done only after a successfully collected downloads and uploads
-                heartBeatSender.run();
                 PromotionPaths downloadsPromotions = trackingReportProcessor
                         .collectDownloadsPromotions(report, genericRepos);
-                promoteDownloads(downloadsPromotions, heartBeatSender, promoteRequest.isTempBuild(), buildContentId);
-                heartBeatSender.run();
+                promoteDownloads(downloadsPromotions, promoteRequest.isTempBuild(), buildContentId);
                 promoteUploads(
                         trackingReportProcessor.collectUploadsPromotions(
                                 report,
@@ -289,9 +295,9 @@ public class Driver {
                                 buildType.getRepoType(),
                                 buildContentId),
                         promoteRequest.isTempBuild(),
-                        heartBeatSender,
                         buildContentId);
             } catch (RepositoryDriverException e) {
+                shutdownScheduler();
                 String message = "Failed promoting downloaded or uploaded artifacts: ";
                 userLog.error(message, e);
                 uploadLogs(message + e.getMessage(), "promote");
@@ -300,6 +306,7 @@ public class Driver {
                         RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
                 return;
             } catch (PromotionValidationException e) {
+                shutdownScheduler();
                 String message = "Failed promoting downloaded or uploaded artifacts: ";
                 userLog.warn(message, e);
                 uploadLogs(message + e.getMessage(), "promote");
@@ -308,6 +315,8 @@ public class Driver {
                         RepositoryPromoteResult.failed(buildContentId, ResultStatus.FAILED));
                 return;
             }
+
+            shutdownScheduler();
 
             logger.info("{} uploaded {} artifacts", buildContentId, uploadedArtifacts.size());
             logger.info("{} downloaded {} artifacts", buildContentId, downloadedArtifacts.size());
@@ -710,15 +719,11 @@ public class Driver {
      * @throws RepositoryDriverException in case of an unexpected error during promotion
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    private void promoteDownloads(
-            PromotionPaths promotionPaths,
-            Runnable heartBeatSender,
-            boolean tempBuild,
-            String promotionTrackingId) throws RepositoryDriverException, PromotionValidationException {
+    private void promoteDownloads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingId)
+            throws RepositoryDriverException, PromotionValidationException {
         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
         // imports
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-            heartBeatSender.run();
             PathsPromoteRequest request = new PathsPromoteRequest(
                     sourceTargetPaths.getSource(),
                     sourceTargetPaths.getTarget(),
@@ -745,13 +750,9 @@ public class Driver {
      *         in transport
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
      */
-    private void promoteUploads(
-            PromotionPaths promotionPaths,
-            boolean tempBuild,
-            Runnable heartBeatSender,
-            String promotionTrackingID) throws RepositoryDriverException, PromotionValidationException {
+    private void promoteUploads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingID)
+            throws RepositoryDriverException, PromotionValidationException {
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-            heartBeatSender.run();
             PathsPromoteRequest request = new PathsPromoteRequest(
                     sourceTargetPaths.getSource(),
                     sourceTargetPaths.getTarget(),
@@ -995,6 +996,20 @@ public class Driver {
                 return null;
             }), executor);
         };
+    }
+
+    public void shutdownScheduler() {
+        if (scheduler != null) {
+            scheduler.shutdown(); // Prevents new tasks, but allows existing tasks to finish
+            try {
+                // Wait for all tasks to finish or time out
+                if (!scheduler.awaitTermination(60, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow(); // Force shutdown if tasks take too long
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow(); // Force shutdown if interrupted
+            }
+        }
     }
 
     @WithSpan()
