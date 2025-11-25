@@ -14,6 +14,7 @@ import java.util.concurrent.BlockingQueue;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.api.constants.HttpHeaders;
 import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
@@ -30,7 +31,7 @@ import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
 import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
-import org.jboss.pnc.repositorydriver.testresource.WiremockArchiveServer;
+import org.jboss.pnc.repositorydriver.testresource.WiremockTestServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -54,7 +55,7 @@ import io.restassured.response.ResponseBodyExtractionOptions;
  */
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
-@QuarkusTestResource(WiremockArchiveServer.class)
+@QuarkusTestResource(WiremockTestServer.class)
 public class DriverTest {
 
     private static final String BIND_HOST = "127.0.0.1";
@@ -67,6 +68,9 @@ public class DriverTest {
     private static HttpServer callbackServer;
 
     private static final BlockingQueue<Request> callbackRequests = new ArrayBlockingQueue<>(100);
+
+    @ConfigProperty(name = "test.wiremock.url")
+    String wiremockUrl;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -162,6 +166,38 @@ public class DriverTest {
                 .convertValue(callback.getAttachment(), RepositoryPromoteResult.class);
         logger.info("Promotion completed with status: {}", promoteResult.getStatus());
         Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
+    }
+
+    @Test
+    public void testPromoteHeartBeat() throws URISyntaxException, InterruptedException {
+        // given
+        Request callbackRequest = new Request(
+                Request.Method.POST,
+                new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
+                Collections.singletonList(
+                        new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
+        Request heartbeatRequest = new Request(Request.Method.POST, new URI(wiremockUrl + "/heartbeat"));
+        RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
+                .buildContentId("build-X")
+                .buildType(BuildType.MVN)
+                .tempBuild(false)
+                .buildCategory(BuildCategory.STANDARD)
+                .callback(callbackRequest)
+                .heartBeat(heartbeatRequest)
+                .build();
+
+        // when
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
+                .put("/promote")
+                .then()
+                .statusCode(204);
+        Thread.sleep(1500);
+
+        // then
+        verify(postRequestedFor(urlEqualTo("/heartbeat")));
     }
 
     @Test

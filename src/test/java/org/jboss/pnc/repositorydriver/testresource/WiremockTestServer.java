@@ -2,14 +2,13 @@ package org.jboss.pnc.repositorydriver.testresource;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 
-import java.util.Collections;
 import java.util.Map;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 
-public class WiremockArchiveServer implements QuarkusTestResourceLifecycleManager {
+public class WiremockTestServer implements QuarkusTestResourceLifecycleManager {
 
     private WireMockServer wiremock;
 
@@ -19,7 +18,14 @@ public class WiremockArchiveServer implements QuarkusTestResourceLifecycleManage
         wiremock.start();
 
         stubFor(post(urlEqualTo("/archive")).willReturn(aResponse().withStatus(204)));
-        return Collections.singletonMap("repository-driver.archive-service.api-url", wiremock.baseUrl() + "/archive");
+
+        wiremock.stubFor(post(urlEqualTo("/heartbeat")).willReturn(aResponse().withStatus(200)));
+
+        return Map.of(
+                "test.wiremock.url",
+                wiremock.baseUrl(),
+                "repository-driver.archive-service.api-url",
+                wiremock.baseUrl() + "/archive");
     }
 
     @Override
