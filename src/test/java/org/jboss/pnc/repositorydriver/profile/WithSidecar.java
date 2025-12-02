@@ -1,9 +1,9 @@
 package org.jboss.pnc.repositorydriver.profile;
 
-import io.quarkus.test.junit.QuarkusTestProfile;
-
 import java.util.Collections;
 import java.util.Map;
+
+import io.quarkus.test.junit.QuarkusTestProfile;
 
 public class WithSidecar implements QuarkusTestProfile {
     @Override

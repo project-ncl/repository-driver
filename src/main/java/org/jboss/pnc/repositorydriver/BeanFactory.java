@@ -5,13 +5,14 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.Optional;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Produces;
-import jakarta.inject.Inject;
 import javax.net.ssl.SSLContext;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
+
 import org.apache.commons.lang3.StringUtils;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
@@ -85,7 +86,9 @@ public class BeanFactory {
         }
         indySiteConfig = indySiteConfigBuilder.build();
 
-        indyModules = new IndyClientModule[] { new IndyFoloAdminClientModule(), new IndyFoloContentClientModule(),
+        indyModules = new IndyClientModule[] {
+                new IndyFoloAdminClientModule(),
+                new IndyFoloContentClientModule(),
                 new IndyPromoteClientModule() };
     }
 

@@ -1,18 +1,15 @@
 package org.jboss.pnc.repositorydriver;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.test.junit.QuarkusMock;
-import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.TestProfile;
-import io.quarkus.test.security.TestSecurity;
-import io.restassured.RestAssured;
+import static io.restassured.RestAssured.given;
+import static org.jboss.pnc.repositorydriver.DriverTest.requestHeaders;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.core.MediaType;
+
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
-import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
-import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
-import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
 import org.jboss.pnc.repositorydriver.profile.WithSidecar;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
 import org.junit.jupiter.api.Assertions;
@@ -20,11 +17,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import jakarta.inject.Inject;
-import jakarta.ws.rs.core.MediaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import static io.restassured.RestAssured.given;
-import static org.jboss.pnc.repositorydriver.DriverTest.requestHeaders;
+import io.quarkus.test.junit.QuarkusMock;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.security.TestSecurity;
 
 @QuarkusTest
 @TestProfile(WithSidecar.class)

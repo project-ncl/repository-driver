@@ -17,17 +17,17 @@
  */
 package org.jboss.pnc.repositorydriver.artifactfilter;
 
-import jakarta.annotation.PostConstruct;
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
-import org.commonjava.indy.model.core.StoreKey;
-import org.jboss.pnc.repositorydriver.Configuration;
-
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
 import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
+import org.commonjava.indy.model.core.StoreKey;
+import org.jboss.pnc.repositorydriver.Configuration;
 
 /**
  * Default implementation of artifact filter allowing filtering artifacts by path patterns and also filtering downloads

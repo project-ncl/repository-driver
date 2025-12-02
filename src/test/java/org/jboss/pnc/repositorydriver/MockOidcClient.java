@@ -1,14 +1,14 @@
 package org.jboss.pnc.repositorydriver;
 
-import io.quarkus.oidc.client.OidcClient;
-import io.quarkus.oidc.client.Tokens;
-import io.quarkus.test.Mock;
-import io.smallrye.mutiny.Uni;
-
 import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+
+import io.quarkus.oidc.client.OidcClient;
+import io.quarkus.oidc.client.Tokens;
+import io.quarkus.test.Mock;
+import io.smallrye.mutiny.Uni;
 
 @Mock
 public class MockOidcClient implements OidcClient {

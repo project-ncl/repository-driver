@@ -1,15 +1,15 @@
 package org.jboss.pnc.repositorydriver.artifactfilter;
 
-import lombok.ToString;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import lombok.ToString;
 
 @ToString
 public class IgnoredPatterns {

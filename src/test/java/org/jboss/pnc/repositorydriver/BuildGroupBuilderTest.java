@@ -1,5 +1,8 @@
 package org.jboss.pnc.repositorydriver;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,9 +17,6 @@ import org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>

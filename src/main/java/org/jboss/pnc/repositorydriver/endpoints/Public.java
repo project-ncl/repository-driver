@@ -18,6 +18,9 @@
 
 package org.jboss.pnc.repositorydriver.endpoints;
 
+import java.time.ZonedDateTime;
+
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -28,7 +31,6 @@ import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 
-import jakarta.annotation.security.RolesAllowed;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.api.dto.ComponentVersion;
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
@@ -42,8 +44,6 @@ import org.jboss.pnc.repositorydriver.RepositoryDriverException;
 import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.ZonedDateTime;
 
 /**
  *
