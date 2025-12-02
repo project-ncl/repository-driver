@@ -8,7 +8,7 @@
   ~ you may not use this file except in compliance with the License.
   ~ You may obtain a copy of the License at
   ~
-  ~ http://www.apache.org/licenses/LICENSE-2.0
+  ~ https://www.apache.org/licenses/LICENSE-2.0
   ~
   ~ Unless required by applicable law or agreed to in writing, software
   ~ distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,33 +24,33 @@
 
   <name>repository driver</name>
   <description>Artifact repository driver</description>
-  <url>http://www.redhat.com/</url>
+  <url>https://www.redhat.com/</url>
   <inceptionYear>2021</inceptionYear>
 
   <organization>
       <name>Red Hat, Inc.</name>
-      <url>http://www.redhat.com/</url>
+      <url>https://www.redhat.com/</url>
   </organization>
 
   <licenses>
     <license>
       <name>Apache License, Version 2.0</name>
       <distribution>repo</distribution>
-      <url>http://www.apache.org/licenses/LICENSE-2.0.html</url>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.html</url>
     </license>
   </licenses>
 
   <scm>
-    <connection>scm:git:http://github.com/project-ncl/repository-driver.git</connection>
+    <connection>scm:git:https://github.com/project-ncl/repository-driver.git</connection>
     <developerConnection>scm:git:git@github.com:project-ncl/repository-driver.git</developerConnection>
-    <url>http://github.com/project-ncl/repository-driver</url>
+    <url>https://github.com/project-ncl/repository-driver</url>
     <tag>HEAD</tag>
   </scm>
 
   <developers>
     <developer>
       <organization>RedHat</organization>
-      <organizationUrl>http://www.redhat.com</organizationUrl>
+      <organizationUrl>https://www.redhat.com</organizationUrl>
     </developer>
   </developers>
 
@@ -64,6 +64,7 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.30.1</quarkus.platform.version>
+    <atlas.version>1.1.8</atlas.version>
     <compiler-plugin.version>3.14.0</compiler-plugin.version>
     <surefire-plugin.version>3.5.4</surefire-plugin.version>
     <indy.version>3.4.5</indy.version>
@@ -202,12 +203,12 @@
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-identities</artifactId>
-      <version>1.1.5</version>
+      <version>${atlas.version}</version>
     </dependency>
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-npm-identities</artifactId>
-      <version>1.1.8</version>
+      <version>${atlas.version}</version>
     </dependency>
     <dependency>
       <groupId>org.jboss.pnc</groupId>
@@ -395,29 +396,9 @@
           </configuration>
       </plugin>
       <plugin>
-          <groupId>pl.project13.maven</groupId>
-          <artifactId>git-commit-id-plugin</artifactId>
-          <version>4.9.10</version>
-          <executions>
-              <execution>
-                  <goals>
-                      <goal>revision</goal>
-                  </goals>
-              </execution>
-          </executions>
-
-          <configuration>
-              <!--
-                If you'd like to tell the plugin where your .git directory is,
-                use this setting, otherwise we'll perform a search trying to
-                figure out the right directory. It's better to add it explicite IMHO.
-              -->
-              <dotGitDirectory>${project.basedir}/.git</dotGitDirectory>
-
-              <!-- false is default here, it prints some more information during the build -->
-              <verbose>true</verbose>
-
-          </configuration>
+          <groupId>io.github.git-commit-id</groupId>
+          <artifactId>git-commit-id-maven-plugin</artifactId>
+          <version>9.0.2</version>
       </plugin>
       <plugin>
           <groupId>com.google.code.maven-replacer-plugin</groupId>
