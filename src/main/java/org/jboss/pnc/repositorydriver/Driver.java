@@ -114,8 +114,6 @@ public class Driver {
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
-    private static ScheduledExecutorService scheduler;
-
     public static final String BREW_PULL_METADATA_KEY = "koji-pull";
 
     @Inject
@@ -260,7 +258,7 @@ public class Driver {
                 heartBeatSender = () -> {};
             }
 
-            scheduler = Executors.newSingleThreadScheduledExecutor();
+            final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
             scheduler.scheduleAtFixedRate(heartBeatSender, 0, configuration.getHeartbeatInterval(), TimeUnit.SECONDS);
 
             List<RepositoryArtifact> downloadedArtifacts;
@@ -273,7 +271,7 @@ public class Driver {
                         promoteRequest.isTempBuild(),
                         promoteRequest.getBuildCategory());
             } catch (RepositoryDriverException e) {
-                shutdownScheduler();
+                shutdownScheduler(scheduler);
                 String message = "Failed collecting downloaded or uploaded artifacts: ";
                 userLog.error(message, e);
                 uploadLogs(message + e.getMessage(), "promote");
@@ -297,7 +295,7 @@ public class Driver {
                         promoteRequest.isTempBuild(),
                         buildContentId);
             } catch (RepositoryDriverException e) {
-                shutdownScheduler();
+                shutdownScheduler(scheduler);
                 String message = "Failed promoting downloaded or uploaded artifacts: ";
                 userLog.error(message, e);
                 uploadLogs(message + e.getMessage(), "promote");
@@ -306,7 +304,7 @@ public class Driver {
                         RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
                 return;
             } catch (PromotionValidationException e) {
-                shutdownScheduler();
+                shutdownScheduler(scheduler);
                 String message = "Failed promoting downloaded or uploaded artifacts: ";
                 userLog.warn(message, e);
                 uploadLogs(message + e.getMessage(), "promote");
@@ -316,7 +314,7 @@ public class Driver {
                 return;
             }
 
-            shutdownScheduler();
+            shutdownScheduler(scheduler);
 
             logger.info("{} uploaded {} artifacts", buildContentId, uploadedArtifacts.size());
             logger.info("{} downloaded {} artifacts", buildContentId, downloadedArtifacts.size());
@@ -998,7 +996,7 @@ public class Driver {
         };
     }
 
-    public void shutdownScheduler() {
+    public void shutdownScheduler(ScheduledExecutorService scheduler) {
         if (scheduler != null) {
             scheduler.shutdown(); // Prevents new tasks, but allows existing tasks to finish
             try {
