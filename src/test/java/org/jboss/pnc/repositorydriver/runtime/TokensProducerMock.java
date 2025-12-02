@@ -1,6 +1,7 @@
 package org.jboss.pnc.repositorydriver.runtime;
 
 import java.time.Duration;
+
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 

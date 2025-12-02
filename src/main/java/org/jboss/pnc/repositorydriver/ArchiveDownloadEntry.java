@@ -1,14 +1,14 @@
 package org.jboss.pnc.repositorydriver;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.ToString;
-
 import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.ToString;
 
 @AllArgsConstructor
 @Builder(toBuilder = true)

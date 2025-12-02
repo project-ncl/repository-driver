@@ -1,6 +1,8 @@
 package org.jboss.pnc.repositorydriver.indy;
 
-import io.quarkus.oidc.client.OidcClient;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
 import org.apache.http.Header;
 import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -8,8 +10,7 @@ import org.apache.http.message.BasicHeader;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.util.jhttpc.JHttpCException;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import io.quarkus.oidc.client.OidcClient;
 
 @ApplicationScoped
 public class IndyPNCOAuthBearerAuthenticator extends IndyClientAuthenticator {

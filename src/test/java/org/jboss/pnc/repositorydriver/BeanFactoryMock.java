@@ -2,7 +2,6 @@ package org.jboss.pnc.repositorydriver;
 
 import jakarta.enterprise.inject.Produces;
 
-import io.quarkus.test.Mock;
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.IndyClientModule;
@@ -11,6 +10,8 @@ import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import io.quarkus.test.Mock;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -22,8 +23,10 @@ public class BeanFactoryMock extends BeanFactory {
 
     @Produces
     Indy createIndyServiceAccountClient() {
-        IndyClientModule[] indyModules = new IndyClientModule[] { new IndyMock.IndyFoloAdminClientModuleMock(),
-                new IndyMock.IndyFoloContentClientModuleMock(), new IndyMock.IndyPromoteClientModuleMock() };
+        IndyClientModule[] indyModules = new IndyClientModule[] {
+                new IndyMock.IndyFoloAdminClientModuleMock(),
+                new IndyMock.IndyFoloContentClientModuleMock(),
+                new IndyMock.IndyPromoteClientModuleMock() };
 
         IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator("hello");
         try {

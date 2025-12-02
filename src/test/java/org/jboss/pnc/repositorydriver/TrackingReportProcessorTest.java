@@ -1,12 +1,14 @@
 package org.jboss.pnc.repositorydriver;
 
+import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import jakarta.inject.Inject;
-
-import io.quarkus.test.junit.QuarkusTest;
 
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
@@ -24,9 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import io.quarkus.test.junit.QuarkusTest;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>

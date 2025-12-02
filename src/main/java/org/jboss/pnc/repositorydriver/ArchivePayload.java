@@ -1,11 +1,11 @@
 package org.jboss.pnc.repositorydriver;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
-
-import java.util.List;
 
 @AllArgsConstructor
 @Builder

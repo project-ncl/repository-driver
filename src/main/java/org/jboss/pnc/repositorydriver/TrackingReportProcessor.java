@@ -1,13 +1,32 @@
 package org.jboss.pnc.repositorydriver;
 
-import io.opentelemetry.instrumentation.annotations.SpanAttribute;
-import io.opentelemetry.instrumentation.annotations.WithSpan;
+import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
+import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
+import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
+import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedContentEntry;
+import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.SHARED_IMPORTS_ID;
 
-import com.github.packageurl.MalformedPackageURLException;
-import com.github.packageurl.PackageURL;
-import com.github.packageurl.PackageURLBuilder;
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import jakarta.annotation.PostConstruct;
-import lombok.Builder;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
+
 import org.apache.commons.lang3.StringUtils;
 import org.commonjava.atlas.maven.ident.ref.ArtifactRef;
 import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
@@ -34,31 +53,13 @@ import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validator;
+import com.github.packageurl.MalformedPackageURLException;
+import com.github.packageurl.PackageURL;
+import com.github.packageurl.PackageURLBuilder;
 
-import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
-import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedContentEntry;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.SHARED_IMPORTS_ID;
+import io.opentelemetry.instrumentation.annotations.SpanAttribute;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import lombok.Builder;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -436,7 +437,7 @@ public class TrackingReportProcessor {
                                     .withNamespace(gapvq.groupId)
                                     .withName(gapvq.artifactId)
                                     .withVersion(gapvq.qualifier) // quarlifier will contain more detailed version of
-                                                                  // rpm
+                                    // rpm
                                     .withQualifier("type", "rpm")
                                     .build()
                                     .toString();

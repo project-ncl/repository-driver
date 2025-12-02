@@ -17,14 +17,16 @@
  */
 package org.jboss.pnc.repositorydriver.runtime;
 
-import io.quarkus.oidc.client.OidcClient;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
+import java.net.URI;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
-import java.net.URI;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
+
+import io.quarkus.oidc.client.OidcClient;
 
 @ApplicationScoped
 public class BifrostLogUploaderProducer {

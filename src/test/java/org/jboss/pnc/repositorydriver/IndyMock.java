@@ -1,5 +1,8 @@
 package org.jboss.pnc.repositorydriver;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -28,9 +31,6 @@ import org.commonjava.indy.promote.model.PathsPromoteResult;
 import org.commonjava.util.jhttpc.auth.PasswordManager;
 import org.commonjava.util.jhttpc.model.SiteConfig;
 import org.mockito.Mockito;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>

@@ -1,5 +1,8 @@
 package org.jboss.pnc.repositorydriver;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static io.restassured.RestAssured.given;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -8,18 +11,8 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusMock;
-import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.security.TestSecurity;
-import io.restassured.RestAssured;
-import io.restassured.response.ResponseBodyExtractionOptions;
 
 import org.jboss.pnc.api.constants.HttpHeaders;
 import org.jboss.pnc.api.constants.MDCHeaderKeys;
@@ -47,8 +40,14 @@ import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static io.restassured.RestAssured.given;
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusMock;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.security.TestSecurity;
+import io.restassured.RestAssured;
+import io.restassured.response.ResponseBodyExtractionOptions;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>

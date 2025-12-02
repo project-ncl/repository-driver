@@ -1,10 +1,10 @@
 package org.jboss.pnc.repositorydriver;
 
-import org.jboss.pnc.api.enums.RepositoryType;
-
 import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
 import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
+
+import org.jboss.pnc.api.enums.RepositoryType;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
