@@ -21,9 +21,10 @@ public class WiremockTestServer implements QuarkusTestResourceLifecycleManager {
         wiremock.stubFor(post(urlEqualTo("/heartbeat")).willReturn(aResponse().withStatus(200)));
 
         return Map.of(
-                "test.wiremock.url", wiremock.baseUrl(),
-                "repository-driver.archive-service.api-url", wiremock.baseUrl() + "/archive"
-        );
+                "test.wiremock.url",
+                wiremock.baseUrl(),
+                "repository-driver.archive-service.api-url",
+                wiremock.baseUrl() + "/archive");
     }
 
     @Override
