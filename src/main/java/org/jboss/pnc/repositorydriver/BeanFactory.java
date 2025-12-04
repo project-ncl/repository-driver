@@ -149,7 +149,8 @@ public class BeanFactory {
 
     @PreDestroy
     void destroy() {
-        indy.close();
+        if (indy != null) {
+            indy.close();
+        }
     }
-
 }
