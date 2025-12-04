@@ -110,6 +110,7 @@ repository-driver:
   callback-retry-delay-msec: 500
   callback-retry-max-delay-msec: 5000
   archive-service:
+    enabled: true
     api-url:
     prefer-http-2: true
     running-wait-for: 60
@@ -117,95 +118,3 @@ repository-driver:
     running-retry-max-delay-msec: 5000
   heartbeat:
     interval: 30
-
-"%test":
-  quarkus:
-    arc:
-      # to use the injected Mock instead
-      exclude-types: org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
-    oidc:
-      enabled: false
-    oidc-client:
-      enabled: false
-    http:
-      auth:
-        basic: false
-    security:
-      ldap:
-        enabled: false
-    log:
-      console:
-        json: false
-  repository-driver:
-    http-client:
-      connect-timeout: 1
-      request-timeout: 3
-
-    # Build Category Configuration
-    build-categories:
-      # Default category
-      default:
-        build-promotion-target: target
-        temp-build-promotion-target: temporary-target
-        build-group-constituents:
-          temp-hosted:
-            - constituent-temp-hosted
-          temp-group:
-            - constituent-temp-group
-          hosted:
-            - consituent-hosted
-          group:
-            - constituent-group
-
-      # Standard category
-      standard:
-        build-group-constituents:
-          temp-hosted:
-            - temp-central
-          temp-group: []
-          hosted:
-            - central
-
-      # Service category
-      service:
-        build-promotion-target: service-builds
-        temp-build-promotion-target: temporary-service-builds
-        build-group-constituents:
-          temp-hosted:
-            - central
-          temp-group: []
-          hosted:
-            - central
-          group: []
-    ignored-path-patterns:
-      archive:
-        maven: [".*/maven-metadata\\.xml(\\..+)?$"]
-      promotion:
-        maven: [".*/maven-metadata\\.xml$", ".*\\.sha1$"]
-        npm:
-        generic:
-      result:
-        maven:
-        npm:
-        generic:
-    indy-sidecar:
-      enabled: false
-      url: http://sidecar:8093/
-    ignored-repo-patterns:
-      promotion: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
-      archive: ["maven:.*:build-yyyyy", "maven:hosted:build-xxxxx"]
-    self-base-url: "http://localhost:8081/"
-    indy-client:
-      api-url: "http://indy-host/api/"
-    archive-service:
-      api-url: "http://archive-service/archive/"
-    bifrost-uploader:
-      api-url: "http://bifrost-host/"
-    heartbeat:
-      interval: 1
-
-"%dev":
-  quarkus:
-    log:
-      console:
-        json: false
