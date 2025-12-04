@@ -42,6 +42,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.archive-service.api-url")
     String archiveServiceEndpoint;
 
+    @ConfigProperty(name = "repository-driver.archive-service.enabled", defaultValue = "true")
+    boolean archiveServiceEnabled;
+
     @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
 

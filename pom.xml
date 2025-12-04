@@ -123,6 +123,12 @@
       </dependency>
 
       <dependency>
+        <groupId>org.jfrog.artifactory.client</groupId>
+        <artifactId>artifactory-java-client-services</artifactId>
+        <version>2.21.1</version>
+      </dependency>
+
+      <dependency>
         <groupId>org.commonjava.indy</groupId>
         <artifactId>indy-folo-client-java</artifactId>
         <version>${indy.version}</version>
@@ -194,6 +200,11 @@
       <artifactId>quarkus-micrometer-opentelemetry</artifactId>
     </dependency>
     <dependency>
+      <groupId>org.jfrog.artifactory.client</groupId>
+      <artifactId>artifactory-java-client-services</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>org.commonjava.indy</groupId>
       <artifactId>indy-folo-client-java</artifactId>
     </dependency>
@@ -238,11 +249,25 @@
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-identities</artifactId>
       <version>${atlas.version}</version>
+      <!-- Avoid multiple SLF4J providers -->
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-npm-identities</artifactId>
       <version>${atlas.version}</version>
+      <!-- Avoid multiple SLF4J providers -->
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jboss.pnc</groupId>
@@ -304,6 +329,11 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit5-internal</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

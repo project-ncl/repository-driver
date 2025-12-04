@@ -422,8 +422,13 @@ public class Driver {
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
 
-        TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
-        doArchive(request, report);
+        // TODO: ### DRAFT
+        if (configuration.archiveServiceEnabled) {
+            TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
+            doArchive(request, report);
+        } else {
+            logger.warn("Archive service disabled");
+        }
     }
 
     private void doArchive(
