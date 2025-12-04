@@ -459,8 +459,13 @@ public class Driver {
     }
 
     private void archive(ArchiveRequest request, Indy indy) throws RepositoryDriverException {
-        TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId(), indy);
-        doArchive(request, report);
+        // TODO: ### DRAFT
+        if (configuration.archiveServiceEnabled) {
+            TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId(), indy);
+            doArchive(request, report);
+        } else {
+            logger.warn("Archive service disabled");
+        }
     }
 
     private void doArchive(
