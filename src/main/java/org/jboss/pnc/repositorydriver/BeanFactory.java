@@ -175,5 +175,4 @@ public class BeanFactory {
     // }
 
     // <<< Indy client required beans - end
-
 }
