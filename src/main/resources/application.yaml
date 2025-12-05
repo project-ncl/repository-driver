@@ -67,6 +67,8 @@ pnc_client_auth:
   #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
 
 repository-driver:
+  backend: indy # indy or artifactory
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
   ignored-path-patterns:
     archive:
       maven:
@@ -84,6 +86,9 @@ repository-driver:
   temp-build-promotion-target:
   build-promotion-target:
   self-base-url:
+  artifactory-client:
+    url:
+    accessToken:
   indy-client:
     api-url:
     request-timeout: 30

@@ -20,7 +20,7 @@ package org.jboss.pnc.repositorydriver.constants;
 /**
  * Constants used by the maven repository driver.
  */
-public class IndyRepositoryConstants {
+public class RepositoryConstants {
 
     /** Name of group that contains common builds groups' constituents. */
     public static final String COMMON_BUILD_GROUP_CONSTITUENTS_GROUP = "builds-untested+shared-imports+public";
