@@ -1,4 +1,4 @@
-package org.jboss.pnc.repositorydriver;
+package org.jboss.pnc.repositorydriver.group;
 
 import static org.jboss.pnc.repositorydriver.Driver.GRADLE_PLUGINS_REPO;
 
@@ -20,6 +20,7 @@ import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.model.core.dto.StoreListingDTO;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
+import org.jboss.pnc.repositorydriver.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +30,7 @@ import lombok.Getter;
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
-public class BuildGroupBuilder {
+public class IndyBuildGroupBuilder {
 
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
@@ -40,29 +41,29 @@ public class BuildGroupBuilder {
     private String buildContentId;
 
     // use #builder
-    private BuildGroupBuilder() {
+    private IndyBuildGroupBuilder() {
     }
 
-    public static BuildGroupBuilder builder(
+    public static IndyBuildGroupBuilder builder(
             Configuration configuration,
             Indy indy,
             String packageType,
             String buildContentId) {
-        BuildGroupBuilder buildGroupBuilder = new BuildGroupBuilder();
-        buildGroupBuilder.configuration = configuration;
-        buildGroupBuilder.indy = indy;
-        buildGroupBuilder.packageType = packageType;
-        buildGroupBuilder.buildContentId = buildContentId;
-        buildGroupBuilder.buildGroup = new Group(packageType, buildContentId);
-        return buildGroupBuilder;
+        IndyBuildGroupBuilder indyBuildGroupBuilder = new IndyBuildGroupBuilder();
+        indyBuildGroupBuilder.configuration = configuration;
+        indyBuildGroupBuilder.indy = indy;
+        indyBuildGroupBuilder.packageType = packageType;
+        indyBuildGroupBuilder.buildContentId = buildContentId;
+        indyBuildGroupBuilder.buildGroup = new Group(packageType, buildContentId);
+        return indyBuildGroupBuilder;
     }
 
-    public BuildGroupBuilder withDescription(String description) {
+    public IndyBuildGroupBuilder withDescription(String description) {
         buildGroup.setDescription(description);
         return this;
     }
 
-    public BuildGroupBuilder addConstituent(StoreKey storeKey) {
+    public IndyBuildGroupBuilder addConstituent(StoreKey storeKey) {
         buildGroup.addConstituent(storeKey);
         return this;
     }
@@ -79,7 +80,7 @@ public class BuildGroupBuilder {
      *
      * @param buildType the build type
      */
-    public BuildGroupBuilder addGlobalConstituents(
+    public IndyBuildGroupBuilder addGlobalConstituents(
             BuildType buildType,
             BuildCategory buildCategory,
             boolean tempBuild) {
@@ -125,7 +126,7 @@ public class BuildGroupBuilder {
      *
      * @throws IndyClientException in case of an issue when communicating with the repository manager
      */
-    public BuildGroupBuilder addExtraConstituents(List<String> repositoryUrls) throws IndyClientException {
+    public IndyBuildGroupBuilder addExtraConstituents(List<String> repositoryUrls) throws IndyClientException {
         if (repositoryUrls != null && !repositoryUrls.isEmpty()) {
             List<String> splittedRepos = new ArrayList<>();
             for (String repoToSplit : repositoryUrls) {
@@ -199,7 +200,7 @@ public class BuildGroupBuilder {
      * @param value value of metadata
      * @return
      */
-    public BuildGroupBuilder addMetadata(String key, String value) {
+    public IndyBuildGroupBuilder addMetadata(String key, String value) {
         buildGroup.setMetadata(key, value);
         return this;
     }

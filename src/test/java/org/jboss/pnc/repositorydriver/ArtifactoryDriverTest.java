@@ -1,0 +1,236 @@
+package org.jboss.pnc.repositorydriver;
+
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static io.restassured.RestAssured.given;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+import jakarta.inject.Inject;
+import jakarta.ws.rs.core.MediaType;
+
+import org.jboss.pnc.api.constants.HttpHeaders;
+import org.jboss.pnc.api.constants.MDCHeaderKeys;
+import org.jboss.pnc.api.dto.Request;
+import org.jboss.pnc.api.enums.BuildCategory;
+import org.jboss.pnc.api.enums.BuildType;
+import org.jboss.pnc.api.enums.ResultStatus;
+import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
+import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
+import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
+import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
+import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
+import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.Repositories;
+import org.jfrog.artifactory.client.RepositoryHandle;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.quarkus.test.junit.QuarkusMock;
+import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
+import io.quarkus.test.security.TestSecurity;
+import io.restassured.RestAssured;
+import io.restassured.response.ResponseBodyExtractionOptions;
+
+@QuarkusTest
+@TestSecurity(authorizationEnabled = false)
+//@QuarkusTestResource(WiremockArchiveServer.class)
+@TestProfile(ArtifactoryDriverTest.class)
+public class ArtifactoryDriverTest implements QuarkusTestProfile {
+
+    private static final String BIND_HOST = "127.0.0.1";
+
+    private static final Logger logger = LoggerFactory.getLogger(ArtifactoryDriverTest.class);
+
+    @Override
+    public Map<String, String> getConfigOverrides() {
+        return Map.of(
+                "repository-driver.backend",
+                "artifactory");
+    }
+
+    @Inject
+    ObjectMapper mapper;
+
+    @Inject
+    Configuration configuration;
+
+    private static HttpServer callbackServer;
+
+    private static final BlockingQueue<Request> callbackRequests = new ArrayBlockingQueue<>(100);
+
+    @BeforeAll
+    public static void beforeClass() throws Exception {
+        // uncomment to log all requests
+        // RestAssured.filters(new RequestLoggingFilter(), new ResponseLoggingFilter());
+        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+
+        //        callbackServer = new HttpServer();
+        //
+        //        callbackServer.addServlet(
+        //                CallbackHandler.class,
+        //                new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
+        //        callbackServer.start(8082, BIND_HOST);
+
+        BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
+        Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
+        BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
+        Mockito.when(bifrostLogUploaderProducer.produce()).thenReturn(bifrostLogUploader);
+        QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
+
+        Artifactory artifactory = Mockito.mock(Artifactory.class);
+        // artifactory.repository("xxx")
+        RepositoryHandle repositoryHandle = Mockito.mock(RepositoryHandle.class);
+        Mockito.when(artifactory.repository(Mockito.anyString())).thenReturn(repositoryHandle);
+        // artifactory.repository("xxx").exists
+        Mockito.when(repositoryHandle.exists()).thenReturn(false);
+        // artifactory.repositories
+        // Use RETURNS_DEEP_STUBS to mock 'all the way down'.
+        Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
+        // Replace the cdi ArtifactoryProducer bean with a mocked version
+        ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
+        Mockito.when(artifactoryProducer.produce()).thenReturn(artifactory);
+        QuarkusMock.installMockForType(artifactoryProducer, ArtifactoryProducer.class);
+    }
+
+    @AfterAll
+    public static void afterClass() {
+        //        callbackServer.stop();
+    }
+
+    @Test
+    public void testRepoNames() {
+        String name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.MVN_RPM, false, "build-ABCDEF");
+        assertEquals("pnc-maven-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, "build-ABCDEF");
+        assertEquals("pnc-maven-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, true, "build-ABCDEF");
+        assertEquals("pnc-maven-virtual-build-ABCDEF", name);
+    }
+
+    @Test
+    public void shouldCreateRepository() {
+        // given
+        RepositoryCreateRequest request = RepositoryCreateRequest.builder()
+                .buildContentId("build-X")
+                .buildType(BuildType.MVN)
+                .tempBuild(false)
+                .build();
+        // when
+        RepositoryCreateResponse repositoryCreateResponse = given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
+                .post("/create")
+                .then()
+                .statusCode(200)
+                .extract()
+                .body()
+                .as(RepositoryCreateResponse.class);
+
+        // then
+        Assertions.assertEquals(
+                "http://localhost/folo/track/build-X/maven/group/build-X/",
+                repositoryCreateResponse.getRepositoryDependencyUrl());
+        Assertions.assertEquals(
+                "http://localhost/folo/track/build-X/maven/hosted/build-X/",
+                repositoryCreateResponse.getRepositoryDeployUrl());
+    }
+
+    @Test
+    @Timeout(15)
+    public void shouldPromoteRepository() throws URISyntaxException, InterruptedException {
+        // given
+        Request callbackRequest = new Request(
+                Request.Method.POST,
+                new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
+                Collections.singletonList(
+                        new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
+        RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
+                .buildContentId("build-X")
+                .buildType(BuildType.MVN)
+                .tempBuild(false)
+                .buildCategory(BuildCategory.STANDARD)
+                .callback(callbackRequest)
+                .build();
+
+        // when
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
+                .put("/seal")
+                .then()
+                .statusCode(204);
+
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
+                .put("/promote")
+                .then()
+                .statusCode(204);
+
+        // then
+        Request callback = callbackRequests.take();
+        RepositoryPromoteResult promoteResult = mapper
+                .convertValue(callback.getAttachment(), RepositoryPromoteResult.class);
+        logger.info("Promotion completed with status: {}", promoteResult.getStatus());
+        Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
+    }
+
+    @Test
+    public void testArchiveRequest() {
+        ResponseBodyExtractionOptions body = given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
+                .when()
+                .post("/archive")
+                .then()
+                .statusCode(204)
+                .extract()
+                .body();
+
+        verify(
+                1,
+                postRequestedFor(urlEqualTo("/archive"))
+                        .withRequestBody(matchingJsonPath("buildConfigId", containing("10"))));
+    }
+
+    public static Map<String, String> requestHeaders() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put(MDCHeaderKeys.PROCESS_CONTEXT.getHeaderName(), "A");
+        headers.put(MDCHeaderKeys.TMP.getHeaderName(), "false");
+        headers.put(MDCHeaderKeys.EXP.getHeaderName(), "0");
+        headers.put(MDCHeaderKeys.USER_ID.getHeaderName(), "1");
+        return headers;
+    }
+}
