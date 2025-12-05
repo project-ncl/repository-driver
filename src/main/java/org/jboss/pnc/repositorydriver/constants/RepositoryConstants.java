@@ -20,7 +20,7 @@ package org.jboss.pnc.repositorydriver.constants;
 /**
  * Constants used by the maven repository driver.
  */
-public class IndyRepositoryConstants {
+public class RepositoryConstants {
 
     /** Name of hosted repository used to store artifacts from external sources. */
     public static final String SHARED_IMPORTS_ID = "shared-imports";

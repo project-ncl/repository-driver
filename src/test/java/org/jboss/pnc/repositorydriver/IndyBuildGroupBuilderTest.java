@@ -16,6 +16,7 @@ import org.commonjava.indy.model.core.RemoteRepository;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.dto.StoreListingDTO;
 import org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor;
+import org.jboss.pnc.repositorydriver.group.IndyBuildGroupBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -26,7 +27,7 @@ import io.quarkus.test.junit.QuarkusTest;
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
 @QuarkusTest
-public class BuildGroupBuilderTest {
+public class IndyBuildGroupBuilderTest {
 
     @Inject
     Configuration configuration;
@@ -46,7 +47,7 @@ public class BuildGroupBuilderTest {
         List<String> repositories = new ArrayList<>();
         repositories.add("http://test.com/maven");
         repositories.add("invalid url"); // should not be added
-        Group buildGroup = BuildGroupBuilder
+        Group buildGroup = IndyBuildGroupBuilder
                 .builder(configuration, indy, MavenPackageTypeDescriptor.MAVEN_PKG_KEY, "build-X")
                 .addExtraConstituents(repositories)
                 .build();
