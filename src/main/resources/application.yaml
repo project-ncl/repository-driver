@@ -67,6 +67,8 @@ pnc_client_auth:
   #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
 
 repository-driver:
+  backend: indy # indy or artifactory
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
   # Build Category Configuration
   build-categories:
     # Default category
@@ -97,6 +99,9 @@ repository-driver:
     promotion:
     archive:
   self-base-url:
+  artifactory-client:
+    url:
+    accessToken:
   indy-client:
     api-url:
     request-timeout: 30
