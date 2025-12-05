@@ -42,6 +42,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 
@@ -82,7 +83,15 @@ import org.jboss.pnc.common.log.MDCUtils;
 import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
+import org.jboss.pnc.repositorydriver.group.ArtifactoryBuildGroupBuilder;
+import org.jboss.pnc.repositorydriver.group.IndyBuildGroupBuilder;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
+import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.RepositoryHandle;
+import org.jfrog.artifactory.client.model.Repository;
+import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
+import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
+import org.jfrog.artifactory.client.model.repository.settings.impl.NpmRepositorySettingsImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -109,7 +118,7 @@ import net.jodah.failsafe.event.ExecutionAttemptedEvent;
 public class Driver {
 
     /** Store key of gradle-plugins remote repository. */
-    static final String GRADLE_PLUGINS_REPO = "maven:remote:gradle-plugins";
+    public static final String GRADLE_PLUGINS_REPO = "maven:remote:gradle-plugins";
 
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
@@ -146,6 +155,9 @@ public class Driver {
     @Inject
     BifrostLogUploader bifrostLogUploader;
 
+    @Inject
+    Artifactory artifactory;
+
     @WithSpan()
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
@@ -176,11 +188,14 @@ public class Driver {
             String deployUrl;
 
             try {
+                // TODO: ### Eventually to be replaced by pnc-tracking-service??
+
                 // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
                 IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
                 foloAdminModule.clearTrackingRecord(buildId);
                 foloAdminModule.initReport(buildId);
 
+                // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
                 StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
                 downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
 
@@ -664,64 +679,142 @@ public class Driver {
             boolean brewPullActive,
             List<String> extraDependencyRepositories) throws IndyClientException {
 
-        // if the build-level group doesn't exist, create it.
-        StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
-        StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
+        System.err.println("### Backend " + configuration.backend);
+        if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
+            try {
+                // Was using try/resources but now switched to injected artifactory for tests
+                // (Artifactory artifactory = createArtifactoryClient()) {
 
-        // if the group and repo exist, delete them and recreate them from scratch
-        IndyStoresClientModule storesModule = indy.stores();
-        if (storesModule.exists(groupKey)) {
-            String logCleanupGroupKey = "Cleanup " + groupKey + " before build run.";
-            logger.info(logCleanupGroupKey);
-            storesModule.delete(groupKey, logCleanupGroupKey);
-        }
-        if (storesModule.exists(hostedKey)) {
-            HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
-            if (hosted.isReadonly()) {
-                hosted.setReadonly(false);
-                String logWritableHostKey = "Make " + hostedKey + " writable before delete.";
-                logger.info(logWritableHostKey);
-                storesModule.update(hosted, logWritableHostKey);
+                String hostedName = ArtifactoryUtils
+                        .createRepositoryName(configuration, buildType, false, buildContentId);
+                String virtualName = ArtifactoryUtils
+                        .createRepositoryName(configuration, buildType, true, buildContentId);
+
+                // Check repositories exist and delete if they do
+                RepositoryHandle hostedRepository = artifactory.repository(hostedName);
+                RepositoryHandle virtualRepository = artifactory.repository(virtualName);
+                // TODO: Do we need to check it exists first?
+                if (hostedRepository.exists()) {
+                    hostedRepository.delete();
+                }
+                if (virtualRepository.exists()) {
+                    virtualRepository.delete();
+                }
+
+                RepositorySettings settings = null;
+                switch (packageType) {
+                    case "maven": {
+                        // Create local and virtual repository
+                        // MavenRepositorySettingsImpl implicitly sets package type maven.
+                        settings = new MavenRepositorySettingsImpl();
+                        ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
+                        ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
+                        break;
+                    }
+                    case "npm": {
+                        settings = new NpmRepositorySettingsImpl();
+                    }
+                    // TODO: Will we need to support other types here?
+                }
+
+                var repository = artifactory.repositories()
+                        .builders()
+                        .localRepositoryBuilder()
+                        .archiveBrowsingEnabled(true)
+                        .description("PNC Build repository for " + hostedName)
+                        .repositorySettings(settings)
+                        .key(hostedName)
+                        .build();
+                artifactory.repositories().create(1, repository);
+
+                // TODO: What is the BuildGroup / constituents / IndyBuildGroupBuilder
+                // TODO: How are Indy group repositories named? Prefix?
+
+                Repository group = ArtifactoryBuildGroupBuilder
+                        .builder(configuration, artifactory, settings, buildContentId)
+                        .withDescription(
+                                String.format(
+                                        "Aggregation group for PNC %s build #%s",
+                                        tempBuild ? "temporary " : "",
+                                        buildContentId))
+                        // build-local artifacts
+                        .addConstituent(hostedName)
+                        // Global-level repos, for captured/shared artifacts and access to the outside world
+                        .addGlobalConstituents(buildType, tempBuild)
+                        // build-specific repos
+                        .addExtraConstituents(extraDependencyRepositories)
+                        .build();
+                // TODO: What is the position. Undocumented in the REST API. Comes through as "?pos="
+                String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
+                        + "), with tempBuild: " + tempBuild;
+                logger.info(changelog);
+                artifactory.repositories().create(1, group);
+
+            } catch (Exception e) {
+                // TODO: ### FIXME Error handling
+                throw new RuntimeException(e);
+            }
+        } else {
+            // if the build-level group doesn't exist, create it.
+            StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
+            StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
+
+            // if the group and repo exist, delete them and recreate them from scratch
+            IndyStoresClientModule storesModule = indy.stores();
+            if (storesModule.exists(groupKey)) {
+                String logCleanupGroupKey = "Cleanup " + groupKey + " before build run.";
+                logger.info(logCleanupGroupKey);
+                storesModule.delete(groupKey, logCleanupGroupKey);
+            }
+            if (storesModule.exists(hostedKey)) {
+                HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
+                if (hosted.isReadonly()) {
+                    hosted.setReadonly(false);
+                    String logWritableHostKey = "Make " + hostedKey + " writable before delete.";
+                    logger.info(logWritableHostKey);
+                    storesModule.update(hosted, logWritableHostKey);
+                }
+
+                String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
+                logger.info(logCleanupHostedKey);
+                storesModule.delete(hostedKey, logCleanupHostedKey, true);
             }
 
-            String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
-            logger.info(logCleanupHostedKey);
-            storesModule.delete(hostedKey, logCleanupHostedKey, true);
+            // create build repo
+            HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
+            buildArtifacts.setAllowSnapshots(false);
+            buildArtifacts.setAllowReleases(true);
+
+            buildArtifacts
+                    .setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
+
+            String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " + buildContentId
+                    + " (repo: " + buildContentId + ")";
+            logger.info(logCreatingHostedRepo);
+            storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
+
+            // create build group
+            Group buildGroup = IndyBuildGroupBuilder.builder(configuration, indy, packageType, buildContentId)
+                    .withDescription(
+                            String.format(
+                                    "Aggregation group for PNC %s build #%s",
+                                    tempBuild ? "temporary " : "",
+                                    buildContentId))
+                    // build-local artifacts
+                    .addConstituent(hostedKey)
+                    // Global-level repos, for captured/shared artifacts and access to the outside world
+                    .addGlobalConstituents(buildType, buildCategory, tempBuild)
+                    // build-specific repos
+                    .addExtraConstituents(extraDependencyRepositories)
+                    // brew pull: see MMENG-1262
+                    .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
+                    .build();
+
+            String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
+                    + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
+            logger.info(changelog);
+            storesModule.create(buildGroup, changelog, Group.class);
         }
-
-        // create build repo
-        HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
-        buildArtifacts.setAllowSnapshots(false);
-        buildArtifacts.setAllowReleases(true);
-
-        buildArtifacts.setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
-
-        String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " + buildContentId
-                + " (repo: " + buildContentId + ")";
-        logger.info(logCreatingHostedRepo);
-        storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
-
-        // create build group
-        Group buildGroup = BuildGroupBuilder.builder(configuration, indy, packageType, buildContentId)
-                .withDescription(
-                        String.format(
-                                "Aggregation group for PNC %s build #%s",
-                                tempBuild ? "temporary " : "",
-                                buildContentId))
-                // build-local artifacts
-                .addConstituent(hostedKey)
-                // Global-level repos, for captured/shared artifacts and access to the outside world
-                .addGlobalConstituents(buildType, buildCategory, tempBuild)
-                // build-specific repos
-                .addExtraConstituents(extraDependencyRepositories)
-                // brew pull: see MMENG-1262
-                .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
-                .build();
-
-        String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
-                + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
-        logger.info(changelog);
-        storesModule.create(buildGroup, changelog, Group.class);
     }
 
     /**
@@ -1098,5 +1191,12 @@ public class Driver {
                 throw new FailedResponseException("Response status code: " + response.statusCode());
             }
         };
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
+            artifactory.close();
+        }
     }
 }
