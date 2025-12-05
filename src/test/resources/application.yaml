@@ -16,6 +16,8 @@ quarkus:
     console:
       json: false
 repository-driver:
+  backend: indy # indy or artifactory
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
   http-client:
     connect-timeout: 1
     request-timeout: 3
@@ -74,6 +76,9 @@ repository-driver:
     promotion: [ "maven:.*:ignored", "maven:.+:tobeigno.+" ]
     archive: [ "maven:.*:build-yyyyy", "maven:hosted:build-xxxxx" ]
   self-base-url: "http://localhost:8081/"
+  artifactory-client:
+    url: "http://artifactory-host/api/"
+    accessToken: "TOKEN"
   indy-client:
     api-url: "http://indy-host/api/"
   archive-service:

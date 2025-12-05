@@ -4,7 +4,7 @@ import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERI
 import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
 import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedContentEntry;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.SHARED_IMPORTS_ID;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.SHARED_IMPORTS_ID;
 
 import java.io.File;
 import java.net.MalformedURLException;

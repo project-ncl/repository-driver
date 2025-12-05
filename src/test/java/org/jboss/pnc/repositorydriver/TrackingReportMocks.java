@@ -5,7 +5,7 @@ import org.commonjava.indy.model.core.AccessChannel;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.pkg.PackageTypeConstants;
-import org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -16,7 +16,7 @@ public class TrackingReportMocks {
     public static StoreKey sharedImportsKey = new StoreKey(
             PackageTypeConstants.PKG_TYPE_MAVEN,
             StoreType.hosted,
-            IndyRepositoryConstants.SHARED_IMPORTS_ID);
+            RepositoryConstants.SHARED_IMPORTS_ID);
     public static StoreKey ignoredKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.remote, "ignored");
     public static StoreKey toBeIgnoredKey = new StoreKey(
             PackageTypeConstants.PKG_TYPE_MAVEN,
