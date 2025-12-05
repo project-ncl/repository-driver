@@ -80,7 +80,7 @@
 
   <dependencyManagement>
     <dependencies>
-      <!-- 
+      <!--
         manual override, because indy-promote-client-java hasn't been update for a while
         TODO: remove when when indy-promote-client-java is upgrade or removed
       -->
@@ -253,7 +253,7 @@
     <dependency>
       <groupId>org.jboss.pnc</groupId>
       <artifactId>pnc-api</artifactId>
-      <version>3.5.2</version>
+      <version>3.6.0-SNAPSHOT</version>
       <classifier>jakarta</classifier>
     </dependency>
     <dependency>
@@ -410,9 +410,21 @@
         <version>${compiler-plugin.version}</version>
       </plugin>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${surefire-plugin.version}</version>
         <configuration>
+          <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
           <systemPropertyVariables>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
