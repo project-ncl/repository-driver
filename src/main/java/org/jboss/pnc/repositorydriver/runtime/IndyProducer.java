@@ -1,4 +1,4 @@
-package org.jboss.pnc.repositorydriver;
+package org.jboss.pnc.repositorydriver.runtime;
 
 import java.net.http.HttpClient;
 import java.security.NoSuchAlgorithmException;
@@ -25,6 +25,9 @@ import org.commonjava.indy.promote.client.IndyPromoteClientModule;
 import org.commonjava.util.jhttpc.model.SiteConfig;
 import org.commonjava.util.jhttpc.model.SiteConfigBuilder;
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.jboss.pnc.repositorydriver.Configuration;
+import org.jboss.pnc.repositorydriver.MdcUtils;
+import org.jboss.pnc.repositorydriver.RepositoryDriverException;
 import org.jboss.pnc.repositorydriver.indy.IndyPNCOAuthBearerAuthenticator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,9 +36,9 @@ import org.slf4j.LoggerFactory;
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
 @ApplicationScoped
-public class BeanFactory {
+public class IndyProducer {
 
-    private static final Logger logger = LoggerFactory.getLogger(BeanFactory.class);
+    private static final Logger logger = LoggerFactory.getLogger(IndyProducer.class);
 
     @Inject
     Configuration configuration;
