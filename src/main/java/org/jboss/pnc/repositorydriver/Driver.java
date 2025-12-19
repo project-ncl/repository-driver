@@ -189,33 +189,38 @@ public class Driver {
 
             try {
                 // TODO: ### Eventually to be replaced by pnc-tracking-service??
+                if (configuration.backend == Configuration.Backend.INDY) {
+                    // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
+                    IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
+                    foloAdminModule.clearTrackingRecord(buildId);
+                    foloAdminModule.initReport(buildId);
 
-                // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
-                IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
-                foloAdminModule.clearTrackingRecord(buildId);
-                foloAdminModule.initReport(buildId);
+                    // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
+                    StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
+                    downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
 
-                // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
-                StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
-                downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
+                    StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
+                    deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
 
-                StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
-                deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
-
-                if (configuration.isSidecarEnabled()) {
-                    logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
-                    try {
-                        downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException(
-                                String.format(
-                                        "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
-                                        configuration.getSidecarUrl(),
-                                        downloadsUrl,
-                                        deployUrl));
+                    // TODO: With Artifactory will we need the sidecar translation?
+                    if (configuration.isSidecarEnabled()) {
+                        logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
+                        try {
+                            downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
+                        } catch (MalformedURLException e) {
+                            throw new RuntimeException(
+                                    String.format(
+                                            "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
+                                            configuration.getSidecarUrl(),
+                                            downloadsUrl,
+                                            deployUrl));
+                        }
                     }
+                } else {
+                    // TODO: This assumes artifactoryUrl always has a '/' at the end.
+                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, false, buildId);
+                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, true, buildId);
                 }
-
                 logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
             } catch (IndyClientException e) {
                 logger.debug("Failed to retrieve Indy client module for the artifact tracker");
@@ -440,7 +445,7 @@ public class Driver {
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
 
-        // TODO: ### DRAFT
+        // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
             TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
             doArchive(request, report);
@@ -1194,7 +1199,7 @@ public class Driver {
     }
 
     @PreDestroy
-    public void cleanup() {
+    private void cleanup() {
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             artifactory.close();
         }
