@@ -192,19 +192,27 @@ public class Driver {
 
             try {
                 // TODO: ### Eventually to be replaced by pnc-tracking-service??
+                if (configuration.backend == Configuration.Backend.INDY) {
+                    // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
+                    IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
+                    foloAdminModule.clearTrackingRecord(buildId);
+                    foloAdminModule.initReport(buildId);
 
-                // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
-                IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
-                foloAdminModule.clearTrackingRecord(buildId);
-                foloAdminModule.initReport(buildId);
+                    // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
+                    StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
+                    downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
 
-                // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
-                StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
-                downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
+                    StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
+                    deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
+                } else {
+                    // TODO: This assumes artifactoryUrl always has a '/' at the end.
+                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, false,
+                            repositoryCreateRequest.isTempBuild(), buildId);
+                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, true,
+                            repositoryCreateRequest.isTempBuild(), buildId);
+                }
 
-                StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
-                deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
-
+                // TODO: With Artifactory will we need the sidecar translation?
                 if (configuration.isSidecarEnabled()) {
                     logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
                     try {
@@ -218,7 +226,6 @@ public class Driver {
                                         deployUrl));
                     }
                 }
-
                 logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
             } catch (IndyClientException e) {
                 logger.debug("Failed to retrieve Indy client module for the artifact tracker");
@@ -316,6 +323,8 @@ public class Driver {
                 }
 
                 try {
+                    // TODO: Artifactory versus Indy : we need to use copy API from Artifactory for promotion.
+
                     // the promotion is done only after a successfully collected downloads and uploads
                     PromotionPaths downloadsPromotions = trackingReportProcessor
                             .collectDownloadsPromotions(report, genericRepos);
@@ -474,7 +483,7 @@ public class Driver {
     }
 
     private void archive(ArchiveRequest request, Indy indy) throws RepositoryDriverException {
-        // TODO: ### DRAFT
+        // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
             TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId(), indy);
             doArchive(request, report);
@@ -719,9 +728,9 @@ public class Driver {
                 // (Artifactory artifactory = createArtifactoryClient()) {
 
                 String hostedName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, false, buildContentId);
+                        .createRepositoryName(configuration, buildType, false, tempBuild, buildContentId);
                 String virtualName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, true, buildContentId);
+                        .createRepositoryName(configuration, buildType, true, tempBuild, buildContentId);
 
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
@@ -764,7 +773,7 @@ public class Driver {
                 // TODO: How are Indy group repositories named? Prefix?
 
                 Repository group = ArtifactoryBuildGroupBuilder
-                        .builder(configuration, artifactory, settings, buildContentId)
+                        .builder(configuration, artifactory, settings, virtualName)
                         .withDescription(
                                 String.format(
                                         "Aggregation group for PNC %s build #%s",
@@ -1235,7 +1244,7 @@ public class Driver {
     }
 
     @PreDestroy
-    public void cleanup() {
+    private void cleanup() {
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             artifactory.close();
         }

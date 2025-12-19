@@ -15,7 +15,6 @@ import java.util.logging.LogRecord;
 import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
-import org.jboss.pnc.repositorydriver.testresource.WiremockArchiveServer;
 import org.junit.jupiter.api.Test;
 
 import io.quarkus.test.LogCollectingTestResource;
@@ -25,10 +24,8 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
-import io.restassured.response.ResponseBodyExtractionOptions;
 
 @QuarkusTest
-@QuarkusTestResource(WiremockArchiveServer.class)
 @QuarkusTestResource(
         value = LogCollectingTestResource.class,
         restrictToAnnotatedClass = true,
@@ -47,15 +44,13 @@ public class ArchiveTest implements QuarkusTestProfile {
     @Test
     public void testDisabledArchiveRequest() {
 
-        ResponseBodyExtractionOptions body = given().contentType(MediaType.APPLICATION_JSON)
+        given().contentType(MediaType.APPLICATION_JSON)
                 .headers(DriverTest.requestHeaders())
                 .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
                 .when()
                 .post("/archive")
                 .then()
-                .statusCode(204)
-                .extract()
-                .body();
+                .statusCode(204);
 
         verify(
                 0,
