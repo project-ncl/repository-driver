@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
@@ -34,8 +35,10 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
+import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
 import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
+import org.jboss.pnc.repositorydriver.testresource.WiremockTestServer;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.Repositories;
 import org.jfrog.artifactory.client.RepositoryHandle;
@@ -60,7 +63,7 @@ import io.restassured.response.ResponseBodyExtractionOptions;
 
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
-//@QuarkusTestResource(WiremockArchiveServer.class)
+@QuarkusTestResource(WiremockTestServer.class)
 @TestProfile(ArtifactoryDriverTest.class)
 public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
@@ -91,12 +94,12 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         // RestAssured.filters(new RequestLoggingFilter(), new ResponseLoggingFilter());
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
-        //        callbackServer = new HttpServer();
-        //
-        //        callbackServer.addServlet(
-        //                CallbackHandler.class,
-        //                new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
-        //        callbackServer.start(8082, BIND_HOST);
+                callbackServer = new HttpServer();
+
+                callbackServer.addServlet(
+                        CallbackHandler.class,
+                        new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
+                callbackServer.start(8082, BIND_HOST);
 
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
         Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
@@ -126,14 +129,17 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
     @Test
     public void testRepoNames() {
-        String name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.MVN_RPM, false, "build-ABCDEF");
+        String name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.MVN_RPM, false, false, "build-ABCDEF");
         assertEquals("pnc-maven-build-ABCDEF", name);
 
-        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, "build-ABCDEF");
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, false, "build-ABCDEF");
         assertEquals("pnc-maven-build-ABCDEF", name);
 
-        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, true, "build-ABCDEF");
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, true, false, "build-ABCDEF");
         assertEquals("pnc-maven-virtual-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, true, "build-ABCDEF");
+        assertEquals("pnc-maven-temporary-build-ABCDEF", name);
     }
 
     @Test
@@ -158,10 +164,10 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
         // then
         Assertions.assertEquals(
-                "http://localhost/folo/track/build-X/maven/group/build-X/",
+                "http://artifactory-host/api/pnc-maven-virtual-build-X",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://localhost/folo/track/build-X/maven/hosted/build-X/",
+                "http://artifactory-host/api/pnc-maven-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 
