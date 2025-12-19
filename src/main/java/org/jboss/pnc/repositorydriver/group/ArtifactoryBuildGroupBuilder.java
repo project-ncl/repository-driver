@@ -36,7 +36,7 @@ public class ArtifactoryBuildGroupBuilder {
     private Configuration configuration;
     private Artifactory artifactory;
     private RepositorySettings settings;
-    private String buildContentId;
+    private String keyName;
     private String description;
     private List<String> includedRepositories = new ArrayList<>();
 
@@ -48,13 +48,13 @@ public class ArtifactoryBuildGroupBuilder {
             Configuration configuration,
             Artifactory artifactory,
             RepositorySettings packageType,
-            String buildContentId) {
+            String virtualName) {
 
         ArtifactoryBuildGroupBuilder buildGroupBuilder = new ArtifactoryBuildGroupBuilder();
         buildGroupBuilder.artifactory = artifactory;
         buildGroupBuilder.settings = packageType;
-        buildGroupBuilder.buildContentId = buildContentId;
         buildGroupBuilder.configuration = configuration;
+        buildGroupBuilder.keyName = virtualName;
         return buildGroupBuilder;
     }
 
@@ -84,18 +84,18 @@ public class ArtifactoryBuildGroupBuilder {
         // 1. global builds artifacts
         if (tempBuild) {
             includedRepositories.add(
-                    ArtifactoryUtils.createRepositoryName(configuration, buildType, false, TEMPORARY_BUILDS_GROUP));
+                    ArtifactoryUtils.createRepositoryName(configuration, buildType, false, tempBuild, TEMPORARY_BUILDS_GROUP));
         }
         includedRepositories.add(
                 ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, false, COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
+                        .createRepositoryName(configuration, buildType, false, tempBuild, COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
 
         // add build-type-specific constituents
         switch (buildType) {
             case GRADLE:
                 // TODO: ### Is this the only place the gradle plugin repo is handled?
                 includedRepositories.add(
-                        ArtifactoryUtils.createRepositoryName(configuration, buildType, false, GRADLE_PLUGINS_REPO));
+                        ArtifactoryUtils.createRepositoryName(configuration, buildType, false, tempBuild, GRADLE_PLUGINS_REPO));
                 break;
 
             default:
@@ -138,17 +138,21 @@ public class ArtifactoryBuildGroupBuilder {
                                 "Creating remote repository {} from url {}",
                                 artifactRepository.id,
                                 artifactRepository.url);
-                        RemoteRepository r = artifactory.repositories()
-                                .builders()
-                                .remoteRepositoryBuilder()
-                                .archiveBrowsingEnabled(true)
-                                .description("Remote repository for " + "")
-                                .repositorySettings(settings)
-                                .url(artifactRepository.url)
-                                // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
-                                .key(artifactRepository.id)
-                                .build();
-                        artifactory.repositories().create(1, r);
+                        // TODO: What are Indy 'implied' repositories - why can't we just use a single remote repository?
+                        if (!artifactory.repository(artifactRepository.id).exists()) {
+                            RemoteRepository r = artifactory.repositories()
+                                    .builders()
+                                    .remoteRepositoryBuilder()
+                                    .archiveBrowsingEnabled(true)
+                                    .description("Remote repository for " + artifactRepository.url)
+                                    .repositorySettings(settings)
+                                    .url(artifactRepository.url)
+                                    // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
+                                    .key(artifactRepository.id)
+                                    .build();
+
+                            artifactory.repositories().create(1, r);
+                        }
                     }
                     includedRepositories.add(artifactRepository.id);
                 }
@@ -186,7 +190,7 @@ public class ArtifactoryBuildGroupBuilder {
                 .repositorySettings(settings)
                 .description(description)
                 .repositories(includedRepositories)
-                .key(configuration.getDeployment() + "-virtual-" + buildContentId)
+                .key(keyName)
                 .build();
     }
 

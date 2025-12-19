@@ -50,7 +50,6 @@ import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.RestAssured;
-import io.restassured.response.ResponseBodyExtractionOptions;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -205,15 +204,13 @@ public class DriverTest {
 
     @Test
     public void testArchiveRequest() {
-        ResponseBodyExtractionOptions body = given().contentType(MediaType.APPLICATION_JSON)
+        given().contentType(MediaType.APPLICATION_JSON)
                 .headers(requestHeaders())
                 .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
                 .when()
                 .post("/archive")
                 .then()
-                .statusCode(204)
-                .extract()
-                .body();
+                .statusCode(204);
 
         verify(
                 1,
