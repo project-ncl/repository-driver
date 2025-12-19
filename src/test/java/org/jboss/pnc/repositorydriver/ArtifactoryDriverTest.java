@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
@@ -34,8 +35,10 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.repositorydriver.invokerserver.CallbackHandler;
 import org.jboss.pnc.repositorydriver.invokerserver.HttpServer;
+import org.jboss.pnc.repositorydriver.invokerserver.ServletInstanceFactory;
 import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
+import org.jboss.pnc.repositorydriver.testresource.WiremockTestServer;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.Repositories;
 import org.jfrog.artifactory.client.RepositoryHandle;
@@ -60,7 +63,7 @@ import io.restassured.response.ResponseBodyExtractionOptions;
 
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
-//@QuarkusTestResource(WiremockArchiveServer.class)
+@QuarkusTestResource(WiremockTestServer.class)
 @TestProfile(ArtifactoryDriverTest.class)
 public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
@@ -91,12 +94,12 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         // RestAssured.filters(new RequestLoggingFilter(), new ResponseLoggingFilter());
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
-        //        callbackServer = new HttpServer();
-        //
-        //        callbackServer.addServlet(
-        //                CallbackHandler.class,
-        //                new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
-        //        callbackServer.start(8082, BIND_HOST);
+                callbackServer = new HttpServer();
+
+                callbackServer.addServlet(
+                        CallbackHandler.class,
+                        new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
+                callbackServer.start(8082, BIND_HOST);
 
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
         Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());

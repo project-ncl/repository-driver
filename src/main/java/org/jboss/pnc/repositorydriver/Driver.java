@@ -200,25 +200,25 @@ public class Driver {
 
                     StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
                     deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
-
-                    // TODO: With Artifactory will we need the sidecar translation?
-                    if (configuration.isSidecarEnabled()) {
-                        logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
-                        try {
-                            downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
-                        } catch (MalformedURLException e) {
-                            throw new RuntimeException(
-                                    String.format(
-                                            "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
-                                            configuration.getSidecarUrl(),
-                                            downloadsUrl,
-                                            deployUrl));
-                        }
-                    }
                 } else {
                     // TODO: This assumes artifactoryUrl always has a '/' at the end.
                     deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, false, buildId);
                     downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, true, buildId);
+                }
+
+                // TODO: With Artifactory will we need the sidecar translation?
+                if (configuration.isSidecarEnabled()) {
+                    logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
+                    try {
+                        downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
+                    } catch (MalformedURLException e) {
+                        throw new RuntimeException(
+                                String.format(
+                                        "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
+                                        configuration.getSidecarUrl(),
+                                        downloadsUrl,
+                                        deployUrl));
+                    }
                 }
                 logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
             } catch (IndyClientException e) {
@@ -308,6 +308,8 @@ public class Driver {
                 }
 
                 try {
+                    // TODO: Artifactory versus Indy : we need to use copy API from Artifactory for promotion.
+
                     // the promotion is done only after a successfully collected downloads and uploads
                     PromotionPaths downloadsPromotions = trackingReportProcessor
                             .collectDownloadsPromotions(report, genericRepos);
