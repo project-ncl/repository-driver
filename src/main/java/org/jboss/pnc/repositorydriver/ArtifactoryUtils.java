@@ -18,6 +18,7 @@ public class ArtifactoryUtils {
      * @param configuration the SmallRye config.
      * @param buildType Type of the build (e.g. maven)
      * @param isVirtual Whether to create virtual (or group) based repos.
+     * @param isTempBuild Whether temporary builds are enabled
      * @param buildContentId The BuildId
      * @return formatted repository name
      */
@@ -25,8 +26,8 @@ public class ArtifactoryUtils {
             Configuration configuration,
             BuildType buildType,
             boolean isVirtual,
-            String buildContentId) {
+            boolean isTempBuild, String buildContentId) {
         return configuration.getDeployment() + "-" + buildType.getRepoType().name().toLowerCase() + "-" +
-                (isVirtual ? "virtual-" : "") + buildContentId;
+                (isVirtual ? "virtual-" : "") + (isTempBuild ? "temporary-" : "") + buildContentId;
     }
 }

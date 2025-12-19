@@ -78,7 +78,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         MavenRepositorySettingsImpl settings = new MavenRepositorySettingsImpl();
         settings.setHandleReleases(true);
         settings.setHandleSnapshots(false);
-        var result = ArtifactoryBuildGroupBuilder.builder(configuration, artifactory, settings, "ID")
+        var result = ArtifactoryBuildGroupBuilder.builder(configuration, artifactory, settings, "pnc-virtual-ID")
                 .addConstituent("TEST")
                 .addGlobalConstituents(BuildType.MVN, false)
                 .addExtraConstituents(

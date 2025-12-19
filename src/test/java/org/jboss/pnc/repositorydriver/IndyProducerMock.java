@@ -8,6 +8,7 @@ import org.commonjava.indy.client.core.IndyClientModule;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.indy.client.core.auth.OAuth20BearerTokenAuthenticator;
 import org.commonjava.indy.model.core.io.IndyObjectMapper;
+import org.jboss.pnc.repositorydriver.runtime.IndyProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,9 +18,9 @@ import io.quarkus.test.Mock;
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
 @Mock
-public class BeanFactoryMock extends BeanFactory {
+public class IndyProducerMock extends IndyProducer {
 
-    private static final Logger logger = LoggerFactory.getLogger(BeanFactoryMock.class);
+    private static final Logger logger = LoggerFactory.getLogger(IndyProducerMock.class);
 
     @Produces
     Indy createIndyServiceAccountClient() {
