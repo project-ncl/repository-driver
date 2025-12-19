@@ -158,10 +158,10 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
         // then
         Assertions.assertEquals(
-                "http://localhost/folo/track/build-X/maven/group/build-X/",
+                "http://artifactory-host/api/pnc-maven-virtual-build-X",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://localhost/folo/track/build-X/maven/hosted/build-X/",
+                "http://artifactory-host/api/pnc-maven-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 
