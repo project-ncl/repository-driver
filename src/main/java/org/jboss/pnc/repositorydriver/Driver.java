@@ -202,8 +202,10 @@ public class Driver {
                     deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
                 } else {
                     // TODO: This assumes artifactoryUrl always has a '/' at the end.
-                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, false, buildId);
-                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, true, buildId);
+                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, false,
+                            repositoryCreateRequest.isTempBuild(), buildId);
+                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, true,
+                            repositoryCreateRequest.isTempBuild(), buildId);
                 }
 
                 // TODO: With Artifactory will we need the sidecar translation?
@@ -689,9 +691,9 @@ public class Driver {
                 // (Artifactory artifactory = createArtifactoryClient()) {
 
                 String hostedName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, false, buildContentId);
+                        .createRepositoryName(configuration, buildType, false, tempBuild, buildContentId);
                 String virtualName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, true, buildContentId);
+                        .createRepositoryName(configuration, buildType, true, tempBuild, buildContentId);
 
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
@@ -734,7 +736,7 @@ public class Driver {
                 // TODO: How are Indy group repositories named? Prefix?
 
                 Repository group = ArtifactoryBuildGroupBuilder
-                        .builder(configuration, artifactory, settings, buildContentId)
+                        .builder(configuration, artifactory, settings, virtualName)
                         .withDescription(
                                 String.format(
                                         "Aggregation group for PNC %s build #%s",
