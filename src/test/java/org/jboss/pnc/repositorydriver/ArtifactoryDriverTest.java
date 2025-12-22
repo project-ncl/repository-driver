@@ -129,14 +129,17 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
     @Test
     public void testRepoNames() {
-        String name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.MVN_RPM, false, "build-ABCDEF");
+        String name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.MVN_RPM, false, false, "build-ABCDEF");
         assertEquals("pnc-maven-build-ABCDEF", name);
 
-        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, "build-ABCDEF");
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, false, "build-ABCDEF");
         assertEquals("pnc-maven-build-ABCDEF", name);
 
-        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, true, "build-ABCDEF");
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, true, false, "build-ABCDEF");
         assertEquals("pnc-maven-virtual-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, true, "build-ABCDEF");
+        assertEquals("pnc-maven-temporary-build-ABCDEF", name);
     }
 
     @Test
