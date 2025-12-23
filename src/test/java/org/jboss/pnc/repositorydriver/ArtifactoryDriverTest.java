@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
@@ -40,6 +39,7 @@ import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
 import org.jboss.pnc.repositorydriver.testresource.WiremockTestServer;
 import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.ItemHandle;
 import org.jfrog.artifactory.client.Repositories;
 import org.jfrog.artifactory.client.RepositoryHandle;
 import org.junit.jupiter.api.AfterAll;
@@ -53,6 +53,7 @@ import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
@@ -94,12 +95,12 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         // RestAssured.filters(new RequestLoggingFilter(), new ResponseLoggingFilter());
         RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
 
-                callbackServer = new HttpServer();
+        callbackServer = new HttpServer();
 
-                callbackServer.addServlet(
-                        CallbackHandler.class,
-                        new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
-                callbackServer.start(8082, BIND_HOST);
+        callbackServer.addServlet(
+                CallbackHandler.class,
+                new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
+        callbackServer.start(8082, BIND_HOST);
 
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
         Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
@@ -111,6 +112,10 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         // artifactory.repository("xxx")
         RepositoryHandle repositoryHandle = Mockito.mock(RepositoryHandle.class);
         Mockito.when(artifactory.repository(Mockito.anyString())).thenReturn(repositoryHandle);
+        // artifactory.repository("xxx")
+        ItemHandle itemHandle = Mockito.mock(ItemHandle.class);
+        Mockito.when(repositoryHandle.folder(Mockito.anyString())).thenReturn(itemHandle);
+
         // artifactory.repository("xxx").exists
         Mockito.when(repositoryHandle.exists()).thenReturn(false);
         // artifactory.repositories
@@ -129,7 +134,8 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
     @Test
     public void testRepoNames() {
-        String name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.MVN_RPM, false, false, "build-ABCDEF");
+        String name = ArtifactoryUtils
+                .createRepositoryName(configuration, BuildType.MVN_RPM, false, false, "build-ABCDEF");
         assertEquals("pnc-maven-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(configuration, BuildType.GRADLE, false, false, "build-ABCDEF");
