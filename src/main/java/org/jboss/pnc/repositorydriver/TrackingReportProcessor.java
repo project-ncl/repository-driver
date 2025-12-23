@@ -561,6 +561,8 @@ public class TrackingReportProcessor {
         String repoPath;
         StoreKey source = download.getStoreKey();
         RepositoryType repoType = TypeConverters.toRepoType(source.getPackageType());
+        // TODO: ### TargetRepository configuration for Artifactory needs to use ArtifactoryUtils. Do we keep
+        //      identifier as just the hostname and make repoPath be the full path with the e.g. pnc-maven-temporary-builds-XXXX/org/path/ ?
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
             identifier = "indy-" + repoType.name().toLowerCase();
             repoPath = getTargetRepositoryPath(download, indyContentModule);
@@ -646,6 +648,8 @@ public class TrackingReportProcessor {
 
         StoreKey storeKey;
         String identifier;
+        // TODO: ### TargetRepository configuration for Artifactory needs to use ArtifactoryUtils. Do we keep
+        //      identifier as just the hostname and make repoPath be the full path with the e.g. pnc-maven-temporary-builds-XXXX/org/path/ ?
         if (repoType == RepositoryType.MAVEN) {
             storeKey = new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(buildCategory, tempBuild));
             identifier = ReposiotryIdentifier.INDY_MAVEN;
