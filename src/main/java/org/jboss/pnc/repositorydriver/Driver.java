@@ -30,6 +30,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -88,6 +89,7 @@ import org.jboss.pnc.repositorydriver.group.IndyBuildGroupBuilder;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
+import org.jfrog.artifactory.client.impl.CopyMoveException;
 import org.jfrog.artifactory.client.model.Repository;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
@@ -202,10 +204,18 @@ public class Driver {
                     deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
                 } else {
                     // TODO: This assumes artifactoryUrl always has a '/' at the end.
-                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, false,
-                            repositoryCreateRequest.isTempBuild(), buildId);
-                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(configuration, buildType, true,
-                            repositoryCreateRequest.isTempBuild(), buildId);
+                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
+                            configuration,
+                            buildType,
+                            false,
+                            repositoryCreateRequest.isTempBuild(),
+                            buildId);
+                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
+                            configuration,
+                            buildType,
+                            true,
+                            repositoryCreateRequest.isTempBuild(),
+                            buildId);
                 }
 
                 // TODO: With Artifactory will we need the sidecar translation?
@@ -684,7 +694,7 @@ public class Driver {
             boolean brewPullActive,
             List<String> extraDependencyRepositories) throws IndyClientException {
 
-        System.err.println("### Backend " + configuration.backend);
+        logger.info("### DEBUG::Backend {}", configuration.backend);
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             try {
                 // Was using try/resources but now switched to injected artifactory for tests
@@ -731,9 +741,6 @@ public class Driver {
                         .key(hostedName)
                         .build();
                 artifactory.repositories().create(1, repository);
-
-                // TODO: What is the BuildGroup / constituents / IndyBuildGroupBuilder
-                // TODO: How are Indy group repositories named? Prefix?
 
                 Repository group = ArtifactoryBuildGroupBuilder
                         .builder(configuration, artifactory, settings, virtualName)
@@ -848,7 +855,34 @@ public class Driver {
                     request.getPaths().size(),
                     request.getSource(),
                     request.getTarget());
-            doPromoteByPath(request, false, readonly);
+            // TODO: ### Assuming TrackingProcessor may be updated to return different information then eventually
+            //     it ends up in PromotionPaths.
+            if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
+                artifactoryPromoteByPath(request, false, readonly);
+            } else {
+                doPromoteByPath(request, false, readonly);
+            }
+        }
+    }
+
+    // TODO: ### Do need the readonly markers?
+    private void artifactoryPromoteByPath(PathsPromoteRequest request, boolean b, boolean readonly) {
+        // TODO: ### For now assuming StoreKey::name is the repository name
+        RepositoryHandle handle = artifactory.repository(request.getSource().getName());
+
+        // TODO: ### Handle exceptions and rollback
+        List<String> copied = new ArrayList<>();
+        for (String path : request.getPaths()) {
+            try {
+                handle.folder(path).copy(request.getTarget().getName(), path);
+                copied.add(path);
+            } catch (CopyMoveException e) {
+                logger.error("Caught exception promoting {}", path, e);
+                logger.warn("Copied {} so far; removing from promotion", copied);
+                // TODO: ### Should we remove what we have copied so far?
+                RepositoryHandle cleanup = artifactory.repository(request.getTarget().getName());
+                copied.forEach(cleanup::delete);
+            }
         }
     }
 
@@ -873,7 +907,13 @@ public class Driver {
                     request.getPaths().size(),
                     request.getSource(),
                     request.getTarget());
-            doPromoteByPath(request, !tempBuild, false);
+            // TODO: ### Assuming TrackingProcessor may be updated to return different information then eventually
+            //     it ends up in PromotionPaths.
+            if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
+                artifactoryPromoteByPath(request, false, false);
+            } else {
+                doPromoteByPath(request, !tempBuild, false);
+            }
         }
     }
 
@@ -1110,7 +1150,7 @@ public class Driver {
         };
     }
 
-    public void shutdownScheduler(ScheduledExecutorService scheduler) {
+    private void shutdownScheduler(ScheduledExecutorService scheduler) {
         if (scheduler != null) {
             scheduler.shutdown(); // Prevents new tasks, but allows existing tasks to finish
             try {
