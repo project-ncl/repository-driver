@@ -138,17 +138,21 @@ public class ArtifactoryBuildGroupBuilder {
                                 "Creating remote repository {} from url {}",
                                 artifactRepository.id,
                                 artifactRepository.url);
-                        RemoteRepository r = artifactory.repositories()
-                                .builders()
-                                .remoteRepositoryBuilder()
-                                .archiveBrowsingEnabled(true)
-                                .description("Remote repository for " + "")
-                                .repositorySettings(settings)
-                                .url(artifactRepository.url)
-                                // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
-                                .key(artifactRepository.id)
-                                .build();
-                        artifactory.repositories().create(1, r);
+                        // TODO: What are Indy 'implied' repositories - why can't we just use a single remote repository?
+                        if (!artifactory.repository(artifactRepository.id).exists()) {
+                            RemoteRepository r = artifactory.repositories()
+                                    .builders()
+                                    .remoteRepositoryBuilder()
+                                    .archiveBrowsingEnabled(true)
+                                    .description("Remote repository for " + artifactRepository.url)
+                                    .repositorySettings(settings)
+                                    .url(artifactRepository.url)
+                                    // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
+                                    .key(artifactRepository.id)
+                                    .build();
+
+                            artifactory.repositories().create(1, r);
+                        }
                     }
                     includedRepositories.add(artifactRepository.id);
                 }
