@@ -26,7 +26,8 @@ public class ArtifactoryUtils {
             Configuration configuration,
             BuildType buildType,
             boolean isVirtual,
-            boolean isTempBuild, String buildContentId) {
+            boolean isTempBuild,
+            String buildContentId) {
         return configuration.getDeployment() + "-" + buildType.getRepoType().name().toLowerCase() + "-" +
                 (isVirtual ? "virtual-" : "") + (isTempBuild ? "temporary-" : "") + buildContentId;
     }
