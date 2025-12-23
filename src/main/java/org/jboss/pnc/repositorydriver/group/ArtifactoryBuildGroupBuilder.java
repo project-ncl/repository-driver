@@ -84,18 +84,25 @@ public class ArtifactoryBuildGroupBuilder {
         // 1. global builds artifacts
         if (tempBuild) {
             includedRepositories.add(
-                    ArtifactoryUtils.createRepositoryName(configuration, buildType, false, tempBuild, TEMPORARY_BUILDS_GROUP));
+                    ArtifactoryUtils
+                            .createRepositoryName(configuration, buildType, false, tempBuild, TEMPORARY_BUILDS_GROUP));
         }
         includedRepositories.add(
                 ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, false, tempBuild, COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
+                        .createRepositoryName(
+                                configuration,
+                                buildType,
+                                false,
+                                tempBuild,
+                                COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
 
         // add build-type-specific constituents
         switch (buildType) {
             case GRADLE:
                 // TODO: ### Is this the only place the gradle plugin repo is handled?
                 includedRepositories.add(
-                        ArtifactoryUtils.createRepositoryName(configuration, buildType, false, tempBuild, GRADLE_PLUGINS_REPO));
+                        ArtifactoryUtils
+                                .createRepositoryName(configuration, buildType, false, tempBuild, GRADLE_PLUGINS_REPO));
                 break;
 
             default:
