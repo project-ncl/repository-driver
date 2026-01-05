@@ -880,7 +880,13 @@ public class Driver {
     // TODO: ### Do need the readonly markers?
     private void artifactoryPromoteByPath(PathsPromoteRequest request, boolean b, boolean readonly) {
         // TODO: ### For now assuming StoreKey::name is the repository name
+        logger.info("### Looking for repository {}", request.getSource().getName());
         RepositoryHandle handle = artifactory.repository(request.getSource().getName());
+
+        if (!handle.exists()) {
+            logger.error("Unable to find repository {}", request.getSource().getName());
+            throw new RuntimeException("Unable to find repository " + request.getSource().getName());
+        }
 
         // TODO: ### Handle exceptions and rollback
         List<String> copied = new ArrayList<>();
@@ -1066,6 +1072,10 @@ public class Driver {
             RepositoryType repositoryType,
             String buildContentId,
             Collection<StoreKey> genericRepos) throws RepositoryDriverException {
+        // ### TODO: remove
+        if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
+            return;
+        }
         try {
             String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
             StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
