@@ -167,4 +167,6 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.heartbeat.interval", defaultValue = "5")
     long heartbeatInterval;
 
+    @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
+    boolean bifrostUploaderEnabled;
 }
