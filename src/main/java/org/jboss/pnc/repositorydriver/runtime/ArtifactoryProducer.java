@@ -24,14 +24,26 @@ public class ArtifactoryProducer {
         if (backend == Configuration.Backend.ARTIFACTORY) {
             logger.info("### Creating artifactory with url {}", url);
             artifactory = ArtifactoryClientBuilder.create()
-                    // TODO: #### DRAFT FIXME - Do we use a httpprocessor or an accesstoken API. Do we need a username?
-                    .setAccessToken(accessToken)
+                    // Attempting to use setPassword fails because we are not defining a username. setAccessToken
+                    // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
+                    // .setAccessToken(accessToken)
+                    // .setPassword(accessToken)
+                    // .setUsername("pnc").build();
+                    .setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
                     .setUrl(url)
                     .build();
-            //                .setUsername("pnc").build();
-            //                .setHttpProcessor(
-            //                        new HttpHeaderProcessor(accessToken))
-            //                .setPassword("password")
+
+            // TODO: To remove? Useful for debugging to ensure we have the right URL configured.
+            try {
+                logger.warn(
+                        "### Artifactory ping {}",
+                        artifactory.system().ping());
+                logger.info(
+                        "Running against Artifactory version {}",
+                        artifactory.system().version().getVersion());
+            } catch (Exception e) {
+                throw new RuntimeException("Fatal error contacting artifactory", e);
+            }
         } else {
             artifactory = null;
         }
