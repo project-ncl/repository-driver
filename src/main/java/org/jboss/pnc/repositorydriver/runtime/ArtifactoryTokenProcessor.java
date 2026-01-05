@@ -1,11 +1,9 @@
 package org.jboss.pnc.repositorydriver.runtime;
 
-    import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
-import org.apache.http.protocol.*;
-
-import java.io.IOException;
+import org.apache.http.protocol.HttpContext;
+import org.apache.http.protocol.HttpProcessor;
 
 public class ArtifactoryTokenProcessor implements HttpProcessor {
     private final String apiKey;
@@ -15,12 +13,11 @@ public class ArtifactoryTokenProcessor implements HttpProcessor {
     }
 
     @Override
-    public void process(HttpRequest httpRequest, HttpContext httpContext) throws HttpException, IOException {
+    public void process(HttpRequest httpRequest, HttpContext httpContext) {
         httpRequest.addHeader("X-JFrog-Art-Api", apiKey);
     }
 
     @Override
-    public void process(HttpResponse httpResponse, HttpContext httpContext) throws HttpException, IOException {
+    public void process(HttpResponse httpResponse, HttpContext httpContext) {
     }
 }
-
