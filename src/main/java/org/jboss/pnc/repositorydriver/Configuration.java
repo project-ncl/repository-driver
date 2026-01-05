@@ -172,7 +172,7 @@ public class Configuration {
 
     /**
      * get the config value for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -200,7 +200,7 @@ public class Configuration {
 
     /**
      * get the config value list for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -249,4 +249,7 @@ public class Configuration {
     public Optional<List<String>> getBuildGroupConstituentsGroup(BuildCategory buildCategory) {
         return getConfigListString(buildCategory, "build-group-constituents.group");
     }
+
+    @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
+    boolean bifrostUploaderEnabled;
 }

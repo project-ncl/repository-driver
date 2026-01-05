@@ -164,6 +164,7 @@ public class Driver {
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
+        logger.warn("### {}", configuration.getBackend().name());
         try {
             BuildType buildType = repositoryCreateRequest.getBuildType();
             String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
@@ -272,6 +273,7 @@ public class Driver {
         BuildCategory buildCategory = promoteRequest.getBuildCategory();
         TrackedContentDTO report;
         try {
+            logger.warn("### Retrieving tracking report");
             report = retrieveTrackingReport(buildContentId);
         } catch (RepositoryDriverException ex) {
             userLog.error(ex.getMessage());
@@ -280,6 +282,7 @@ public class Driver {
         }
         Set<StoreKey> genericRepos = new HashSet<>();
 
+        logger.warn("### About to run async");
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
         // schedule promotion
@@ -440,6 +443,10 @@ public class Driver {
     }
 
     private void uploadLogs(String message, String operation) {
+        if (!configuration.bifrostUploaderEnabled) {
+            logger.warn("Bifrost uploader is not enabled for message {} with operation {}", message, operation);
+            return;
+        }
         try {
             LogMetadata logMetadata = LogMetadata.builder()
                     .headers(MDCUtils.getHeadersFromMDC())
@@ -767,6 +774,7 @@ public class Driver {
                 artifactory.repositories().create(1, group);
 
             } catch (Exception e) {
+                logger.error("### Caught exception", e);
                 // TODO: ### FIXME Error handling
                 throw new RuntimeException(e);
             }
@@ -1243,7 +1251,7 @@ public class Driver {
     }
 
     @PreDestroy
-    private void cleanup() {
+    void cleanup() {
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             artifactory.close();
         }
