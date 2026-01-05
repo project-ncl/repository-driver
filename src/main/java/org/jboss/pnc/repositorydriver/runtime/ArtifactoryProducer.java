@@ -1,5 +1,6 @@
 package org.jboss.pnc.repositorydriver.runtime;
 
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 
@@ -52,5 +53,11 @@ public class ArtifactoryProducer {
     @Produces
     public Artifactory produce() {
         return artifactory;
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        logger.warn("Closing artifactory connection");
+        artifactory.close();
     }
 }
