@@ -14,7 +14,8 @@ quarkus:
       enabled: false
   log:
     console:
-      json: false
+      json:
+        enabled: false
 repository-driver:
   backend: indy # indy or artifactory
   deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
