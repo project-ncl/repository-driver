@@ -32,7 +32,6 @@ public class ArtifactoryUtils {
                 (isVirtual ? "virtual-" : "") + (isTempBuild ? "temporary-" : "") + buildContentId;
     }
 
-
     // PackageTypes can be [maven, npm, generic-http]
     // TODO: How to handle 'generic-http'? Doesn't match BuildType/RepositoryType.
     public static BuildType parsePackageType(String packageType) {

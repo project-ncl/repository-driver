@@ -92,7 +92,6 @@ import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.impl.CopyMoveException;
 import org.jfrog.artifactory.client.model.Repository;
-import org.jfrog.artifactory.client.model.impl.SnapshotVersionBehaviorImpl;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
 import org.jfrog.artifactory.client.model.repository.settings.impl.NpmRepositorySettingsImpl;
@@ -325,8 +324,6 @@ public class Driver {
                 }
 
                 try {
-                    // TODO: Artifactory versus Indy : we need to use copy API from Artifactory for promotion.
-
                     // the promotion is done only after a successfully collected downloads and uploads
                     PromotionPaths downloadsPromotions = trackingReportProcessor
                             .collectDownloadsPromotions(report, genericRepos);
@@ -911,7 +908,6 @@ public class Driver {
             throw new RuntimeException("Unable to find repository " + sourceRepository);
         }
 
-        // TODO: ### Handle exceptions and rollback
         List<String> copied = new ArrayList<>();
         for (String path : request.getPaths()) {
             try {
@@ -926,8 +922,8 @@ public class Driver {
                 copied.forEach(cleanup::delete);
             }
         }
-        // TODO: Cleanup and setting repository to readonly?
-        //  handle.get().
+        // TODO: Cleanup and set repositories to readonly. While changing maven repositories
+        //     not to handle release or snapshot deployment might work not sure about npm or generic repos
     }
 
     /**
@@ -1098,7 +1094,7 @@ public class Driver {
             RepositoryType repositoryType,
             String buildContentId,
             Collection<StoreKey> genericRepos) throws RepositoryDriverException {
-        // ### TODO: remove
+        // ### TODO: Remove this. Should build-repo be cleaned up for artifactory?
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             return;
         }

@@ -34,15 +34,13 @@ public class ArtifactoryProducer {
                     .setUrl(url)
                     .build();
 
-            // TODO: To remove? Useful for debugging to ensure we have the right URL configured.
             try {
-                logger.warn(
-                        "### Artifactory ping {}",
-                        artifactory.system().ping());
+                // TODO: To remove? Useful for debugging to ensure we have the right URL configured.
                 logger.info(
                         "Running against Artifactory version {}",
                         artifactory.system().version().getVersion());
             } catch (Exception e) {
+                // TODO: Should we migrate all exceptions to RepositoryDriverException ?
                 throw new RuntimeException("Fatal error contacting artifactory", e);
             }
         } else {

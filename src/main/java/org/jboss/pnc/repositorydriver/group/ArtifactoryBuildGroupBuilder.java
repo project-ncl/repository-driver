@@ -201,26 +201,6 @@ public class ArtifactoryBuildGroupBuilder {
                 .build();
     }
 
-    /**
-     * Converts characters in a given string considered as illegal by Indy to underscores.
-     *
-     * @param name repository name
-     * @return string with converted characters
-     */
-    private String convertIllegalCharacters(String name) {
-        char[] result = new char[name.length()];
-        for (int i = 0; i < name.length(); i++) {
-            char checkedChar = name.charAt(i);
-            if (Character.isLetterOrDigit(checkedChar) || checkedChar == '+' || checkedChar == '-'
-                    || checkedChar == '.') {
-                result[i] = checkedChar;
-            } else {
-                result[i] = '_';
-            }
-        }
-        return String.valueOf(result);
-    }
-
     @Getter
     @Builder(builderClassName = "Builder")
     public static class ArtifactRepository {
