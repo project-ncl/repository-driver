@@ -56,6 +56,7 @@ import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.model.core.Group;
 import org.commonjava.indy.model.core.HostedRepository;
+import org.commonjava.indy.model.core.PackageTypes;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.promote.client.IndyPromoteClientModule;
@@ -325,8 +326,6 @@ public class Driver {
                 }
 
                 try {
-                    // TODO: Artifactory versus Indy : we need to use copy API from Artifactory for promotion.
-
                     // the promotion is done only after a successfully collected downloads and uploads
                     PromotionPaths downloadsPromotions = trackingReportProcessor
                             .collectDownloadsPromotions(report, genericRepos);
@@ -703,7 +702,7 @@ public class Driver {
             String packageType,
             boolean tempBuild,
             boolean brewPullActive,
-            List<String> extraDependencyRepositories) throws IndyClientException {
+            List<String> extraDependencyRepositories) throws IndyClientException, RepositoryDriverException {
 
         logger.info("### DEBUG::Backend {}", configuration.backend);
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
@@ -719,7 +718,8 @@ public class Driver {
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
                 RepositoryHandle virtualRepository = artifactory.repository(virtualName);
-                // TODO: Do we need to check it exists first?
+                // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+                // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
                 if (hostedRepository.exists()) {
                     hostedRepository.delete();
                 }
@@ -733,8 +733,12 @@ public class Driver {
                         // Create local and virtual repository
                         // MavenRepositorySettingsImpl implicitly sets package type maven.
                         settings = new MavenRepositorySettingsImpl();
+                        // https://jfrog.com/help/r/jfrog-artifactory-documentation/additional-settings-for-maven/gradle/ivy/sbt-local-repositories
+                        ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
                         ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
                         ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
+                        // Don't need this as we are disabling snapshots
+                        // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
                         break;
                     }
                     case "npm": {
@@ -775,8 +779,7 @@ public class Driver {
 
             } catch (Exception e) {
                 logger.error("### Caught exception", e);
-                // TODO: ### FIXME Error handling
-                throw new RuntimeException(e);
+                throw new RepositoryDriverException("Error setting up build repositories", e);
             }
         } else {
             // if the build-level group doesn't exist, create it.
@@ -880,19 +883,39 @@ public class Driver {
     // TODO: ### Do need the readonly markers?
     private void artifactoryPromoteByPath(PathsPromoteRequest request, boolean b, boolean readonly) {
         // TODO: ### For now assuming StoreKey::name is the repository name
-        logger.info("### Looking for repository {}", request.getSource().getName());
-        RepositoryHandle handle = artifactory.repository(request.getSource().getName());
-
+        // TODO: Handling temp and virtual flags
+        String sourceRepository = ArtifactoryUtils.createRepositoryName(
+                configuration,
+                ArtifactoryUtils.parsePackageType(request.getSource().getPackageType()),
+                false,
+                false,
+                request.getSource().getName());
+        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
+        String targetRepository = ArtifactoryUtils.createRepositoryName(
+                configuration,
+                ArtifactoryUtils.parsePackageType(request.getTarget().getPackageType()),
+                false,
+                false,
+                request.getTarget().getName());
+        logger.warn("### packagetypes {} ", PackageTypes.getPackageTypes());
+        logger.info(
+                "### Looking for storekey source {} and package type {} and repository {} ",
+                request.getSource().getName(),
+                request.getSource().getPackageType(),
+                sourceRepository);
+        RepositoryHandle handle = artifactory.repository(sourceRepository);
+        logger.warn("### Got handle {}", handle.getClass().getName());
+        // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+        // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (!handle.exists()) {
-            logger.error("Unable to find repository {}", request.getSource().getName());
-            throw new RuntimeException("Unable to find repository " + request.getSource().getName());
+            throw new RuntimeException("Unable to find repository " + sourceRepository);
         }
 
-        // TODO: ### Handle exceptions and rollback
         List<String> copied = new ArrayList<>();
         for (String path : request.getPaths()) {
             try {
-                handle.folder(path).copy(request.getTarget().getName(), path);
+                // Where should we promote to?
+                handle.folder(path).copy(targetRepository, path);
                 copied.add(path);
             } catch (CopyMoveException e) {
                 logger.error("Caught exception promoting {}", path, e);
@@ -902,6 +925,8 @@ public class Driver {
                 copied.forEach(cleanup::delete);
             }
         }
+        // TODO: Cleanup and set repositories to readonly. While changing maven repositories
+        //     not to handle release or snapshot deploymentType might work not sure about npm or generic repos
     }
 
     /**
@@ -1072,7 +1097,7 @@ public class Driver {
             RepositoryType repositoryType,
             String buildContentId,
             Collection<StoreKey> genericRepos) throws RepositoryDriverException {
-        // ### TODO: remove
+        // ### TODO: Remove this. Should build-repo be cleaned up for artifactory?
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             return;
         }
