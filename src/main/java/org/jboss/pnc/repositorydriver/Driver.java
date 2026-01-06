@@ -56,6 +56,7 @@ import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
 import org.commonjava.indy.folo.dto.TrackedContentDTO;
 import org.commonjava.indy.model.core.Group;
 import org.commonjava.indy.model.core.HostedRepository;
+import org.commonjava.indy.model.core.PackageTypes;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.promote.client.IndyPromoteClientModule;
@@ -876,12 +877,24 @@ public class Driver {
     // TODO: ### Do need the readonly markers?
     private void artifactoryPromoteByPath(PathsPromoteRequest request, boolean b, boolean readonly) {
         // TODO: ### For now assuming StoreKey::name is the repository name
-        logger.info("### Looking for repository {}", request.getSource().getName());
-        RepositoryHandle handle = artifactory.repository(request.getSource().getName());
-
+        String repository = ArtifactoryUtils.createRepositoryName(
+                configuration,
+                ArtifactoryUtils.parsePackageType(request.getSource().getPackageType()),
+                false,
+                false,
+                request.getSource().getName());
+        logger.warn("### packagetypes {} ", PackageTypes.getPackageTypes());
+        logger.info(
+                "### Looking for storekey source {} and package type {} and repository {} ",
+                request.getSource().getName(),
+                request.getSource().getPackageType(),
+                repository);
+        RepositoryHandle handle = artifactory.repository(repository);
+        logger.warn("### Got handle {}", handle.getClass().getName());
+        // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+        // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (!handle.exists()) {
-            logger.error("Unable to find repository {}", request.getSource().getName());
-            throw new RuntimeException("Unable to find repository " + request.getSource().getName());
+            throw new RuntimeException("Unable to find repository " + repository);
         }
 
         // TODO: ### Handle exceptions and rollback
