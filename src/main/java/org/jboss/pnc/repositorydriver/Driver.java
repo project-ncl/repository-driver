@@ -92,6 +92,7 @@ import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.impl.CopyMoveException;
 import org.jfrog.artifactory.client.model.Repository;
+import org.jfrog.artifactory.client.model.impl.SnapshotVersionBehaviorImpl;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
 import org.jfrog.artifactory.client.model.repository.settings.impl.NpmRepositorySettingsImpl;
@@ -716,7 +717,8 @@ public class Driver {
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
                 RepositoryHandle virtualRepository = artifactory.repository(virtualName);
-                // TODO: Do we need to check it exists first?
+                // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+                // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
                 if (hostedRepository.exists()) {
                     hostedRepository.delete();
                 }
@@ -730,8 +732,12 @@ public class Driver {
                         // Create local and virtual repository
                         // MavenRepositorySettingsImpl implicitly sets package type maven.
                         settings = new MavenRepositorySettingsImpl();
+                        // https://jfrog.com/help/r/jfrog-artifactory-documentation/additional-settings-for-maven/gradle/ivy/sbt-local-repositories
+                        ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
                         ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
                         ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
+                        // Don't need this as we are disabling snapshots
+                        // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
                         break;
                     }
                     case "npm": {
@@ -877,31 +883,40 @@ public class Driver {
     // TODO: ### Do need the readonly markers?
     private void artifactoryPromoteByPath(PathsPromoteRequest request, boolean b, boolean readonly) {
         // TODO: ### For now assuming StoreKey::name is the repository name
-        String repository = ArtifactoryUtils.createRepositoryName(
+        // TODO: Handling temp and virtual flags
+        String sourceRepository = ArtifactoryUtils.createRepositoryName(
                 configuration,
                 ArtifactoryUtils.parsePackageType(request.getSource().getPackageType()),
                 false,
                 false,
                 request.getSource().getName());
+        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
+        String targetRepository = ArtifactoryUtils.createRepositoryName(
+                configuration,
+                ArtifactoryUtils.parsePackageType(request.getTarget().getPackageType()),
+                false,
+                false,
+                request.getTarget().getName());
         logger.warn("### packagetypes {} ", PackageTypes.getPackageTypes());
         logger.info(
                 "### Looking for storekey source {} and package type {} and repository {} ",
                 request.getSource().getName(),
                 request.getSource().getPackageType(),
-                repository);
-        RepositoryHandle handle = artifactory.repository(repository);
+                sourceRepository);
+        RepositoryHandle handle = artifactory.repository(sourceRepository);
         logger.warn("### Got handle {}", handle.getClass().getName());
         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (!handle.exists()) {
-            throw new RuntimeException("Unable to find repository " + repository);
+            throw new RuntimeException("Unable to find repository " + sourceRepository);
         }
 
         // TODO: ### Handle exceptions and rollback
         List<String> copied = new ArrayList<>();
         for (String path : request.getPaths()) {
             try {
-                handle.folder(path).copy(request.getTarget().getName(), path);
+                // Where should we promote to?
+                handle.folder(path).copy(targetRepository, path);
                 copied.add(path);
             } catch (CopyMoveException e) {
                 logger.error("Caught exception promoting {}", path, e);
@@ -911,6 +926,8 @@ public class Driver {
                 copied.forEach(cleanup::delete);
             }
         }
+        // TODO: Cleanup and setting repository to readonly?
+        //  handle.get().
     }
 
     /**
