@@ -7,6 +7,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 
 import java.net.URI;
@@ -105,7 +107,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
         Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
         BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
-        Mockito.when(bifrostLogUploaderProducer.produce()).thenReturn(bifrostLogUploader);
+        Mockito.when(bifrostLogUploaderProducer.createClient(any(), anyInt(), anyInt())).thenReturn(bifrostLogUploader);
         QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
 
         Artifactory artifactory = Mockito.mock(Artifactory.class);
@@ -117,7 +119,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         Mockito.when(repositoryHandle.folder(Mockito.anyString())).thenReturn(itemHandle);
 
         // artifactory.repository("xxx").exists
-        Mockito.when(repositoryHandle.exists()).thenReturn(false);
+        Mockito.when(repositoryHandle.exists()).thenReturn(true);
         // artifactory.repositories
         // Use RETURNS_DEEP_STUBS to mock 'all the way down'.
         Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));

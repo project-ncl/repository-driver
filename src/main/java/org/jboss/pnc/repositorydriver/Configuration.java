@@ -38,30 +38,16 @@ public class Configuration {
     private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
             .unwrap(SmallRyeConfig.class);
 
+    // TODO: This will be removed later.
     public enum Backend {
         INDY, ARTIFACTORY
-    };
-
-    public enum Deployment {
-        PROD("pnc"), STAGE("pnc-stage"), DEVEL("pnc-devel");
-
-        private final String value;
-
-        Deployment(String s) {
-            value = s;
-        }
-
-        @Override
-        public String toString() {
-            return value;
-        }
-    };
+    }
 
     @ConfigProperty(name = "repository-driver.backend", defaultValue = "indy")
     Backend backend;
 
     @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
-    Deployment deployment;
+    DeploymentType deploymentType;
 
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
