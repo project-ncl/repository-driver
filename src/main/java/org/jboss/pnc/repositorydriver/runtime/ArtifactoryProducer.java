@@ -6,6 +6,7 @@ import jakarta.enterprise.inject.Produces;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.repositorydriver.Configuration;
+import org.jboss.pnc.repositorydriver.RepositoryDriverException;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.ArtifactoryClientBuilder;
 import org.slf4j.Logger;
@@ -21,29 +22,25 @@ public class ArtifactoryProducer {
     public ArtifactoryProducer(
             @ConfigProperty(name = "repository-driver.backend") Configuration.Backend backend,
             @ConfigProperty(name = "repository-driver.artifactory-client.url") String url,
-            @ConfigProperty(name = "repository-driver.artifactory-client.accessToken") String accessToken) {
+            @ConfigProperty(name = "repository-driver.artifactory-client.accessToken") String accessToken)
+            throws RepositoryDriverException {
         if (backend == Configuration.Backend.ARTIFACTORY) {
-            logger.info("### Creating artifactory with url {}", url);
-            artifactory = ArtifactoryClientBuilder.create()
-                    // Attempting to use setPassword fails because we are not defining a username. setAccessToken
-                    // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
-                    // .setAccessToken(accessToken)
-                    // .setPassword(accessToken)
-                    // .setUsername("pnc").build();
-                    .setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
-                    .setUrl(url)
-                    .build();
-
-            // TODO: To remove? Useful for debugging to ensure we have the right URL configured.
             try {
-                logger.warn(
-                        "### Artifactory ping {}",
-                        artifactory.system().ping());
+                logger.info("Creating artifactory connection with url {}", url);
+                artifactory = ArtifactoryClientBuilder.create()
+                        // Attempting to use setPassword fails because we are not defining a username. setAccessToken
+                        // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
+                        // .setAccessToken(accessToken)
+                        // .setPassword(accessToken)
+                        // .setUsername("pnc").build();
+                        .setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
+                        .setUrl(url)
+                        .build();
                 logger.info(
                         "Running against Artifactory version {}",
                         artifactory.system().version().getVersion());
             } catch (Exception e) {
-                throw new RuntimeException("Fatal error contacting artifactory", e);
+                throw new RepositoryDriverException("Fatal error contacting artifactory", e);
             }
         } else {
             artifactory = null;
