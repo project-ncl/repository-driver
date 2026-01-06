@@ -589,6 +589,7 @@ public class TrackingReportProcessor {
         String result;
         StoreKey sk = download.getStoreKey();
         String packageType = sk.getPackageType();
+        // TODO: ### TargetRepositoryPath : what is this?
         if (ignoreDependencySource(sk)) {
             result = "/api/" + content.contentPath(sk);
         } else {
@@ -598,6 +599,7 @@ public class TrackingReportProcessor {
     }
 
     private String getGenericTargetRepositoryPath(StoreKey source) {
+        // TODO: ### GenericRepositoryPath : what is this?
         return "/api/content/generic-http/hosted/" + getGenericHostedRepoName(source.getName());
     }
 
@@ -609,6 +611,7 @@ public class TrackingReportProcessor {
      */
     private String getGenericHostedRepoName(String remoteName) {
         String hostedName;
+        // TODO: ### GenericHostedName : what is this?
         if (remoteName.startsWith("r-") || remoteName.startsWith("g-")) {
             hostedName = "h-" + remoteName.substring(2);
         } else {

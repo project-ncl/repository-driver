@@ -86,7 +86,7 @@ public class ArtifactoryBuildGroupBuilderTest {
                 .build();
 
         assertEquals(3, result.getRepositories().size());
-        assertEquals(configuration.getDeployment() + "-virtual-ID", result.getKey());
+        assertEquals(configuration.getDeploymentType() + "-virtual-ID", result.getKey());
         assertInstanceOf(MavenRepositorySettings.class, result.getRepositorySettings());
         assertTrue(((MavenRepositorySettings) result.getRepositorySettings()).getHandleReleases());
         assertFalse(((MavenRepositorySettings) result.getRepositorySettings()).getHandleSnapshots());
