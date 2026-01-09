@@ -41,11 +41,11 @@ public class BifrostLogUploaderProducer {
             @ConfigProperty(
                     name = "repository-driver.bifrost-uploader.retryDelay",
                     defaultValue = "10") int retryDelay) {
-        logUploader = new BifrostLogUploader(bifrostUrl, maxRetries, retryDelay, this::getFreshAccessToken);
+        logUploader = new BifrostLogUploader(bifrostUrl, this::getFreshAccessToken, maxRetries, retryDelay);
     }
 
     private String getFreshAccessToken() {
-        return oidcClient.getTokens().await().indefinitely().getAccessToken();
+        return "Bearer " + oidcClient.getTokens().await().indefinitely().getAccessToken();
     }
 
     @Produces
