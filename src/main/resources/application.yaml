@@ -1,14 +1,14 @@
 quarkus:
   application:
     name: pnc-repository-driver
-  opentelemetry:
+  otel:
     enabled: true
-    tracer:
+    traces:
       enabled: true
-      exporter:
-        otlp:
-          # Send telemetry data to an opentelemetry-collector
-          #endpoint: http://localhost:4317
+    exporter:
+      otlp:
+        # Send telemetry data to an opentelemetry-collector
+        #endpoint: http://localhost:4317
   http:
     enable-compression: true
     enable-decompression: true
