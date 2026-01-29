@@ -9,31 +9,24 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.commonjava.indy.client.core.auth.IndyClientAuthenticator;
 import org.commonjava.util.jhttpc.JHttpCException;
-
-import io.quarkus.oidc.client.OidcClient;
+import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 
 @ApplicationScoped
 public class IndyPNCOAuthBearerAuthenticator extends IndyClientAuthenticator {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
 
-    private static final String BEARER_FORMAT = "Bearer %s";
-
     @Inject
-    OidcClient oidcClient;
+    PNCClientAuth pncClientAuth;
 
     @Override
     public HttpClientBuilder decorateClientBuilder(HttpClientBuilder builder) throws JHttpCException {
         builder.addInterceptorFirst((HttpRequestInterceptor) (httpRequest, httpContext) -> {
             final Header header = new BasicHeader(
                     AUTHORIZATION_HEADER,
-                    String.format(BEARER_FORMAT, getFreshAccessToken()));
+                    pncClientAuth.getHttpAuthorizationHeaderValue());
             httpRequest.addHeader(header);
         });
         return builder;
-    }
-
-    private String getFreshAccessToken() {
-        return oidcClient.getTokens().await().indefinitely().getAccessToken();
     }
 }

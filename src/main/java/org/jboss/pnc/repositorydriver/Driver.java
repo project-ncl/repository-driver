@@ -80,6 +80,7 @@ import org.jboss.pnc.bifrost.upload.LogMetadata;
 import org.jboss.pnc.bifrost.upload.TagOption;
 import org.jboss.pnc.common.log.MDCUtils;
 import org.jboss.pnc.common.otel.OtelUtils;
+import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.slf4j.Logger;
@@ -97,7 +98,6 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import io.quarkus.oidc.client.OidcClient;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import net.jodah.failsafe.event.ExecutionAttemptedEvent;
@@ -141,7 +141,7 @@ public class Driver {
     TrackingReportProcessor trackingReportProcessor;
 
     @Inject
-    OidcClient oidcClient;
+    PNCClientAuth pncClientAuth;
 
     @Inject
     BifrostLogUploader bifrostLogUploader;
@@ -412,7 +412,7 @@ public class Driver {
                     .build();
             bifrostLogUploader.uploadString(message, logMetadata);
         } catch (BifrostUploadException ex) {
-            logger.error("Unable to upload logs to bifrost. Log was:\n" + message, ex);
+            logger.error("Unable to upload logs to bifrost. Log was: \n{}", message, ex);
             // We don't want to fail the build when we couldn't upload to bifrost, because the repo driver log is not
             // critical.
         }
@@ -528,7 +528,7 @@ public class Driver {
                 .uri(URI.create(configuration.getArchiveServiceEndpoint()))
                 .POST(HttpRequest.BodyPublishers.ofString(body))
                 .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()))
-                .header(AUTHORIZATION_STRING, "Bearer " + getFreshAccessToken())
+                .header(AUTHORIZATION_STRING, pncClientAuth.getHttpAuthorizationHeaderValue())
                 .header(CONTENT_TYPE_STRING, "application/json");
 
         return builder.build();
@@ -603,7 +603,7 @@ public class Driver {
         callback.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
         // Add the service account's access token. We use a fresh one instead of serviceTokens since serviceTokens might
         // already be closed to expiry when we hit this method inside the executor
-        builder.header(jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
+        builder.header(jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION, pncClientAuth.getHttpAuthorizationHeaderValue());
         return builder.build();
     }
 
@@ -888,7 +888,7 @@ public class Driver {
                                         .append("\n\n"));
             }
         }
-        if (sb.length() == 0) {
+        if (sb.isEmpty()) {
             sb.append("(no error message received)");
         }
         return sb.toString();
@@ -926,7 +926,7 @@ public class Driver {
                         other = new StoreKey(genericRepo.getPackageType(), StoreType.group, groupName);
                     }
                 } else {
-                    logger.error("Unexpected store type in " + genericRepo + " which should be cleaned. Skipping.");
+                    logger.error("Unexpected store type in {} which should be cleaned. Skipping.", genericRepo);
                 }
 
                 if (other != null) {
@@ -985,7 +985,9 @@ public class Driver {
                     .method(heartBeat.getMethod().name(), HttpRequest.BodyPublishers.noBody())
                     .timeout(Duration.ofSeconds(configuration.getHttpClientRequestTimeout()));
             heartBeat.getHeaders().forEach(h -> builder.header(h.getName(), h.getValue()));
-            builder.header(jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION, "Bearer " + getFreshAccessToken());
+            builder.header(
+                    jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION,
+                    pncClientAuth.getHttpAuthorizationHeaderValue());
             HttpRequest request = builder.build();
 
             CompletableFuture<HttpResponse<String>> response = httpClient
@@ -1087,14 +1089,5 @@ public class Driver {
                 throw new FailedResponseException("Response status code: " + response.statusCode());
             }
         };
-    }
-
-    /**
-     * Get an access token for the service account
-     *
-     * @return fresh access token
-     */
-    private String getFreshAccessToken() {
-        return oidcClient.getTokens().await().indefinitely().getAccessToken();
     }
 }

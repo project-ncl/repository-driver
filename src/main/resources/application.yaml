@@ -60,6 +60,12 @@ quarkus:
     client-id: my-app
     credentials:
       secret: secret
+
+pnc_client_auth:
+  type: OIDC # or LDAP
+  # ldap_credentials:
+  #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
+
 repository-driver:
   ignored-path-patterns:
     archive:
@@ -101,10 +107,19 @@ repository-driver:
 
 "%test":
   quarkus:
+    arc:
+      # to use the injected Mock instead
+      exclude-types: org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
     oidc:
       enabled: false
     oidc-client:
       enabled: false
+    http:
+      auth:
+        basic: false
+    security:
+      ldap:
+        enabled: false
     log:
       console:
         json: false

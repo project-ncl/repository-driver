@@ -243,6 +243,11 @@
       <version>3.3.0</version>
     </dependency>
     <dependency>
+      <groupId>org.jboss.pnc</groupId>
+      <artifactId>quarkus-pnc-client-auth</artifactId>
+      <version>1.0.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
       <groupId>org.jboss.pnc.logging</groupId>
       <artifactId>quarkus-logging-kafka-deployment</artifactId>
       <version>${quarkus-logging-kafka.version}</version>
@@ -310,6 +315,17 @@
       </snapshots>
       <id>jboss-snapshots</id>
       <url>https://repository.jboss.org/nexus/content/repositories/snapshots</url>
+    </repository>
+    <repository>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+      <id>central-portal-snapshots</id>
+      <name>Central Portal Snapshots</name>
+      <url>https://central.sonatype.com/repository/maven-snapshots/</url>
     </repository>
 
     <repository>

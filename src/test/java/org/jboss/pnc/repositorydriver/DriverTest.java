@@ -2,6 +2,8 @@ package org.jboss.pnc.repositorydriver;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static io.restassured.RestAssured.given;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.any;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -86,9 +88,9 @@ public class DriverTest {
         callbackServer.start(8082, BIND_HOST);
 
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
-        Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
+        Mockito.doNothing().when(bifrostLogUploader).uploadString(any(), any());
         BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
-        Mockito.when(bifrostLogUploaderProducer.produce()).thenReturn(bifrostLogUploader);
+        Mockito.when(bifrostLogUploaderProducer.createClient(any(), anyInt(), anyInt())).thenReturn(bifrostLogUploader);
         QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
     }
 
