@@ -10,11 +10,26 @@ quarkus:
         # Send telemetry data to an opentelemetry-collector
         #endpoint: http://localhost:4317
   http:
+    auth:
+      # required for LDAP: build-time property
+      basic: true
     enable-compression: true
     enable-decompression: true
     cors:
       enabled: true
       origins: "/.*/"
+  security:
+    ldap:
+      # enable LDAP: build-time property
+      enabled: true
+      cache:
+        enabled: true
+        max-age: 5m
+      dir-context:
+        url: ldaps://ldap-server.com
+      identity-mapping:
+        search-base-dn: ou=company.com
+
   shutdown:
     timeout: 300
   log:
