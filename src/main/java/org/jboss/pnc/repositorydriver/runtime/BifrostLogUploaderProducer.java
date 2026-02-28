@@ -25,31 +25,26 @@ import jakarta.inject.Inject;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
-
-import io.quarkus.oidc.client.OidcClient;
+import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 
 @ApplicationScoped
 public class BifrostLogUploaderProducer {
 
     @Inject
-    OidcClient oidcClient;
-    private final BifrostLogUploader logUploader;
+    PNCClientAuth pncClientAuth;
 
-    public BifrostLogUploaderProducer(
+    @Produces
+    @ApplicationScoped
+    public BifrostLogUploader createClient(
             @ConfigProperty(name = "repository-driver.bifrost-uploader.api-url") URI bifrostUrl,
             @ConfigProperty(name = "repository-driver.bifrost-uploader.maxRetries", defaultValue = "6") int maxRetries,
             @ConfigProperty(
                     name = "repository-driver.bifrost-uploader.retryDelay",
                     defaultValue = "10") int retryDelay) {
-        logUploader = new BifrostLogUploader(bifrostUrl, this::getFreshAccessToken, maxRetries, retryDelay);
-    }
-
-    private String getFreshAccessToken() {
-        return "Bearer " + oidcClient.getTokens().await().indefinitely().getAccessToken();
-    }
-
-    @Produces
-    public BifrostLogUploader produce() {
-        return logUploader;
+        return new BifrostLogUploader(
+                bifrostUrl,
+                pncClientAuth::getHttpAuthorizationHeaderValue,
+                maxRetries,
+                retryDelay);
     }
 }

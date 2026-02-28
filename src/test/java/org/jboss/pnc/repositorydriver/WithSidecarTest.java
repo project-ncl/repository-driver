@@ -2,6 +2,8 @@ package org.jboss.pnc.repositorydriver;
 
 import static io.restassured.RestAssured.given;
 import static org.jboss.pnc.repositorydriver.DriverTest.requestHeaders;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.any;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
@@ -37,9 +39,9 @@ public class WithSidecarTest {
     @BeforeAll
     public static void beforeClass() throws Exception {
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
-        Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
+        Mockito.doNothing().when(bifrostLogUploader).uploadString(any(), any());
         BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
-        Mockito.when(bifrostLogUploaderProducer.produce()).thenReturn(bifrostLogUploader);
+        Mockito.when(bifrostLogUploaderProducer.createClient(any(), anyInt(), anyInt())).thenReturn(bifrostLogUploader);
         QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
     }
 
