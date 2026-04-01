@@ -64,7 +64,7 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.34.1</quarkus.platform.version>
-    <atlas.version>1.2.1</atlas.version>
+    <atlas.version>1.2.2</atlas.version>
     <compiler-plugin.version>3.15.0</compiler-plugin.version>
     <surefire-plugin.version>3.5.5</surefire-plugin.version>
     <indy.version>3.4.5</indy.version>
