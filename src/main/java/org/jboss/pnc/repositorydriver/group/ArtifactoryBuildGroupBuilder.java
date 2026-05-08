@@ -154,7 +154,6 @@ public class ArtifactoryBuildGroupBuilder {
                                     .description("Remote repository for " + artifactRepository.url)
                                     .repositorySettings(settings)
                                     .url(artifactRepository.url)
-                                    // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
                                     .key(artifactRepository.id)
                                     .build();
 
@@ -181,6 +180,8 @@ public class ArtifactoryBuildGroupBuilder {
             if (host == null) {
                 logger.warn("No host in repository URL entered: {}. Skipping!", url);
             } else {
+                // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
+                //   See https://jfrog.com/help/r/jfrog-artifactory-documentation/repository-naming-rules-and-limitations
                 String id = host.replaceAll("\\.", "-");
                 result = ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
             }

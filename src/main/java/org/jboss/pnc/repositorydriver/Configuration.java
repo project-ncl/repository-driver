@@ -33,30 +33,16 @@ import lombok.Setter;
 @Dependent
 public class Configuration {
 
+    // TODO: This will be removed later.
     public enum Backend {
         INDY, ARTIFACTORY
-    };
-
-    public enum Deployment {
-        PROD("pnc"), STAGE("pnc-stage"), DEVEL("pnc-devel");
-
-        private final String value;
-
-        Deployment(String s) {
-            value = s;
-        }
-
-        @Override
-        public String toString() {
-            return value;
-        }
-    };
+    }
 
     @ConfigProperty(name = "repository-driver.backend", defaultValue = "indy")
     Backend backend;
 
     @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
-    Deployment deployment;
+    DeploymentType deploymentType;
 
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;

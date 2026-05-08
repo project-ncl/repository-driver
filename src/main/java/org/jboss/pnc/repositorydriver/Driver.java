@@ -698,7 +698,7 @@ public class Driver {
             String packageType,
             boolean tempBuild,
             boolean brewPullActive,
-            List<String> extraDependencyRepositories) throws IndyClientException {
+            List<String> extraDependencyRepositories) throws IndyClientException, RepositoryDriverException {
 
         logger.info("### DEBUG::Backend {}", configuration.backend);
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
@@ -775,8 +775,7 @@ public class Driver {
 
             } catch (Exception e) {
                 logger.error("### Caught exception", e);
-                // TODO: ### FIXME Error handling
-                throw new RuntimeException(e);
+                throw new RepositoryDriverException("Error setting up build repositories", e);
             }
         } else {
             // if the build-level group doesn't exist, create it.
@@ -923,7 +922,7 @@ public class Driver {
             }
         }
         // TODO: Cleanup and set repositories to readonly. While changing maven repositories
-        //     not to handle release or snapshot deployment might work not sure about npm or generic repos
+        //     not to handle release or snapshot deploymentType might work not sure about npm or generic repos
     }
 
     /**
