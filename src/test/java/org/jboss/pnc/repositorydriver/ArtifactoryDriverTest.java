@@ -119,7 +119,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         Mockito.when(repositoryHandle.folder(Mockito.anyString())).thenReturn(itemHandle);
 
         // artifactory.repository("xxx").exists
-        Mockito.when(repositoryHandle.exists()).thenReturn(false);
+        Mockito.when(repositoryHandle.exists()).thenReturn(true);
         // artifactory.repositories
         // Use RETURNS_DEEP_STUBS to mock 'all the way down'.
         Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
