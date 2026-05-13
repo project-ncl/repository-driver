@@ -15,11 +15,15 @@ import java.util.logging.LogRecord;
 import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
+import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
+import org.jfrog.artifactory.client.Artifactory;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import io.quarkus.test.LogCollectingTestResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.ResourceArg;
+import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -43,6 +47,12 @@ public class ArchiveTest implements QuarkusTestProfile {
 
     @Test
     public void testDisabledArchiveRequest() {
+
+        Artifactory artifactory = Mockito.mock(Artifactory.class);
+        // Replace the cdi ArtifactoryProducer bean with a mocked version
+        ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
+        Mockito.when(artifactoryProducer.produce()).thenReturn(artifactory);
+        QuarkusMock.installMockForType(artifactoryProducer, ArtifactoryProducer.class);
 
         given().contentType(MediaType.APPLICATION_JSON)
                 .headers(DriverTest.requestHeaders())

@@ -1,18 +1,18 @@
 package org.jboss.pnc.repositorydriver.group;
 
 import static org.jboss.pnc.repositorydriver.Driver.GRADLE_PLUGINS_REPO;
-import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.COMMON_BUILD_GROUP_CONSTITUENTS_GROUP;
-import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.TEMPORARY_BUILDS_GROUP;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
+import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.repositorydriver.ArtifactoryUtils;
 import org.jboss.pnc.repositorydriver.Configuration;
@@ -80,21 +80,49 @@ public class ArtifactoryBuildGroupBuilder {
      *
      * @param buildType the build type
      */
-    public ArtifactoryBuildGroupBuilder addGlobalConstituents(BuildType buildType, boolean tempBuild) {
+    public ArtifactoryBuildGroupBuilder addGlobalConstituents(
+            BuildType buildType,
+            BuildCategory buildCategory,
+            boolean tempBuild) {
+        // 1. global builds artifacts
         // 1. global builds artifacts
         if (tempBuild) {
-            includedRepositories.add(
-                    ArtifactoryUtils
-                            .createRepositoryName(configuration, buildType, false, tempBuild, TEMPORARY_BUILDS_GROUP));
+            for (String hostedTempConstituent : configuration.getBuildGroupConstituentsTempHosted(buildCategory)
+                    .orElse(List.of())) {
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(
+                                        configuration,
+                                        buildType,
+                                        false,
+                                        tempBuild,
+                                        hostedTempConstituent));
+            }
+            for (String groupTempConstituent : configuration.getBuildGroupConstituentsTempGroup(buildCategory)
+                    .orElse(List.of())) {
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(
+                                        configuration,
+                                        buildType,
+                                        false,
+                                        tempBuild,
+                                        groupTempConstituent));
+            }
+        } else {
+            for (String hostedConstituent : configuration.getBuildGroupConstituentsHosted(buildCategory)
+                    .orElse(List.of())) {
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(configuration, buildType, false, tempBuild, hostedConstituent));
+            }
+            for (String groupConstituent : configuration.getBuildGroupConstituentsGroup(buildCategory)
+                    .orElse(List.of())) {
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(configuration, buildType, false, tempBuild, groupConstituent));
+            }
         }
-        includedRepositories.add(
-                ArtifactoryUtils
-                        .createRepositoryName(
-                                configuration,
-                                buildType,
-                                false,
-                                tempBuild,
-                                COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
 
         // add build-type-specific constituents
         switch (buildType) {
@@ -150,6 +178,8 @@ public class ArtifactoryBuildGroupBuilder {
                             RemoteRepository r = artifactory.repositories()
                                     .builders()
                                     .remoteRepositoryBuilder()
+                                    .projectKey(configuration.getDeploymentType().toString())
+                                    .environments(Collections.singletonList("DEV"))
                                     .archiveBrowsingEnabled(true)
                                     .description("Remote repository for " + artifactRepository.url)
                                     .repositorySettings(settings)
@@ -195,6 +225,8 @@ public class ArtifactoryBuildGroupBuilder {
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
+                .projectKey(configuration.getDeploymentType().toString())
+                .environments(Collections.singletonList("DEV"))
                 .repositorySettings(settings)
                 .description(description)
                 .repositories(includedRepositories)
