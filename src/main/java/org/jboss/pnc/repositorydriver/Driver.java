@@ -19,9 +19,9 @@ package org.jboss.pnc.repositorydriver;
 
 import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpClient.Version.HTTP_2;
-import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
+import static org.jboss.pnc.api.tracker.dto.PackageType.GENERIC;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -48,23 +48,8 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
-import org.commonjava.indy.client.core.Indy;
-import org.commonjava.indy.client.core.IndyClientException;
-import org.commonjava.indy.client.core.module.IndyStoresClientModule;
-import org.commonjava.indy.folo.client.IndyFoloAdminClientModule;
-import org.commonjava.indy.folo.client.IndyFoloContentClientModule;
-import org.commonjava.indy.folo.dto.TrackedContentDTO;
-import org.commonjava.indy.model.core.Group;
-import org.commonjava.indy.model.core.HostedRepository;
-import org.commonjava.indy.model.core.PackageTypes;
-import org.commonjava.indy.model.core.StoreKey;
-import org.commonjava.indy.model.core.StoreType;
-import org.commonjava.indy.promote.client.IndyPromoteClientModule;
-import org.commonjava.indy.promote.model.AbstractPromoteResult;
-import org.commonjava.indy.promote.model.PathsPromoteRequest;
-import org.commonjava.indy.promote.model.PathsPromoteResult;
-import org.commonjava.indy.promote.model.ValidationResult;
 import org.eclipse.microprofile.context.ManagedExecutor;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.api.constants.MDCKeys;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
@@ -77,6 +62,8 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.api.tracker.dto.PackageType;
+import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.bifrost.upload.BifrostUploadException;
 import org.jboss.pnc.bifrost.upload.LogMetadata;
@@ -86,7 +73,7 @@ import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.group.ArtifactoryBuildGroupBuilder;
-import org.jboss.pnc.repositorydriver.group.IndyBuildGroupBuilder;
+import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
@@ -144,9 +131,6 @@ public class Driver {
     ObjectMapper jsonMapper;
 
     @Inject
-    Indy indy;
-
-    @Inject
     ApplicationLifecycle lifecycle;
 
     @Inject
@@ -161,88 +145,95 @@ public class Driver {
     @Inject
     Artifactory artifactory;
 
+    @Inject
+    @RestClient
+    TrackingServiceClient trackingServiceClient;
+
     @WithSpan()
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
+        System.out.println("### in driver create");
         logger.warn("### {}", configuration.getBackend().name());
         try {
             BuildType buildType = repositoryCreateRequest.getBuildType();
-            String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
+            PackageType packageType = TypeConverters.toPackageType(buildType.getRepoType());
             String buildId = repositoryCreateRequest.getBuildContentId();
 
-            try {
-                setupBuildRepos(
-                        repositoryCreateRequest.getBuildContentId(),
-                        buildType,
-                        repositoryCreateRequest.getBuildCategory(),
-                        packageType,
-                        repositoryCreateRequest.isTempBuild(),
-                        repositoryCreateRequest.isBrewPullActive(),
-                        repositoryCreateRequest.getExtraRepositories());
-            } catch (IndyClientException e) {
-                logger.debug("Failed to setup repository or repository group for this build");
-                throw new RepositoryDriverException(
-                        "Failed to setup repository or repository group for this build: %s",
-                        e,
-                        e.getMessage());
-            }
+            //            try {
+            setupBuildRepos(
+                    repositoryCreateRequest.getBuildContentId(),
+                    buildType,
+                    repositoryCreateRequest.getBuildCategory(),
+                    packageType,
+                    repositoryCreateRequest.isTempBuild(),
+                    repositoryCreateRequest.isBrewPullActive(),
+                    repositoryCreateRequest.getExtraRepositories());
+            //            } catch (IndyClientException e) {
+            //                logger.debug("Failed to setup repository or repository group for this build");
+            //                throw new RepositoryDriverException(
+            //                        "Failed to setup repository or repository group for this build: %s",
+            //                        e,
+            //                        e.getMessage());
+            //            }
 
             String downloadsUrl;
             String deployUrl;
 
-            try {
-                // TODO: ### Eventually to be replaced by pnc-tracking-service??
-                if (configuration.backend == Configuration.Backend.INDY) {
-                    // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
-                    IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
-                    foloAdminModule.clearTrackingRecord(buildId);
-                    foloAdminModule.initReport(buildId);
+            //            try {
+            // TODO: ### Eventually to be replaced by pnc-tracking-service??
+            trackingServiceClient.clearReport(buildId);
+            trackingServiceClient.initReport(buildId);
+            //                if (configuration.backend == Configuration.Backend.INDY) {
+            //                    // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
+            //                    IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
+            //                    foloAdminModule.clearTrackingRecord(buildId);
+            //                    foloAdminModule.initReport(buildId);
+            //
+            //                    // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
+            //                    StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
+            //                    downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
+            //
+            //                    StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
+            //                    deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
+            //                } else {
+            // TODO: This assumes artifactoryUrl always has a '/' at the end.
+            deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
+                    configuration,
+                    buildType,
+                    false,
+                    repositoryCreateRequest.isTempBuild(),
+                    buildId);
+            downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
+                    configuration,
+                    buildType,
+                    true,
+                    repositoryCreateRequest.isTempBuild(),
+                    buildId);
+            //                }
 
-                    // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
-                    StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
-                    downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
-
-                    StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
-                    deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
-                } else {
-                    // TODO: This assumes artifactoryUrl always has a '/' at the end.
-                    deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                            configuration,
-                            buildType,
-                            false,
-                            repositoryCreateRequest.isTempBuild(),
-                            buildId);
-                    downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                            configuration,
-                            buildType,
-                            true,
-                            repositoryCreateRequest.isTempBuild(),
-                            buildId);
+            // TODO: With Artifactory will we need the sidecar translation?
+            if (configuration.isSidecarEnabled()) {
+                logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
+                try {
+                    downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
+                } catch (MalformedURLException e) {
+                    throw new RuntimeException(
+                            String.format(
+                                    "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
+                                    configuration.getSidecarUrl(),
+                                    downloadsUrl,
+                                    deployUrl));
                 }
-
-                // TODO: With Artifactory will we need the sidecar translation?
-                if (configuration.isSidecarEnabled()) {
-                    logger.info("Indy sidecar feature enabled: replacing Indy host with Indy sidecar host");
-                    try {
-                        downloadsUrl = UrlUtils.replaceHostInUrl(downloadsUrl, configuration.getSidecarUrl());
-                    } catch (MalformedURLException e) {
-                        throw new RuntimeException(
-                                String.format(
-                                        "Indy sidecar url ('%s') or Indy urls ('%s',  '%s') are url malformed!",
-                                        configuration.getSidecarUrl(),
-                                        downloadsUrl,
-                                        deployUrl));
-                    }
-                }
-                logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
-            } catch (IndyClientException e) {
-                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
-                throw new RepositoryDriverException(
-                        "Failed to retrieve Indy client module for the artifact tracker: %s",
-                        e,
-                        e.getMessage());
             }
+            logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
+            //            } catch (IndyClientException e) {
+            //                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
+            //                throw new RepositoryDriverException(
+            //                        "Failed to retrieve Indy client module for the artifact tracker: %s",
+            //                        e,
+            //                        e.getMessage());
+            //            }
 
             uploadLogs("", "create");
             return new RepositoryCreateResponse(
@@ -272,7 +263,7 @@ public class Driver {
         String buildConfigurationId = promoteRequest.getBuildConfigurationId();
         BuildType buildType = promoteRequest.getBuildType();
         BuildCategory buildCategory = promoteRequest.getBuildCategory();
-        TrackedContentDTO report;
+        TrackingReport report;
         try {
             logger.warn("### Retrieving tracking report");
             report = retrieveTrackingReport(buildContentId);
@@ -281,7 +272,7 @@ public class Driver {
             uploadLogs(ex.getMessage(), "promote");
             throw ex;
         }
-        Set<StoreKey> genericRepos = new HashSet<>();
+        Set<RepositoryKey> genericRepos = new HashSet<>();
 
         logger.warn("### About to run async");
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
@@ -467,7 +458,7 @@ public class Driver {
 
         // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
-            TrackedContentDTO report = retrieveTrackingReport(request.getBuildContentId());
+            TrackingReport report = retrieveTrackingReport(request.getBuildContentId());
             doArchive(request, report);
         } else {
             logger.warn("Archive service disabled");
@@ -476,7 +467,7 @@ public class Driver {
 
     private void doArchive(
             @SpanAttribute(value = "archiveRequest") ArchiveRequest request,
-            @SpanAttribute(value = "report") TrackedContentDTO report) throws RepositoryDriverException {
+            @SpanAttribute(value = "report") TrackingReport report) throws RepositoryDriverException {
 
         // Create a parent child span with values from MDC
         SpanBuilder spanBuilder = OtelUtils.buildChildSpan(
@@ -660,7 +651,7 @@ public class Driver {
             @SpanAttribute(value = "buildContentId") String buildContentId,
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
             @SpanAttribute(value = "buildCategory") BuildCategory buildCategory) throws RepositoryDriverException {
-        TrackedContentDTO report = retrieveTrackingReport(buildContentId);
+        TrackingReport report = retrieveTrackingReport(buildContentId);
         try {
             List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor
                     .collectDownloadedArtifacts(report, artifactFilterDatabase);
@@ -699,10 +690,10 @@ public class Driver {
             String buildContentId,
             BuildType buildType,
             BuildCategory buildCategory,
-            String packageType,
+            PackageType packageType,
             boolean tempBuild,
             boolean brewPullActive,
-            List<String> extraDependencyRepositories) throws IndyClientException, RepositoryDriverException {
+            List<String> extraDependencyRepositories) throws RepositoryDriverException {
 
         logger.info("### DEBUG::Backend {}", configuration.backend);
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
@@ -714,7 +705,7 @@ public class Driver {
                         .createRepositoryName(configuration, buildType, false, tempBuild, buildContentId);
                 String virtualName = ArtifactoryUtils
                         .createRepositoryName(configuration, buildType, true, tempBuild, buildContentId);
-
+                logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
                 RepositoryHandle virtualRepository = artifactory.repository(virtualName);
@@ -729,7 +720,7 @@ public class Driver {
 
                 RepositorySettings settings = null;
                 switch (packageType) {
-                    case "maven": {
+                    case MVN: {
                         // Create local and virtual repository
                         // MavenRepositorySettingsImpl implicitly sets package type maven.
                         settings = new MavenRepositorySettingsImpl();
@@ -741,7 +732,7 @@ public class Driver {
                         // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
                         break;
                     }
-                    case "npm": {
+                    case NPM: {
                         settings = new NpmRepositorySettingsImpl();
                     }
                     // TODO: Will we need to support other types here?
@@ -750,7 +741,9 @@ public class Driver {
                 var repository = artifactory.repositories()
                         .builders()
                         .localRepositoryBuilder()
-                        .archiveBrowsingEnabled(true)
+                        .archiveBrowsingEnabled(brewPullActive)
+                        .projectKey(configuration.getDeploymentType().toString())
+                        .environments(Collections.singletonList("DEV"))
                         .description("PNC Build repository for " + hostedName)
                         .repositorySettings(settings)
                         .key(hostedName)
@@ -767,7 +760,7 @@ public class Driver {
                         // build-local artifacts
                         .addConstituent(hostedName)
                         // Global-level repos, for captured/shared artifacts and access to the outside world
-                        .addGlobalConstituents(buildType, tempBuild)
+                        .addGlobalConstituents(buildType, buildCategory, tempBuild)
                         // build-specific repos
                         .addExtraConstituents(extraDependencyRepositories)
                         .build();
@@ -782,65 +775,69 @@ public class Driver {
                 throw new RepositoryDriverException("Error setting up build repositories", e);
             }
         } else {
-            // if the build-level group doesn't exist, create it.
-            StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
-            StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
-
-            // if the group and repo exist, delete them and recreate them from scratch
-            IndyStoresClientModule storesModule = indy.stores();
-            if (storesModule.exists(groupKey)) {
-                String logCleanupGroupKey = "Cleanup " + groupKey + " before build run.";
-                logger.info(logCleanupGroupKey);
-                storesModule.delete(groupKey, logCleanupGroupKey);
-            }
-            if (storesModule.exists(hostedKey)) {
-                HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
-                if (hosted.isReadonly()) {
-                    hosted.setReadonly(false);
-                    String logWritableHostKey = "Make " + hostedKey + " writable before delete.";
-                    logger.info(logWritableHostKey);
-                    storesModule.update(hosted, logWritableHostKey);
-                }
-
-                String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
-                logger.info(logCleanupHostedKey);
-                storesModule.delete(hostedKey, logCleanupHostedKey, true);
-            }
-
-            // create build repo
-            HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
-            buildArtifacts.setAllowSnapshots(false);
-            buildArtifacts.setAllowReleases(true);
-
-            buildArtifacts
-                    .setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
-
-            String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " + buildContentId
-                    + " (repo: " + buildContentId + ")";
-            logger.info(logCreatingHostedRepo);
-            storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
-
-            // create build group
-            Group buildGroup = IndyBuildGroupBuilder.builder(configuration, indy, packageType, buildContentId)
-                    .withDescription(
-                            String.format(
-                                    "Aggregation group for PNC %s build #%s",
-                                    tempBuild ? "temporary " : "",
-                                    buildContentId))
-                    // build-local artifacts
-                    .addConstituent(hostedKey)
-                    // Global-level repos, for captured/shared artifacts and access to the outside world
-                    .addGlobalConstituents(buildType, buildCategory, tempBuild)
-                    // build-specific repos
-                    .addExtraConstituents(extraDependencyRepositories)
-                    // brew pull: see MMENG-1262
-                    .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
-                    .build();
-
-            String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
-                    + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
-            logger.info(changelog);
-            storesModule.create(buildGroup, changelog, Group.class);
+            /*
+             * // if the build-level group doesn't exist, create it.
+             * StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
+             * StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
+             *
+             * // if the group and repo exist, delete them and recreate them from scratch
+             * IndyStoresClientModule storesModule = indy.stores();
+             * if (storesModule.exists(groupKey)) {
+             * String logCleanupGroupKey = "Cleanup " + groupKey + " before build run.";
+             * logger.info(logCleanupGroupKey);
+             * storesModule.delete(groupKey, logCleanupGroupKey);
+             * }
+             * if (storesModule.exists(hostedKey)) {
+             * HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
+             * if (hosted.isReadonly()) {
+             * hosted.setReadonly(false);
+             * String logWritableHostKey = "Make " + hostedKey + " writable before delete.";
+             * logger.info(logWritableHostKey);
+             * storesModule.update(hosted, logWritableHostKey);
+             * }
+             *
+             * String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
+             * logger.info(logCleanupHostedKey);
+             * storesModule.delete(hostedKey, logCleanupHostedKey, true);
+             * }
+             *
+             * // create build repo
+             * HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
+             * buildArtifacts.setAllowSnapshots(false);
+             * buildArtifacts.setAllowReleases(true);
+             *
+             * buildArtifacts
+             * .setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
+             *
+             * String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " +
+             * buildContentId
+             * + " (repo: " + buildContentId + ")";
+             * logger.info(logCreatingHostedRepo);
+             * storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
+             *
+             * // create build group
+             * Group buildGroup = IndyBuildGroupBuilder.builder(indy, packageType, buildContentId)
+             * .withDescription(
+             * String.format(
+             * "Aggregation group for PNC %s build #%s",
+             * tempBuild ? "temporary " : "",
+             * buildContentId))
+             * // build-local artifacts
+             * .addConstituent(hostedKey)
+             * // Global-level repos, for captured/shared artifacts and access to the outside world
+             * .addGlobalConstituents(buildType, tempBuild)
+             * // build-specific repos
+             * .addExtraConstituents(extraDependencyRepositories)
+             * // brew pull: see MMENG-1262
+             * .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
+             * .build();
+             *
+             * String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
+             * + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
+             * logger.info(changelog);
+             * storesModule.create(buildGroup, changelog, Group.class);
+             *
+             */
         }
     }
 
@@ -856,52 +853,50 @@ public class Driver {
         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
         // imports
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-            PathsPromoteRequest request = new PathsPromoteRequest(
-                    sourceTargetPaths.getSource(),
-                    sourceTargetPaths.getTarget(),
-                    sourceTargetPaths.getPaths());
-            request.setPurgeSource(false);
-            request.setTrackingId(promotionTrackingId);
             // set read-only only the generic http proxy hosted repos, not shared-imports
-            boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(sourceTargetPaths.getTarget().getPackageType());
+            boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().getPackageType());
 
             userLog.info(
                     "Promoting {} dependencies from {} to {}",
-                    request.getPaths().size(),
-                    request.getSource(),
-                    request.getTarget());
-            // TODO: ### Assuming TrackingProcessor may be updated to return different information then eventually
-            //     it ends up in PromotionPaths.
+                    sourceTargetPaths.getPaths().size(),
+                    sourceTargetPaths.getSource(),
+                    sourceTargetPaths.getTarget());
+
             if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-                artifactoryPromoteByPath(request, false, readonly);
+                artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
             } else {
-                doPromoteByPath(request, false, readonly);
+                // TODO: Indy backend support removed - only Artifactory is supported
+                throw new RepositoryDriverException("Indy backend is no longer supported. Use Artifactory backend.");
             }
         }
     }
 
     // TODO: ### Do need the readonly markers?
-    private void artifactoryPromoteByPath(PathsPromoteRequest request, boolean b, boolean readonly) {
-        // TODO: ### For now assuming StoreKey::name is the repository name
+    private void artifactoryPromoteByPath(SourceTargetPaths sourceTargetPaths, boolean b, boolean readonly) {
+        // TODO: ### For now assuming RepositoryKey::repositoryId is the repository name
         // TODO: Handling temp and virtual flags
+
+        // Convert PackageType enum to string for ArtifactoryUtils
+        String sourcePackageTypeStr = sourceTargetPaths.getSource().getPackageType().name().toLowerCase();
+        String targetPackageTypeStr = sourceTargetPaths.getTarget().getPackageType().name().toLowerCase();
+
         String sourceRepository = ArtifactoryUtils.createRepositoryName(
                 configuration,
-                ArtifactoryUtils.parsePackageType(request.getSource().getPackageType()),
+                ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
                 false,
                 false,
-                request.getSource().getName());
+                sourceTargetPaths.getSource().getRepositoryId().getName());
         // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
         String targetRepository = ArtifactoryUtils.createRepositoryName(
                 configuration,
-                ArtifactoryUtils.parsePackageType(request.getTarget().getPackageType()),
+                ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
                 false,
                 false,
-                request.getTarget().getName());
-        logger.warn("### packagetypes {} ", PackageTypes.getPackageTypes());
+                sourceTargetPaths.getTarget().getRepositoryId().getName());
         logger.info(
-                "### Looking for storekey source {} and package type {} and repository {} ",
-                request.getSource().getName(),
-                request.getSource().getPackageType(),
+                "### Looking for source {} and package type {} and repository {} ",
+                sourceTargetPaths.getSource().getRepositoryId(),
+                sourceTargetPaths.getSource().getPackageType(),
                 sourceRepository);
         RepositoryHandle handle = artifactory.repository(sourceRepository);
         logger.warn("### Got handle {}", handle.getClass().getName());
@@ -912,7 +907,7 @@ public class Driver {
         }
 
         List<String> copied = new ArrayList<>();
-        for (String path : request.getPaths()) {
+        for (String path : sourceTargetPaths.getPaths()) {
             try {
                 // Where should we promote to?
                 handle.folder(path).copy(targetRepository, path);
@@ -921,7 +916,8 @@ public class Driver {
                 logger.error("Caught exception promoting {}", path, e);
                 logger.warn("Copied {} so far; removing from promotion", copied);
                 // TODO: ### Should we remove what we have copied so far?
-                RepositoryHandle cleanup = artifactory.repository(request.getTarget().getName());
+                RepositoryHandle cleanup = artifactory
+                        .repository(sourceTargetPaths.getTarget().getRepositoryId().getName());
                 copied.forEach(cleanup::delete);
             }
         }
@@ -940,68 +936,53 @@ public class Driver {
     private void promoteUploads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingID)
             throws RepositoryDriverException, PromotionValidationException {
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-            PathsPromoteRequest request = new PathsPromoteRequest(
-                    sourceTargetPaths.getSource(),
-                    sourceTargetPaths.getTarget(),
-                    sourceTargetPaths.getPaths());
-            request.setTrackingId(promotionTrackingID);
             userLog.info(
                     "Promoting {} build output from {} to {}",
-                    request.getPaths().size(),
-                    request.getSource(),
-                    request.getTarget());
-            // TODO: ### Assuming TrackingProcessor may be updated to return different information then eventually
-            //     it ends up in PromotionPaths.
+                    sourceTargetPaths.getPaths().size(),
+                    sourceTargetPaths.getSource(),
+                    sourceTargetPaths.getTarget());
+
             if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-                artifactoryPromoteByPath(request, false, false);
+                artifactoryPromoteByPath(sourceTargetPaths, false, false);
             } else {
-                doPromoteByPath(request, !tempBuild, false);
+                // TODO: Indy backend support removed - only Artifactory is supported
+                throw new RepositoryDriverException("Indy backend is no longer supported. Use Artifactory backend.");
             }
         }
     }
 
-    /**
-     * Promotes a set of artifact paths (or everything, if the path-set is missing) from a particular Indy artifact
-     * store to another, and handle the various error conditions that may arise. If the promote call fails, attempt to
-     * rollback before throwing an exception.
+    // TODO: Indy backend support removed - doPromoteByPath is no longer used
+    /*
+     * private void doPromoteByPath(PathsPromoteRequest req, boolean setSourceRO, boolean setTargetRO)
+     * throws RepositoryDriverException, PromotionValidationException {
+     * IndyPromoteClientModule promoter;
+     * try {
+     * promoter = indy.module(IndyPromoteClientModule.class);
+     * } catch (IndyClientException e) {
+     * throw new RepositoryDriverException(
+     * "Failed to retrieve Indy promote client module. Reason: %s",
+     * e,
+     * e.getMessage());
+     * }
      *
-     * @param req The promotion request to process, which contains source and target store keys, and (optionally) the
-     *        set of paths to promote
-     * @param setTargetRO flag telling if the target repo should be set to readOnly
-     * @param setSourceRO flag telling if the source repo should be set to readOnly
-     * @throws RepositoryDriverException when the client API throws an exception due to something unexpected in
-     *         transport
-     * @throws PromotionValidationException when the promotion process results in an error due to validation failure
+     * try {
+     * PathsPromoteResult result = promoter.promoteByPath(req);
+     * if (result.succeeded()) {
+     * if (setSourceRO) {
+     * setHostedReadOnly(req.getSource(), promoter, result);
+     * }
+     * if (setTargetRO) {
+     * setHostedReadOnly(req.getTarget(), promoter, result);
+     * }
+     * } else {
+     * String error = getValidationError(result);
+     * throw new PromotionValidationException("Failed to promote: %s. Reason given was: %s", req, error);
+     * }
+     * } catch (IndyClientException e) {
+     * throw new RepositoryDriverException("Failed to promote: %s. Reason: %s", e, req, e.getMessage());
+     * }
+     * }
      */
-    private void doPromoteByPath(PathsPromoteRequest req, boolean setSourceRO, boolean setTargetRO)
-            throws RepositoryDriverException, PromotionValidationException {
-        IndyPromoteClientModule promoter;
-        try {
-            promoter = indy.module(IndyPromoteClientModule.class);
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy promote client module. Reason: %s",
-                    e,
-                    e.getMessage());
-        }
-
-        try {
-            PathsPromoteResult result = promoter.promoteByPath(req);
-            if (result.succeeded()) {
-                if (setSourceRO) {
-                    setHostedReadOnly(req.getSource(), promoter, result);
-                }
-                if (setTargetRO) {
-                    setHostedReadOnly(req.getTarget(), promoter, result);
-                }
-            } else {
-                String error = getValidationError(result);
-                throw new PromotionValidationException("Failed to promote: %s. Reason given was: %s", req, error);
-            }
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException("Failed to promote: %s. Reason: %s", e, req, e.getMessage());
-        }
-    }
 
     /**
      * Sets readonly flag on a hosted repo after promotion. If it fails, it rolls back the promotion and throws
@@ -1012,37 +993,37 @@ public class Driver {
      * @param result the promotion result used for potential rollback
      * @throws IndyClientException in case the repo data cannot be loaded
      * @throws RepositoryDriverException in case the repo update fails
+     *         private void setHostedReadOnly(StoreKey key, IndyPromoteClientModule promoter, PathsPromoteResult result)
+     *         throws IndyClientException, RepositoryDriverException {
+     *         HostedRepository hosted = indy.stores().load(key, HostedRepository.class);
+     *         hosted.setReadonly(true);
+     *         try {
+     *         indy.stores().update(hosted, "Setting readonly after successful build and promotion.");
+     *         } catch (IndyClientException ex) {
+     *         try {
+     *         promoter.rollbackPathPromote(result);
+     *         } catch (IndyClientException ex2) {
+     *         logger.error(
+     *         "Failed to set readonly flag on repo: {}. Reason given was: {}.",
+     *         key,
+     *         ex.getMessage(),
+     *         ex);
+     *         throw new RepositoryDriverException(
+     *         "Subsequently also failed to rollback the promotion of paths from %s to %s. Reason "
+     *         + "given was: %s",
+     *         ex2,
+     *         result.getRequest().getSource(),
+     *         result.getRequest().getTarget(),
+     *         ex2.getMessage());
+     *         }
+     *         throw new RepositoryDriverException(
+     *         "Failed to set readonly flag on repo: %s. Reason given was: %s",
+     *         ex,
+     *         key,
+     *         ex.getMessage());
+     *         }
+     *         }
      */
-    private void setHostedReadOnly(StoreKey key, IndyPromoteClientModule promoter, PathsPromoteResult result)
-            throws IndyClientException, RepositoryDriverException {
-        HostedRepository hosted = indy.stores().load(key, HostedRepository.class);
-        hosted.setReadonly(true);
-        try {
-            indy.stores().update(hosted, "Setting readonly after successful build and promotion.");
-        } catch (IndyClientException ex) {
-            try {
-                promoter.rollbackPathPromote(result);
-            } catch (IndyClientException ex2) {
-                logger.error(
-                        "Failed to set readonly flag on repo: {}. Reason given was: {}.",
-                        key,
-                        ex.getMessage(),
-                        ex);
-                throw new RepositoryDriverException(
-                        "Subsequently also failed to rollback the promotion of paths from %s to %s. Reason "
-                                + "given was: %s",
-                        ex2,
-                        result.getRequest().getSource(),
-                        result.getRequest().getTarget(),
-                        ex2.getMessage());
-            }
-            throw new RepositoryDriverException(
-                    "Failed to set readonly flag on repo: %s. Reason given was: %s",
-                    ex,
-                    key,
-                    ex.getMessage());
-        }
-    }
 
     /**
      * Computes error message from a failed promotion result. It means either error must not be empty or validations
@@ -1050,39 +1031,39 @@ public class Driver {
      *
      * @param result the promotion result
      * @return the error message
+     *         private String getValidationError(AbstractPromoteResult<?> result) {
+     *         StringBuilder sb = new StringBuilder();
+     *         String errorMsg = result.getError();
+     *         ValidationResult validations = result.getValidations();
+     *         if (errorMsg != null) {
+     *         sb.append(errorMsg);
+     *         if (validations != null) {
+     *         sb.append("\n");
+     *         }
+     *         }
+     *         if ((validations != null) && (validations.getRuleSet() != null)) {
+     *         sb.append("One or more validation rules failed in rule-set ")
+     *         .append(validations.getRuleSet())
+     *         .append(":\n");
+     *
+     *         if (validations.getValidatorErrors().isEmpty()) {
+     *         sb.append("(no validation errors received)");
+     *         } else {
+     *         validations.getValidatorErrors()
+     *         .forEach(
+     *         (rule, error) -> sb.append("- ")
+     *         .append(rule)
+     *         .append(":\n")
+     *         .append(error)
+     *         .append("\n\n"));
+     *         }
+     *         }
+     *         if (sb.isEmpty()) {
+     *         sb.append("(no error message received)");
+     *         }
+     *         return sb.toString();
+     *         }
      */
-    private String getValidationError(AbstractPromoteResult<?> result) {
-        StringBuilder sb = new StringBuilder();
-        String errorMsg = result.getError();
-        ValidationResult validations = result.getValidations();
-        if (errorMsg != null) {
-            sb.append(errorMsg);
-            if (validations != null) {
-                sb.append("\n");
-            }
-        }
-        if ((validations != null) && (validations.getRuleSet() != null)) {
-            sb.append("One or more validation rules failed in rule-set ")
-                    .append(validations.getRuleSet())
-                    .append(":\n");
-
-            if (validations.getValidatorErrors().isEmpty()) {
-                sb.append("(no validation errors received)");
-            } else {
-                validations.getValidatorErrors()
-                        .forEach(
-                                (rule, error) -> sb.append("- ")
-                                        .append(rule)
-                                        .append(":\n")
-                                        .append(error)
-                                        .append("\n\n"));
-            }
-        }
-        if (sb.isEmpty()) {
-            sb.append("(no error message received)");
-        }
-        return sb.toString();
-    }
 
     /**
      * Cleans up the repo group and used generic-http remote repos and groups from Indy. The generic-http remote repos
@@ -1096,46 +1077,24 @@ public class Driver {
     private void deleteBuildRepos(
             RepositoryType repositoryType,
             String buildContentId,
-            Collection<StoreKey> genericRepos) throws RepositoryDriverException {
+            Collection<RepositoryKey> genericRepos) throws RepositoryDriverException {
         // ### TODO: Remove this. Should build-repo be cleaned up for artifactory?
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
             return;
         }
-        try {
-            String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
-            StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
-            IndyStoresClientModule indyStores = indy.stores();
-            indyStores.delete(key, "[Post-Build] Removing build aggregation group: " + buildContentId);
+        //        try {
+        //            String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
+        //            StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
+        //            IndyStoresClientModule indyStores = indy.stores();
+        //            indyStores.delete(key, "[Post-Build] Removing build aggregation group: " + buildContentId);
 
-            for (StoreKey genericRepo : genericRepos) {
-                StoreKey other = null;
-                if (genericRepo.getType() == StoreType.group) {
-                    String remoteName = getGenericRemoteName(genericRepo.getName());
-                    if (remoteName != null) {
-                        other = new StoreKey(genericRepo.getPackageType(), StoreType.remote, remoteName);
-                    }
-                } else if (genericRepo.getType() == StoreType.remote) {
-                    String groupName = getGenericGroupName(genericRepo.getName());
-                    if (groupName != null) {
-                        other = new StoreKey(genericRepo.getPackageType(), StoreType.group, groupName);
-                    }
-                } else {
-                    logger.error("Unexpected store type in {} which should be cleaned. Skipping.", genericRepo);
-                }
-
-                if (other != null) {
-                    indyStores.delete(
-                            genericRepo,
-                            "[Post-Build] Removing generic http " + genericRepo.getType() + ": "
-                                    + genericRepo.getName());
-                    indyStores.delete(
-                            other,
-                            "[Post-Build] Removing generic http " + other.getType() + ": " + other.getName());
-                }
-            }
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
-        }
+        // TODO: Indy backend support removed - generic repo cleanup no longer applicable
+        // The genericRepos parameter is now Collection<RepositoryKey> instead of Collection<StoreKey>
+        // For Artifactory backend, this cleanup is not needed (early return above)
+        logger.warn("Generic repo cleanup skipped - Indy backend no longer supported");
+        //        } catch (IndyClientException e) {
+        //            throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
+        //        }
     }
 
     /**
@@ -1144,6 +1103,7 @@ public class Driver {
      * @param remoteName the remote repo name
      * @return computed hosted repo name
      */
+    // TODO: Came from deleteBuildRepos
     private String getGenericGroupName(String remoteName) {
         String groupName;
         if (remoteName.startsWith("r-")) {
@@ -1214,32 +1174,38 @@ public class Driver {
     @WithSpan()
     public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId)
             throws RepositoryDriverException {
-        try {
-            IndyFoloAdminClientModule foloAdmin;
-            try {
-                foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-            } catch (IndyClientException e) {
-                throw new RepositoryDriverException(
-                        "Failed to retrieve Indy client module for the artifact tracker: %s",
-                        e,
-                        e.getMessage());
-            }
 
-            try {
-                userLog.info("Sealing tracking record");
-                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-                if (!sealed) {
-                    String message = "Failed to seal content-tracking record for: " + buildContentId + ".";
-                    throw new RepositoryDriverException(message);
-                }
-                uploadLogs("", "seal");
-            } catch (IndyClientException e) {
-                throw new RepositoryDriverException(
-                        "Failed to seal tracking report for: %s. Reason: %s",
-                        e,
-                        buildContentId,
-                        e.getMessage());
-            }
+        try {
+            userLog.info("Sealing tracking record");
+            // TODO: Indy seal returned a boolean - this doesn't?
+            trackingServiceClient.sealReport(buildContentId);
+            uploadLogs("", "seal");
+
+            //            IndyFoloAdminClientModule foloAdmin;
+            //            try {
+            //                foloAdmin = indy.module(IndyFoloAdminClientModule.class);
+            //            } catch (IndyClientException e) {
+            //                throw new RepositoryDriverException(
+            //                        "Failed to retrieve Indy client module for the artifact tracker: %s",
+            //                        e,
+            //                        e.getMessage());
+            //            }
+            //
+            //            try {
+            //                userLog.info("Sealing tracking record");
+            //                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
+            //                if (!sealed) {
+            //                    String message = "Failed to seal content-tracking record for: " + buildContentId + ".";
+            //                    throw new RepositoryDriverException(message);
+            //                }
+            //                uploadLogs("", "seal");
+            //            } catch (IndyClientException e) {
+            //                throw new RepositoryDriverException(
+            //                        "Failed to seal tracking report for: %s. Reason: %s",
+            //                        e,
+            //                        buildContentId,
+            //                        e.getMessage());
+            //            }
         } catch (Exception ex) {
             userLog.error(ex.getMessage());
             uploadLogs(ex.getMessage(), "seal");
@@ -1247,31 +1213,23 @@ public class Driver {
         }
     }
 
-    private TrackedContentDTO retrieveTrackingReport(String buildContentId) throws RepositoryDriverException {
-        IndyFoloAdminClientModule foloAdmin;
+    private TrackingReport retrieveTrackingReport(String buildContentId) throws RepositoryDriverException {
+        TrackingReport report;
         try {
-            foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-        } catch (IndyClientException e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve Indy client module for the artifact tracker: %s",
-                    e,
-                    e.getMessage());
-        }
-
-        TrackedContentDTO report;
-        try {
-            userLog.info("Getting tracking report");
-            report = foloAdmin.getTrackingReport(buildContentId);
-        } catch (IndyClientException e) {
+            userLog.info("Getting tracking report for build: {}", buildContentId);
+            report = trackingServiceClient.getReport(buildContentId);
+        } catch (Exception e) {
             throw new RepositoryDriverException(
                     "Failed to retrieve tracking report for: %s. Reason: %s",
                     e,
                     buildContentId,
                     e.getMessage());
         }
+
         if (report == null) {
             throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", buildContentId);
         }
+
         return report;
     }
 

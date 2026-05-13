@@ -26,14 +26,16 @@ public class ArtifactoryProducer {
             throws RepositoryDriverException {
         if (backend == Configuration.Backend.ARTIFACTORY) {
             try {
-                logger.info("Creating artifactory connection with url {}", url);
+                logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);
                 artifactory = ArtifactoryClientBuilder.create()
-                        // Attempting to use setPassword fails because we are not defining a username. setAccessToken
+                        // Attempting to use setPassword fails because we are not defining a username. 
+                        // setAccessToken
                         // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
-                        // .setAccessToken(accessToken)
+                        .setAccessToken(accessToken)
+
                         // .setPassword(accessToken)
                         // .setUsername("pnc").build();
-                        .setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
+                        //.setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
                         .setUrl(url)
                         .build();
                 logger.info(
