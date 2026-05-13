@@ -4,8 +4,6 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-import org.commonjava.indy.model.core.StoreKey;
-
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
@@ -13,12 +11,12 @@ public class PromotionPaths {
 
     private Set<SourceTargetPaths> sourceTargetsPaths = new HashSet<>();
 
-    public void add(StoreKey source, StoreKey target, String path) {
+    public void add(RepositoryKey source, RepositoryKey target, String path) {
         SourceTargetPaths sourceTargetPaths = getSourceTarget(source, target);
         sourceTargetPaths.addPath(path);
     }
 
-    private synchronized SourceTargetPaths getSourceTarget(StoreKey source, StoreKey target) {
+    private synchronized SourceTargetPaths getSourceTarget(RepositoryKey source, RepositoryKey target) {
         Optional<SourceTargetPaths> sourceTargetPaths = sourceTargetsPaths.stream()
                 .filter(e -> e.getSource().equals(source) && e.getTarget().equals(target))
                 .findAny();
@@ -35,3 +33,5 @@ public class PromotionPaths {
         return sourceTargetsPaths;
     }
 }
+
+// Made with Bob

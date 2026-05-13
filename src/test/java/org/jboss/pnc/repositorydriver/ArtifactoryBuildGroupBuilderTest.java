@@ -12,6 +12,7 @@ import java.util.Collections;
 
 import jakarta.inject.Inject;
 
+import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.repositorydriver.group.ArtifactoryBuildGroupBuilder;
 import org.jfrog.artifactory.client.Artifactory;
@@ -80,7 +81,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         settings.setHandleSnapshots(false);
         var result = ArtifactoryBuildGroupBuilder.builder(configuration, artifactory, settings, "pnc-virtual-ID")
                 .addConstituent("TEST")
-                .addGlobalConstituents(BuildType.MVN, false)
+                .addGlobalConstituents(BuildType.MVN, BuildCategory.STANDARD, false)
                 .addExtraConstituents(
                         Collections.singletonList("https://repo1.maven.org/maven2/"))
                 .build();
