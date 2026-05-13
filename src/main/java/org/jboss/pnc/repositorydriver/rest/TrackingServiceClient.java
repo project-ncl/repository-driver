@@ -15,13 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jboss.pnc.repositorydriver.constants;
+package org.jboss.pnc.repositorydriver.rest;
+
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import org.jboss.pnc.api.tracker.rest.ReportEndpoint;
+
+import io.quarkus.arc.Unremovable;
 
 /**
- * Constants used by the maven repository driver.
+ * REST client for the PNC Tracking Service.
+ * Extends ReportEndpoint from pnc-api to inherit all tracking report operations.
+ * The @Path annotation is inherited from ReportEndpoint.
  */
-public class RepositoryConstants {
-
-    /** Name of hosted repository used to store artifacts from external sources. */
-    public static final String SHARED_IMPORTS_ID = "shared-imports";
+@RegisterRestClient(configKey = "tracking-service")
+@Unremovable
+public interface TrackingServiceClient extends ReportEndpoint {
+    // All methods are inherited from ReportEndpoint
+    // This interface just provides the REST client registration
 }
+
+// Made with Bob
