@@ -20,7 +20,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.jboss.pnc</groupId>
   <artifactId>repository-driver</artifactId>
-  <version>3.5.0</version>
+  <version>3.5.1-SNAPSHOT</version>
 
   <name>repository driver</name>
   <description>Artifact repository driver</description>
@@ -50,7 +50,7 @@
   <scm>
     <connection>scm:git:https://github.com/project-ncl/repository-driver.git</connection>
     <developerConnection>scm:git:git@github.com:project-ncl/repository-driver.git</developerConnection>
-    <tag>3.5.0</tag>
+    <tag>HEAD</tag>
     <url>https://github.com/project-ncl/repository-driver</url>
   </scm>
 
@@ -74,7 +74,7 @@
 
     <version.javadoc.plugin>3.12.0</version.javadoc.plugin>
     <version.source.plugin>3.4.0</version.source.plugin>
-    <tagSuffix/>
+    <tagSuffix />
     <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
   </properties>
 
@@ -388,7 +388,7 @@
             </sortPom>
           </pom>
           <java>
-            <removeUnusedImports/>
+            <removeUnusedImports />
             <importOrder>
               <file>java-import-order.txt</file>
             </importOrder>
