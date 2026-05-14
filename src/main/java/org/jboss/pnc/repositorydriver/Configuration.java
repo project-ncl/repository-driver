@@ -24,6 +24,7 @@ import java.util.Optional;
 import jakarta.enterprise.context.Dependent;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.pnc.api.enums.RepositoryType;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -155,4 +156,83 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
     boolean bifrostUploaderEnabled;
+
+    @ConfigProperty(name = "repository-driver.download-target-repository")
+    String downloadTargetRepository;
+
+    @ConfigProperty(name = "repository-driver.uploads-target-repository")
+    String uploadsTargetRepository;
+
+    /**
+     * Parse the download-target-repository template and replace placeholders.
+     * Template format: "{project}:{type}:{url}"
+     *
+     * @param project The project name from RepositoryId
+     * @param repoType The repository type (MAVEN, NPM, GENERIC_PROXY)
+     * @param originUrl The origin URL from TrackedEntry
+     * @return The parsed repository path with placeholders replaced
+     */
+    public String parseDownloadTargetRepository(String project, RepositoryType repoType, String originUrl) {
+        String result = downloadTargetRepository;
+
+        // Replace {project} placeholder
+        result = result.replace("{project}", project != null ? project : "unknown");
+
+        // Replace {type} placeholder
+        result = result.replace("{type}", repoType.name().toLowerCase());
+
+        // Replace {url} placeholder - extract hostname and convert dots to dashes
+        String urlHostname = "unknown";
+        if (originUrl != null && !originUrl.isEmpty()) {
+            try {
+                java.net.URL url = new java.net.URL(originUrl);
+                urlHostname = url.getHost().replace(".", "-");
+            } catch (java.net.MalformedURLException e) {
+                // If URL parsing fails, try to extract hostname manually
+                String temp = originUrl;
+                // Remove protocol
+                if (temp.contains("://")) {
+                    temp = temp.substring(temp.indexOf("://") + 3);
+                }
+                // Extract hostname (before first / or :)
+                int slashIdx = temp.indexOf('/');
+                int colonIdx = temp.indexOf(':');
+                if (slashIdx > 0 && colonIdx > 0) {
+                    temp = temp.substring(0, Math.min(slashIdx, colonIdx));
+                } else if (slashIdx > 0) {
+                    temp = temp.substring(0, slashIdx);
+                } else if (colonIdx > 0) {
+                    temp = temp.substring(0, colonIdx);
+                }
+                urlHostname = temp.replace(".", "-");
+            }
+        }
+        result = result.replace("{url}", urlHostname);
+
+        return result;
+    }
+
+    /**
+     * Parse the uploads-target-repository template and replace placeholders.
+     * Template format: "{project}:{type}:{target}"
+     *
+     * @param project The project/deployment type name
+     * @param repoType The repository type (MAVEN, NPM)
+     * @param buildPromotionTarget The build promotion target name (from getBuildPromotionTarget)
+     * @return The parsed repository path with placeholders replaced
+     */
+    public String parseUploadsTargetRepository(String project, RepositoryType repoType, String buildPromotionTarget) {
+        String result = uploadsTargetRepository;
+
+        // Replace {project} placeholder
+        result = result.replace("{project}", project != null ? project : "unknown");
+
+        // Replace {type} placeholder
+        result = result.replace("{type}", repoType.name().toLowerCase());
+
+        // Replace {target} placeholder with the build promotion target name
+        result = result.replace("{target}", buildPromotionTarget != null ? buildPromotionTarget : "unknown");
+
+        return result;
+    }
 }

@@ -48,10 +48,6 @@ import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 
 import org.apache.commons.lang3.StringUtils;
-import org.commonjava.indy.client.core.IndyClientException;
-import org.commonjava.indy.model.core.PackageTypes;
-import org.commonjava.indy.promote.model.AbstractPromoteResult;
-import org.commonjava.indy.promote.model.ValidationResult;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.api.constants.MDCKeys;
@@ -165,21 +161,21 @@ public class Driver {
             String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
             String buildId = repositoryCreateRequest.getBuildContentId();
 
-            try {
-                setupBuildRepos(
-                        repositoryCreateRequest.getBuildContentId(),
-                        buildType,
-                        packageType,
-                        repositoryCreateRequest.isTempBuild(),
-                        repositoryCreateRequest.isBrewPullActive(),
-                        repositoryCreateRequest.getExtraRepositories());
-            } catch (IndyClientException e) {
-                logger.debug("Failed to setup repository or repository group for this build");
-                throw new RepositoryDriverException(
-                        "Failed to setup repository or repository group for this build: %s",
-                        e,
-                        e.getMessage());
-            }
+            //            try {
+            setupBuildRepos(
+                    repositoryCreateRequest.getBuildContentId(),
+                    buildType,
+                    packageType,
+                    repositoryCreateRequest.isTempBuild(),
+                    repositoryCreateRequest.isBrewPullActive(),
+                    repositoryCreateRequest.getExtraRepositories());
+            //            } catch (IndyClientException e) {
+            //                logger.debug("Failed to setup repository or repository group for this build");
+            //                throw new RepositoryDriverException(
+            //                        "Failed to setup repository or repository group for this build: %s",
+            //                        e,
+            //                        e.getMessage());
+            //            }
 
             String downloadsUrl;
             String deployUrl;
@@ -694,7 +690,7 @@ public class Driver {
             String packageType,
             boolean tempBuild,
             boolean brewPullActive,
-            List<String> extraDependencyRepositories) throws IndyClientException, RepositoryDriverException {
+            List<String> extraDependencyRepositories) throws RepositoryDriverException {
 
         logger.info("### DEBUG::Backend {}", configuration.backend);
         if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
@@ -778,7 +774,7 @@ public class Driver {
              * // if the build-level group doesn't exist, create it.
              * StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
              * StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
-             * 
+             *
              * // if the group and repo exist, delete them and recreate them from scratch
              * IndyStoresClientModule storesModule = indy.stores();
              * if (storesModule.exists(groupKey)) {
@@ -794,26 +790,26 @@ public class Driver {
              * logger.info(logWritableHostKey);
              * storesModule.update(hosted, logWritableHostKey);
              * }
-             * 
+             *
              * String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
              * logger.info(logCleanupHostedKey);
              * storesModule.delete(hostedKey, logCleanupHostedKey, true);
              * }
-             * 
+             *
              * // create build repo
              * HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
              * buildArtifacts.setAllowSnapshots(false);
              * buildArtifacts.setAllowReleases(true);
-             * 
+             *
              * buildArtifacts
              * .setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
-             * 
+             *
              * String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " +
              * buildContentId
              * + " (repo: " + buildContentId + ")";
              * logger.info(logCreatingHostedRepo);
              * storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
-             * 
+             *
              * // create build group
              * Group buildGroup = IndyBuildGroupBuilder.builder(indy, packageType, buildContentId)
              * .withDescription(
@@ -830,12 +826,12 @@ public class Driver {
              * // brew pull: see MMENG-1262
              * .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
              * .build();
-             * 
+             *
              * String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
              * + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
              * logger.info(changelog);
              * storesModule.create(buildGroup, changelog, Group.class);
-             * 
+             *
              */
         }
     }
@@ -892,7 +888,6 @@ public class Driver {
                 false,
                 false,
                 sourceTargetPaths.getTarget().getRepositoryId().getName());
-        logger.warn("### packagetypes {} ", PackageTypes.getPackageTypes());
         logger.info(
                 "### Looking for source {} and package type {} and repository {} ",
                 sourceTargetPaths.getSource().getRepositoryId(),
@@ -1031,39 +1026,39 @@ public class Driver {
      *
      * @param result the promotion result
      * @return the error message
+     *         private String getValidationError(AbstractPromoteResult<?> result) {
+     *         StringBuilder sb = new StringBuilder();
+     *         String errorMsg = result.getError();
+     *         ValidationResult validations = result.getValidations();
+     *         if (errorMsg != null) {
+     *         sb.append(errorMsg);
+     *         if (validations != null) {
+     *         sb.append("\n");
+     *         }
+     *         }
+     *         if ((validations != null) && (validations.getRuleSet() != null)) {
+     *         sb.append("One or more validation rules failed in rule-set ")
+     *         .append(validations.getRuleSet())
+     *         .append(":\n");
+     * 
+     *         if (validations.getValidatorErrors().isEmpty()) {
+     *         sb.append("(no validation errors received)");
+     *         } else {
+     *         validations.getValidatorErrors()
+     *         .forEach(
+     *         (rule, error) -> sb.append("- ")
+     *         .append(rule)
+     *         .append(":\n")
+     *         .append(error)
+     *         .append("\n\n"));
+     *         }
+     *         }
+     *         if (sb.isEmpty()) {
+     *         sb.append("(no error message received)");
+     *         }
+     *         return sb.toString();
+     *         }
      */
-    private String getValidationError(AbstractPromoteResult<?> result) {
-        StringBuilder sb = new StringBuilder();
-        String errorMsg = result.getError();
-        ValidationResult validations = result.getValidations();
-        if (errorMsg != null) {
-            sb.append(errorMsg);
-            if (validations != null) {
-                sb.append("\n");
-            }
-        }
-        if ((validations != null) && (validations.getRuleSet() != null)) {
-            sb.append("One or more validation rules failed in rule-set ")
-                    .append(validations.getRuleSet())
-                    .append(":\n");
-
-            if (validations.getValidatorErrors().isEmpty()) {
-                sb.append("(no validation errors received)");
-            } else {
-                validations.getValidatorErrors()
-                        .forEach(
-                                (rule, error) -> sb.append("- ")
-                                        .append(rule)
-                                        .append(":\n")
-                                        .append(error)
-                                        .append("\n\n"));
-            }
-        }
-        if (sb.isEmpty()) {
-            sb.append("(no error message received)");
-        }
-        return sb.toString();
-    }
 
     /**
      * Cleans up the repo group and used generic-http remote repos and groups from Indy. The generic-http remote repos

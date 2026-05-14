@@ -30,10 +30,6 @@ import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
-import org.commonjava.indy.client.core.module.IndyContentClientModule;
-import org.commonjava.indy.model.core.StoreKey;
-import org.commonjava.indy.model.core.StoreType;
-import org.jboss.pnc.api.constants.ReposiotryIdentifier;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.ArtifactQuality;
 import org.jboss.pnc.api.enums.BuildCategory;
@@ -86,8 +82,8 @@ public class TrackingReportProcessor {
     @Inject
     Configuration configuration;
 
-    @Inject
-    IndyContentClientModule indyContentModule;
+//    @Inject
+//    IndyContentClientModule indyContentModule;
 
     private PatternsList ignoredRepoPatterns;
 
@@ -571,18 +567,33 @@ public class TrackingReportProcessor {
         RepositoryId repoId = download.getRepoId();
         PackageType packageType = download.getPackageType();
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
-        // TODO: ### TargetRepository configuration for Artifactory needs to use ArtifactoryUtils. Do we keep
-        //      identifier as just the hostname and make repoPath be the full path with the e.g. pnc-maven-temporary-builds-XXXX/org/path/ ?
-        if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
-            identifier = "indy-" + repoType.name().toLowerCase();
-            repoPath = getTargetRepositoryPath(download, indyContentModule);
-        } else if (repoType == RepositoryType.GENERIC_PROXY) {
-            identifier = "indy-http";
-            repoPath = getGenericTargetRepositoryPath(repoId);
-        } else {
-            throw new RepositoryDriverException(
-                    "Repository type " + repoType + " is not supported by Indy repo manager driver.");
+
+        // Use new configuration-based approach
+        String project = repoId.getProject() != null ? repoId.getProject() : repoId.getName();
+        repoPath = configuration.parseDownloadTargetRepository(project, repoType, download.getOriginUrl());
+
+        // Extract identifier from originUrl (hostname only)
+        identifier = "unknown";
+        if (download.getOriginUrl() != null && !download.getOriginUrl().isEmpty()) {
+            try {
+                java.net.URL url = new java.net.URL(download.getOriginUrl());
+                identifier = url.getHost();
+            } catch (java.net.MalformedURLException e) {
+            }
         }
+
+        // OLD:
+        //         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
+        //     identifier = "indy-" + repoType.name().toLowerCase();
+        //     repoPath = getTargetRepositoryPath(download, indyContentModule);
+        // } else if (repoType == RepositoryType.GENERIC_PROXY) {
+        //     identifier = "indy-http";
+        //     repoPath = getGenericTargetRepositoryPath(repoId);
+        // } else {
+        //     throw new RepositoryDriverException(
+        //             "Repository type " + repoType + " is not supported by Indy repo manager driver.");
+        // }
+
         if (!repoPath.endsWith("/")) {
             repoPath += '/';
         }
@@ -595,25 +606,26 @@ public class TrackingReportProcessor {
                 .build();
     }
 
-    private String getTargetRepositoryPath(TrackedEntry download, IndyContentClientModule content) {
-        String result;
-        RepositoryId repoId = download.getRepoId();
-        PackageType packageType = download.getPackageType();
-        String packageTypeStr = TypeConverters.getIndyPackageTypeKey(TypeConverters.toRepoType(packageType));
-        // TODO: ### TargetRepositoryPath : what is this?
-        if (ignoreDependencySource(repoId)) {
-            StoreKey sk = new StoreKey(packageTypeStr, StoreType.hosted, repoId.getName());
-            result = "/api/" + content.contentPath(sk);
-        } else {
-            result = "/api/" + content.contentPath(new StoreKey(packageTypeStr, StoreType.hosted, SHARED_IMPORTS_ID));
-        }
-        return result;
-    }
-
-    private String getGenericTargetRepositoryPath(RepositoryId repoId) {
-        // TODO: ### GenericRepositoryPath : what is this?
-        return "/api/content/generic-http/hosted/" + getGenericHostedRepoName(repoId.getName());
-    }
+    /*
+     * Commented out - Indy-specific code no longer used
+     * private String getTargetRepositoryPath(TrackedEntry download, IndyContentClientModule content) {
+     * String result;
+     * RepositoryId repoId = download.getRepoId();
+     * PackageType packageType = download.getPackageType();
+     * String packageTypeStr = TypeConverters.getIndyPackageTypeKey(TypeConverters.toRepoType(packageType));
+     * if (ignoreDependencySource(repoId)) {
+     * StoreKey sk = new StoreKey(packageTypeStr, StoreType.hosted, repoId.getName());
+     * result = "/api/" + content.contentPath(sk);
+     * } else {
+     * result = "/api/" + content.contentPath(new StoreKey(packageTypeStr, StoreType.hosted, SHARED_IMPORTS_ID));
+     * }
+     * return result;
+     * }
+     *
+     * private String getGenericTargetRepositoryPath(RepositoryId repoId) {
+     * return "/api/content/generic-http/hosted/" + getGenericHostedRepoName(repoId.getName());
+     * }
+     */
 
     /**
      * For a remote generic http repo/group computes matching hosted repo name.
@@ -621,6 +633,7 @@ public class TrackingReportProcessor {
      * @param remoteName the remote repo name
      * @return computed hosted repo name
      */
+    // TODO: NYI
     private String getGenericHostedRepoName(String remoteName) {
         String hostedName;
         // TODO: ### GenericHostedName : what is this?
@@ -658,34 +671,18 @@ public class TrackingReportProcessor {
     private TargetRepository getUploadsTargetRepository(RepositoryType repoType, boolean tempBuild)
             throws RepositoryDriverException {
 
-        PackageType packageType;
-        String identifier;
-        // TODO: ### TargetRepository configuration for Artifactory needs to use ArtifactoryUtils. Do we keep
-        //      identifier as just the hostname and make repoPath be the full path with the e.g. pnc-maven-temporary-builds-XXXX/org/path/ ?
-        if (repoType == RepositoryType.MAVEN) {
-            packageType = PackageType.MVN;
-            identifier = ReposiotryIdentifier.INDY_MAVEN;
-        } else if (repoType == RepositoryType.NPM) {
-            packageType = PackageType.NPM;
-            identifier = ReposiotryIdentifier.INDY_NPM;
-        } else {
-            throw new RepositoryDriverException(
-                    "Repository type " + repoType + " is not supported for uploads by Indy repo manager driver.");
-        }
+        // Use new configuration-based approach
+        String project = configuration.getDeploymentType().toString();
+        String buildPromotionTarget = getBuildPromotionTarget(tempBuild);
+        String repoPath = configuration.parseUploadsTargetRepository(project, repoType, buildPromotionTarget);
 
-        RepositoryId repoId = RepositoryId.builder()
-                .project(configuration.getDeploymentType().toString())
-                .name(getBuildPromotionTarget(tempBuild))
-                .build();
-        RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType, false, tempBuild);
-        String repoPath = "/api/" + indyContentModule.contentPath(
-                new org.commonjava.indy.model.core.StoreKey(
-                        TypeConverters.getIndyPackageTypeKey(repoType),
-                        org.commonjava.indy.model.core.StoreType.hosted,
-                        getBuildPromotionTarget(tempBuild)));
+        // Use deployment type as identifier for uploads
+        String identifier = project;
+
         if (!repoPath.endsWith("/")) {
             repoPath += '/';
         }
+
         return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
@@ -693,6 +690,46 @@ public class TrackingReportProcessor {
                 .temporaryRepo(tempBuild)
                 .build();
     }
+
+    /*
+     * Commented out - Old Indy-specific code
+     * private TargetRepository getUploadsTargetRepository_OLD(RepositoryType repoType, boolean tempBuild)
+     * throws RepositoryDriverException {
+     *
+     * PackageType packageType;
+     * String identifier;
+     * if (repoType == RepositoryType.MAVEN) {
+     * packageType = PackageType.MVN;
+     * identifier = ReposiotryIdentifier.INDY_MAVEN;
+     * } else if (repoType == RepositoryType.NPM) {
+     * packageType = PackageType.NPM;
+     * identifier = ReposiotryIdentifier.INDY_NPM;
+     * } else {
+     * throw new RepositoryDriverException(
+     * "Repository type " + repoType + " is not supported for uploads by Indy repo manager driver.");
+     * }
+     *
+     * RepositoryId repoId = RepositoryId.builder()
+     * .project(configuration.getDeploymentType().toString())
+     * .name(getBuildPromotionTarget(tempBuild))
+     * .build();
+     * RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType, false, tempBuild);
+     * String repoPath = "/api/" + indyContentModule.contentPath(
+     * new org.commonjava.indy.model.core.StoreKey(
+     * TypeConverters.getIndyPackageTypeKey(repoType),
+     * org.commonjava.indy.model.core.StoreType.hosted,
+     * getBuildPromotionTarget(tempBuild)));
+     * if (!repoPath.endsWith("/")) {
+     * repoPath += '/';
+     * }
+     * return TargetRepository.builder()
+     * .identifier(identifier)
+     * .repositoryType(repoType)
+     * .repositoryPath(repoPath)
+     * .temporaryRepo(tempBuild)
+     * .build();
+     * }
+     */
 
     private RepositoryKey getSharedImportsPromotionTarget(
             PackageType packageType,
