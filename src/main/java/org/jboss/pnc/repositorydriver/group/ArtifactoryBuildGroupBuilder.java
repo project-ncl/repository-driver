@@ -7,6 +7,7 @@ import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.TEMPO
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -150,6 +151,8 @@ public class ArtifactoryBuildGroupBuilder {
                             RemoteRepository r = artifactory.repositories()
                                     .builders()
                                     .remoteRepositoryBuilder()
+                                    .projectKey(configuration.getDeploymentType().toString())
+                                    .environments(Collections.singletonList("DEV"))
                                     .archiveBrowsingEnabled(true)
                                     .description("Remote repository for " + artifactRepository.url)
                                     .repositorySettings(settings)
@@ -195,6 +198,8 @@ public class ArtifactoryBuildGroupBuilder {
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
+                .projectKey(configuration.getDeploymentType().toString())
+                .environments(Collections.singletonList("DEV"))
                 .repositorySettings(settings)
                 .description(description)
                 .repositories(includedRepositories)

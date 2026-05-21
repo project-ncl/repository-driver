@@ -19,9 +19,9 @@ package org.jboss.pnc.repositorydriver;
 
 import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpClient.Version.HTTP_2;
-import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
+import static org.jboss.pnc.api.trackingservice.dto.PackageType.GENERIC;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -62,6 +62,7 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.api.trackingservice.dto.PackageType;
 import org.jboss.pnc.api.trackingservice.dto.TrackingReport;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.bifrost.upload.BifrostUploadException;
@@ -129,9 +130,6 @@ public class Driver {
     @Inject
     ObjectMapper jsonMapper;
 
-    //    @Inject
-    //    Indy indy;
-
     @Inject
     ApplicationLifecycle lifecycle;
 
@@ -155,10 +153,11 @@ public class Driver {
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
+        System.out.println("### in driver create");
         logger.warn("### {}", configuration.getBackend().name());
         try {
             BuildType buildType = repositoryCreateRequest.getBuildType();
-            String packageType = TypeConverters.getIndyPackageTypeKey(buildType.getRepoType());
+            PackageType packageType = TypeConverters.toPackageType(buildType.getRepoType());
             String buildId = repositoryCreateRequest.getBuildContentId();
 
             //            try {
@@ -687,7 +686,7 @@ public class Driver {
     private void setupBuildRepos(
             String buildContentId,
             BuildType buildType,
-            String packageType,
+            PackageType packageType,
             boolean tempBuild,
             boolean brewPullActive,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
@@ -702,7 +701,7 @@ public class Driver {
                         .createRepositoryName(configuration, buildType, false, tempBuild, buildContentId);
                 String virtualName = ArtifactoryUtils
                         .createRepositoryName(configuration, buildType, true, tempBuild, buildContentId);
-
+                logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
                 RepositoryHandle virtualRepository = artifactory.repository(virtualName);
@@ -717,7 +716,7 @@ public class Driver {
 
                 RepositorySettings settings = null;
                 switch (packageType) {
-                    case "maven": {
+                    case MVN: {
                         // Create local and virtual repository
                         // MavenRepositorySettingsImpl implicitly sets package type maven.
                         settings = new MavenRepositorySettingsImpl();
@@ -729,7 +728,7 @@ public class Driver {
                         // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
                         break;
                     }
-                    case "npm": {
+                    case NPM: {
                         settings = new NpmRepositorySettingsImpl();
                     }
                     // TODO: Will we need to support other types here?
@@ -738,7 +737,9 @@ public class Driver {
                 var repository = artifactory.repositories()
                         .builders()
                         .localRepositoryBuilder()
-                        .archiveBrowsingEnabled(true)
+                        .archiveBrowsingEnabled(brewPullActive)
+                        .projectKey(configuration.getDeploymentType().toString())
+                        .environments(Collections.singletonList("DEV"))
                         .description("PNC Build repository for " + hostedName)
                         .repositorySettings(settings)
                         .key(hostedName)
@@ -849,7 +850,7 @@ public class Driver {
         // imports
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             // set read-only only the generic http proxy hosted repos, not shared-imports
-            boolean readonly = !tempBuild && GENERIC_PKG_KEY.equals(sourceTargetPaths.getTarget().getPackageType());
+            boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().getPackageType());
 
             userLog.info(
                     "Promoting {} dependencies from {} to {}",
@@ -1040,7 +1041,7 @@ public class Driver {
      *         sb.append("One or more validation rules failed in rule-set ")
      *         .append(validations.getRuleSet())
      *         .append(":\n");
-     * 
+     *
      *         if (validations.getValidatorErrors().isEmpty()) {
      *         sb.append("(no validation errors received)");
      *         } else {

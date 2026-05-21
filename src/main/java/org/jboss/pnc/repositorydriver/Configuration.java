@@ -165,7 +165,7 @@ public class Configuration {
 
     /**
      * Parse the download-target-repository template and replace placeholders.
-     * Template format: "{project}:{type}:{url}"
+     * Template format: "{project}/{type}/{url}"
      *
      * @param project The project name from RepositoryId
      * @param repoType The repository type (MAVEN, NPM, GENERIC_PROXY)
@@ -214,7 +214,7 @@ public class Configuration {
 
     /**
      * Parse the uploads-target-repository template and replace placeholders.
-     * Template format: "{project}:{type}:{target}"
+     * Template format: "{project}/{type}/{target}"
      *
      * @param project The project/deployment type name
      * @param repoType The repository type (MAVEN, NPM)

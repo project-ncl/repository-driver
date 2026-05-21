@@ -5,10 +5,11 @@ quarkus:
     tracking-service:
       group-id: org.jboss.pnc
       artifact-id: pnc-api
-#  rest-client:
-#    tracking-service:
-#      url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
-#      scope: jakarta.inject.Singleton
+      classifier: jakarta
+  rest-client:
+    tracking-service:
+      url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
+      scope: jakarta.inject.Singleton
   otel:
     enabled: true
     traces:

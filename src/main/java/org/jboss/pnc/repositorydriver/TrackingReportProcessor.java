@@ -82,8 +82,8 @@ public class TrackingReportProcessor {
     @Inject
     Configuration configuration;
 
-//    @Inject
-//    IndyContentClientModule indyContentModule;
+    //    @Inject
+    //    IndyContentClientModule indyContentModule;
 
     private PatternsList ignoredRepoPatterns;
 
@@ -261,6 +261,7 @@ public class TrackingReportProcessor {
                 switch (packageType) {
                     case MVN:
                     case NPM:
+                        // TODO: ### Fix and change this.
                         target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
                         promotionPaths.add(source, target, path);
                         break;
@@ -289,6 +290,7 @@ public class TrackingReportProcessor {
     @WithSpan()
     public List<ArchiveDownloadEntry> collectArchivalArtifacts(
             @SpanAttribute(value = "report") TrackingReport report) throws RepositoryDriverException {
+        logger.warn("### collectArchivalArtifacts::start {} ", report);
         Set<TrackedEntry> downloads = report.getDownloads();
         if (downloads == null) {
             return Collections.emptyList();
@@ -296,8 +298,20 @@ public class TrackingReportProcessor {
 
         List<ArchiveDownloadEntry> deps = new ArrayList<>(downloads.size());
         for (TrackedEntry download : downloads) {
+            logger.warn(
+                    "### collectArchivalArtifacts::accepts {} is {}",
+                    download,
+                    artifactFilterArchive.accepts(download));
             if (artifactFilterArchive.accepts(download)) {
+                // TODO: Need to change this - likely just make getDownloadsTargetRepository
+                // return a repositoryid to represent the changed repository
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
+                RepositoryId newId = RepositoryId.builder()
+                        .project(download.getRepoId().getProject())
+                        .name(targetRepository.getRepositoryPath())
+                        .build();
+                logger.warn("### collectArchivalArtifacts::newId {}", newId);
+
                 ArchiveDownloadEntry entry = fromTrackedEntry(download, targetRepository);
                 deps.add(entry);
             }
@@ -569,9 +583,10 @@ public class TrackingReportProcessor {
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
 
         // Use new configuration-based approach
-        String project = repoId.getProject() != null ? repoId.getProject() : repoId.getName();
-        repoPath = configuration.parseDownloadTargetRepository(project, repoType, download.getOriginUrl());
+        //        String project = repoId.getProject() != null ? repoId.getProject() : repoId.getName();
+        repoPath = configuration.parseDownloadTargetRepository(repoId.getName(), repoType, download.getOriginUrl());
 
+        logger.info("### repoType {} repoPath {} ", repoType, repoPath);
         // Extract identifier from originUrl (hostname only)
         identifier = "unknown";
         if (download.getOriginUrl() != null && !download.getOriginUrl().isEmpty()) {

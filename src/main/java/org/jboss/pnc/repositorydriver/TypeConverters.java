@@ -1,8 +1,5 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
-
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.trackingservice.dto.PackageType;
 
@@ -36,17 +33,17 @@ public class TypeConverters {
     //        }
     //    }
 
-    public static String getIndyPackageTypeKey(RepositoryType repoType) {
-        switch (repoType) {
-            case MAVEN:
-                return MAVEN_PKG_KEY;
-            case NPM:
-                return NPM_PKG_KEY;
-            default:
-                throw new IllegalArgumentException(
-                        "Repository type " + repoType + " is not supported by this repository manager driver.");
-        }
-    }
+    //    public static String getIndyPackageTypeKey(RepositoryType repoType) {
+    //        switch (repoType) {
+    //            case MAVEN:
+    //                return MAVEN_PKG_KEY;
+    //            case NPM:
+    //                return NPM_PKG_KEY;
+    //            default:
+    //                throw new IllegalArgumentException(
+    //                        "Repository type " + repoType + " is not supported by this repository manager driver.");
+    //        }
+    //    }
 
     /**
      * Convert RepositoryType to PackageType
