@@ -198,13 +198,15 @@ public class Driver {
             //                } else {
             // TODO: This assumes artifactoryUrl always has a '/' at the end.
             deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                    configuration,
+                    configuration.getNamingStructure(),
+                    configuration.getDeploymentType().toString(),
                     buildType,
                     false,
                     repositoryCreateRequest.isTempBuild(),
                     buildId);
             downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                    configuration,
+                    configuration.getNamingStructure(),
+                    configuration.getDeploymentType().toString(),
                     buildType,
                     true,
                     repositoryCreateRequest.isTempBuild(),
@@ -698,9 +700,21 @@ public class Driver {
                 // (Artifactory artifactory = createArtifactoryClient()) {
 
                 String hostedName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, false, tempBuild, buildContentId);
+                        .createRepositoryName(
+                                configuration.getNamingStructure(),
+                                configuration.getDeploymentType().toString(),
+                                buildType,
+                                false,
+                                tempBuild,
+                                buildContentId);
                 String virtualName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, true, tempBuild, buildContentId);
+                        .createRepositoryName(
+                                configuration.getNamingStructure(),
+                                configuration.getDeploymentType().toString(),
+                                buildType,
+                                true,
+                                tempBuild,
+                                buildContentId);
                 logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
@@ -744,7 +758,12 @@ public class Driver {
                         .repositorySettings(settings)
                         .key(hostedName)
                         .build();
-                artifactory.repositories().create(1, repository);
+                String r = artifactory.repositories().create(1, repository);
+
+                logger.info(
+                        "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
+                        r,
+                        extraDependencyRepositories);
 
                 Repository group = ArtifactoryBuildGroupBuilder
                         .builder(configuration, artifactory, settings, virtualName)
@@ -877,14 +896,16 @@ public class Driver {
         String targetPackageTypeStr = sourceTargetPaths.getTarget().getPackageType().name().toLowerCase();
 
         String sourceRepository = ArtifactoryUtils.createRepositoryName(
-                configuration,
+                configuration.getNamingStructure(),
+                configuration.getDeploymentType().toString(),
                 ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
                 false,
                 false,
                 sourceTargetPaths.getSource().getRepositoryId().getName());
         // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
         String targetRepository = ArtifactoryUtils.createRepositoryName(
-                configuration,
+                configuration.getNamingStructure(),
+                configuration.getDeploymentType().toString(),
                 ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
                 false,
                 false,

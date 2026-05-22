@@ -37,7 +37,7 @@ public class ArtifactoryBuildGroupBuilder {
     private Configuration configuration;
     private Artifactory artifactory;
     private RepositorySettings settings;
-    private String keyName;
+    private String name;
     private String description;
     private List<String> includedRepositories = new ArrayList<>();
 
@@ -55,7 +55,7 @@ public class ArtifactoryBuildGroupBuilder {
         buildGroupBuilder.artifactory = artifactory;
         buildGroupBuilder.settings = packageType;
         buildGroupBuilder.configuration = configuration;
-        buildGroupBuilder.keyName = virtualName;
+        buildGroupBuilder.name = virtualName;
         return buildGroupBuilder;
     }
 
@@ -86,12 +86,19 @@ public class ArtifactoryBuildGroupBuilder {
         if (tempBuild) {
             includedRepositories.add(
                     ArtifactoryUtils
-                            .createRepositoryName(configuration, buildType, false, tempBuild, TEMPORARY_BUILDS_GROUP));
+                            .createRepositoryName(
+                                    configuration.getNamingStructure(),
+                                    configuration.getDeploymentType().toString(),
+                                    buildType,
+                                    false,
+                                    tempBuild,
+                                    TEMPORARY_BUILDS_GROUP));
         }
         includedRepositories.add(
                 ArtifactoryUtils
                         .createRepositoryName(
-                                configuration,
+                                configuration.getNamingStructure(),
+                                configuration.getDeploymentType().toString(),
                                 buildType,
                                 false,
                                 tempBuild,
@@ -103,7 +110,13 @@ public class ArtifactoryBuildGroupBuilder {
                 // TODO: ### Is this the only place the gradle plugin repo is handled?
                 includedRepositories.add(
                         ArtifactoryUtils
-                                .createRepositoryName(configuration, buildType, false, tempBuild, GRADLE_PLUGINS_REPO));
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
+                                        configuration.getDeploymentType().toString(),
+                                        buildType,
+                                        false,
+                                        tempBuild,
+                                        GRADLE_PLUGINS_REPO));
                 break;
 
             default:
@@ -195,6 +208,8 @@ public class ArtifactoryBuildGroupBuilder {
 
     public VirtualRepository build() {
 
+        logger.info("### ArtifactoryBuildGroupBuilder::build::{}", includedRepositories);
+
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
@@ -203,7 +218,7 @@ public class ArtifactoryBuildGroupBuilder {
                 .repositorySettings(settings)
                 .description(description)
                 .repositories(includedRepositories)
-                .key(keyName)
+                .key(name)
                 .build();
     }
 

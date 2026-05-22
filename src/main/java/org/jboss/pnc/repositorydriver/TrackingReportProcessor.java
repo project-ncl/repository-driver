@@ -584,7 +584,11 @@ public class TrackingReportProcessor {
 
         // Use new configuration-based approach
         //        String project = repoId.getProject() != null ? repoId.getProject() : repoId.getName();
-        repoPath = configuration.parseDownloadTargetRepository(repoId.getName(), repoType, download.getOriginUrl());
+        repoPath = ArtifactoryUtils.parseDownloadTargetRepository(
+                configuration.getDownloadTargetRepository(),
+                repoId.getName(),
+                repoType,
+                download.getOriginUrl());
 
         logger.info("### repoType {} repoPath {} ", repoType, repoPath);
         // Extract identifier from originUrl (hostname only)
@@ -689,7 +693,11 @@ public class TrackingReportProcessor {
         // Use new configuration-based approach
         String project = configuration.getDeploymentType().toString();
         String buildPromotionTarget = getBuildPromotionTarget(tempBuild);
-        String repoPath = configuration.parseUploadsTargetRepository(project, repoType, buildPromotionTarget);
+        String repoPath = ArtifactoryUtils.parseUploadsTargetRepository(
+                configuration.getUploadsTargetRepository(),
+                project,
+                repoType,
+                buildPromotionTarget);
 
         // Use deployment type as identifier for uploads
         String identifier = project;
