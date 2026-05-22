@@ -153,7 +153,6 @@ public class Driver {
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
-        System.out.println("### in driver create");
         logger.warn("### {}", configuration.getBackend().name());
         try {
             BuildType buildType = repositoryCreateRequest.getBuildType();
@@ -199,13 +198,15 @@ public class Driver {
             //                } else {
             // TODO: This assumes artifactoryUrl always has a '/' at the end.
             deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                    configuration,
+                    configuration.getNamingStructure(),
+                    configuration.getDeploymentType().toString(),
                     buildType,
                     false,
                     repositoryCreateRequest.isTempBuild(),
                     buildId);
             downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                    configuration,
+                    configuration.getNamingStructure(),
+                    configuration.getDeploymentType().toString(),
                     buildType,
                     true,
                     repositoryCreateRequest.isTempBuild(),
@@ -227,6 +228,7 @@ public class Driver {
                 }
             }
             logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
+            logger.info("Using '{}' for deployment build: {}", deployUrl, buildId);
             //            } catch (IndyClientException e) {
             //                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
             //                throw new RepositoryDriverException(
@@ -482,10 +484,6 @@ public class Driver {
     @WithSpan()
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
-        archive(request, indy);
-    }
-
-    private void archive(ArchiveRequest request, Indy indy) throws RepositoryDriverException {
         // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
             TrackingReport report = retrieveTrackingReport(request.getBuildContentId());
@@ -729,11 +727,22 @@ public class Driver {
             try {
                 // Was using try/resources but now switched to injected artifactory for tests
                 // (Artifactory artifactory = createArtifactoryClient()) {
-
                 String hostedName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, false, tempBuild, buildContentId);
+                        .createRepositoryName(
+                                configuration.getNamingStructure(),
+                                configuration.getDeploymentType().toString(),
+                                buildType,
+                                false,
+                                tempBuild,
+                                buildContentId);
                 String virtualName = ArtifactoryUtils
-                        .createRepositoryName(configuration, buildType, true, tempBuild, buildContentId);
+                        .createRepositoryName(
+                                configuration.getNamingStructure(),
+                                configuration.getDeploymentType().toString(),
+                                buildType,
+                                true,
+                                tempBuild,
+                                buildContentId);
                 logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
                 // Check repositories exist and delete if they do
                 RepositoryHandle hostedRepository = artifactory.repository(hostedName);
@@ -777,7 +786,12 @@ public class Driver {
                         .repositorySettings(settings)
                         .key(hostedName)
                         .build();
-                artifactory.repositories().create(1, repository);
+                String r = artifactory.repositories().create(1, repository);
+
+                logger.info(
+                        "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
+                        r,
+                        extraDependencyRepositories);
 
                 Repository group = ArtifactoryBuildGroupBuilder
                         .builder(configuration, artifactory, settings, virtualName)
@@ -895,12 +909,7 @@ public class Driver {
                     sourceTargetPaths.getPaths().size(),
                     sourceTargetPaths.getSource(),
                     sourceTargetPaths.getTarget());
-            if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-                artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
-            } else {
-                // TODO: Indy backend support removed - only Artifactory is supported
-                throw new RepositoryDriverException("Indy backend is no longer supported. Use Artifactory backend.");
-            }
+            artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
         }
     }
 
@@ -913,37 +922,45 @@ public class Driver {
         String sourcePackageTypeStr = sourceTargetPaths.getSource().getPackageType().name().toLowerCase();
         String targetPackageTypeStr = sourceTargetPaths.getTarget().getPackageType().name().toLowerCase();
 
-        String sourceRepository = ArtifactoryUtils.createRepositoryName(
-                configuration,
-                ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
-                false,
-                false,
-                sourceTargetPaths.getSource().getRepositoryId().getName());
-        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
-        String targetRepository = ArtifactoryUtils.createRepositoryName(
-                configuration,
-                ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
-                false,
-                false,
-                sourceTargetPaths.getTarget().getRepositoryId().getName());
+        //        String sourceRepository = ArtifactoryUtils.createRepositoryName(
+        //                configuration.getNamingStructure(),
+        //                configuration.getDeploymentType().toString(),
+        //                ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
+        //                false,
+        //                false,
+        //                sourceTargetPaths.getSource().getRepositoryId().getName());
+        //        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
+        //        String targetRepository = ArtifactoryUtils.createRepositoryName(
+        //                configuration.getNamingStructure(),
+        //                configuration.getDeploymentType().toString(),
+        //                ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
+        //                false,
+        //                false,
+        //                sourceTargetPaths.getTarget().getRepositoryId().getName());
         logger.info(
-                "### Looking for source {} and package type {} and repository {} ",
+                "### Looking for source ID {} and package type {} source repository {} target repository {}",
                 sourceTargetPaths.getSource().getRepositoryId(),
                 sourceTargetPaths.getSource().getPackageType(),
-                sourceRepository);
-        RepositoryHandle handle = artifactory.repository(sourceRepository);
+                sourceTargetPaths.getSource().getRepositoryId(),
+                sourceTargetPaths.getTarget().getRepositoryId());
+        RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().getRepositoryId().getName());
         logger.warn("### Got handle {}", handle.getClass().getName());
         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (!handle.exists()) {
-            throw new RuntimeException("Unable to find repository " + sourceRepository);
+            throw new RuntimeException(
+                    "Unable to find source repository " + sourceTargetPaths.getSource().getRepositoryId().getName());
+        }
+        if (!artifactory.repository(sourceTargetPaths.getTarget().getRepositoryId().getName()).exists()) {
+            throw new RuntimeException(
+                    "Unable to find target repository " + sourceTargetPaths.getTarget().getRepositoryId().getName());
         }
 
         List<String> copied = new ArrayList<>();
         for (String path : sourceTargetPaths.getPaths()) {
             try {
                 // Where should we promote to?
-                handle.folder(path).copy(targetRepository, path);
+                handle.folder(path).copy(sourceTargetPaths.getTarget().getRepositoryId().getName(), path);
                 copied.add(path);
             } catch (CopyMoveException e) {
                 logger.error("Caught exception promoting {}", path, e);
@@ -978,12 +995,7 @@ public class Driver {
                     sourceTargetPaths.getSource(),
                     sourceTargetPaths.getTarget());
 
-            if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-                artifactoryPromoteByPath(sourceTargetPaths, false, false);
-            } else {
-                // TODO: Indy backend support removed - only Artifactory is supported
-                throw new RepositoryDriverException("Indy backend is no longer supported. Use Artifactory backend.");
-            }
+            artifactoryPromoteByPath(sourceTargetPaths, false, false);
         }
     }
 
@@ -1208,40 +1220,12 @@ public class Driver {
     }
 
     @WithSpan()
-    public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId)
-            throws RepositoryDriverException {
-
+    public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId) {
         try {
             userLog.info("Sealing tracking record");
             // TODO: Indy seal returned a boolean - this doesn't?
             trackingServiceClient.sealReport(buildContentId);
             uploadLogs("", "seal");
-
-            //            IndyFoloAdminClientModule foloAdmin;
-            //            try {
-            //                foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-            //            } catch (IndyClientException e) {
-            //                throw new RepositoryDriverException(
-            //                        "Failed to retrieve Indy client module for the artifact tracker: %s",
-            //                        e,
-            //                        e.getMessage());
-            //            }
-            //
-            //            try {
-            //                userLog.info("Sealing tracking record");
-            //                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-            //                if (!sealed) {
-            //                    String message = "Failed to seal content-tracking record for: " + buildContentId + ".";
-            //                    throw new RepositoryDriverException(message);
-            //                }
-            //                uploadLogs("", "seal");
-            //            } catch (IndyClientException e) {
-            //                throw new RepositoryDriverException(
-            //                        "Failed to seal tracking report for: %s. Reason: %s",
-            //                        e,
-            //                        buildContentId,
-            //                        e.getMessage());
-            //            }
         } catch (Exception ex) {
             userLog.error(ex.getMessage());
             uploadLogs(ex.getMessage(), "seal");
