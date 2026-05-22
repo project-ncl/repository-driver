@@ -29,9 +29,6 @@ import org.mockito.Mockito;
 
 import io.quarkus.test.junit.QuarkusTest;
 
-/**
- * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
- */
 @QuarkusTest
 public class ArtifactoryBuildGroupBuilderTest {
 
@@ -49,6 +46,8 @@ public class ArtifactoryBuildGroupBuilderTest {
         Mockito.when(remoteRepositoryBuilder.repositorySettings(any())).thenReturn(remoteRepositoryBuilder);
         Mockito.when(remoteRepositoryBuilder.url(anyString())).thenReturn(remoteRepositoryBuilder);
         Mockito.when(remoteRepositoryBuilder.key(anyString())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.environments(any())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.projectKey(any())).thenReturn(remoteRepositoryBuilder);
 
         //        // Mock VirtualRepositoryBuilder
         //        VirtualRepositoryBuilder virtualRepositoryBuilder = Mockito.mock(VirtualRepositoryBuilder.class);
