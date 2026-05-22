@@ -304,7 +304,7 @@ public class TrackingReportProcessor {
                     artifactFilterArchive.accepts(download));
             if (artifactFilterArchive.accepts(download)) {
                 // TODO: Need to change this - likely just make getDownloadsTargetRepository
-                // return a repositoryid to represent the changed repository
+                //    return a repositoryid to represent the changed repository
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
                 RepositoryId newId = RepositoryId.builder()
                         .project(download.getRepoId().getProject())
@@ -585,7 +585,11 @@ public class TrackingReportProcessor {
 
         // Use new configuration-based approach
         //        String project = repoId.getProject() != null ? repoId.getProject() : repoId.getName();
-        repoPath = configuration.parseDownloadTargetRepository(repoId.getName(), repoType, download.getOriginUrl());
+        repoPath = ArtifactoryUtils.parseDownloadTargetRepository(
+                configuration.getDownloadTargetRepository(),
+                repoId.getName(),
+                repoType,
+                download.getOriginUrl());
 
         logger.info("### repoType {} repoPath {} ", repoType, repoPath);
         // Extract identifier from originUrl (hostname only)
@@ -693,7 +697,11 @@ public class TrackingReportProcessor {
         // Use new configuration-based approach
         String project = configuration.getDeploymentType().toString();
         String buildPromotionTarget = getBuildPromotionTarget(buildCategory, tempBuild);
-        String repoPath = configuration.parseUploadsTargetRepository(project, repoType, buildPromotionTarget);
+        String repoPath = ArtifactoryUtils.parseUploadsTargetRepository(
+                configuration.getUploadsTargetRepository(),
+                project,
+                repoType,
+                buildPromotionTarget);
 
         // Use deployment type as identifier for uploads
         String identifier = project;

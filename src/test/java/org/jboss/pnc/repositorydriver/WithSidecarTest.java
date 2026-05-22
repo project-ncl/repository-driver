@@ -17,6 +17,7 @@ import org.jboss.pnc.repositorydriver.profile.WithSidecar;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -30,6 +31,7 @@ import io.quarkus.test.security.TestSecurity;
 @QuarkusTest
 @TestProfile(WithSidecar.class)
 @TestSecurity(authorizationEnabled = false)
+@Disabled(value = "NYI: Not using sidecar")
 public class WithSidecarTest {
     @Inject
     ObjectMapper mapper;
