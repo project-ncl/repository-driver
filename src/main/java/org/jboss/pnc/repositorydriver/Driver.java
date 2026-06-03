@@ -153,7 +153,6 @@ public class Driver {
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
-        System.out.println("### in driver create");
         logger.warn("### {}", configuration.getBackend().name());
         try {
             BuildType buildType = repositoryCreateRequest.getBuildType();
@@ -228,6 +227,7 @@ public class Driver {
                 }
             }
             logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
+            logger.info("Using '{}' for deployment build: {}", deployUrl, buildId);
             //            } catch (IndyClientException e) {
             //                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
             //                throw new RepositoryDriverException(
@@ -454,7 +454,6 @@ public class Driver {
     @WithSpan()
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
-
         // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
             TrackingReport report = retrieveTrackingReport(request.getBuildContentId());
@@ -698,7 +697,6 @@ public class Driver {
             try {
                 // Was using try/resources but now switched to injected artifactory for tests
                 // (Artifactory artifactory = createArtifactoryClient()) {
-
                 String hostedName = ArtifactoryUtils
                         .createRepositoryName(
                                 configuration.getNamingStructure(),

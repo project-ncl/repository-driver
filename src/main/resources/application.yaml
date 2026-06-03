@@ -105,7 +105,7 @@ repository-driver:
     enabled: false
     url:
   http-client:
-    connect-timeout: 5
+    connect-timeout: 5lo
     request-timeout: 15
   callback-retry-duration: 600
   callback-retry-delay-msec: 500
@@ -122,7 +122,8 @@ repository-driver:
   tracking-service:
     api-url: http://localhost:8080
   repository:
-    naming-structure: "{project}{temporary}{build}{virtual}{type}"
+    naming-structure: "{project}{type}{build}{virtual}"
+#    naming-structure: "{project}{temporary}{build}{virtual}{type}"
     # Previously in indy this was using e.g.
     # indy-{maven|npm}/api/content/maven/hosted/pnc-builds/....
     # https://indy.corp.redhat.com/api/content/maven/hosted/build-ASRETYOYGKQAA

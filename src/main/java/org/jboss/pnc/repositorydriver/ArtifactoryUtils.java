@@ -1,5 +1,9 @@
 package org.jboss.pnc.repositorydriver;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.RepositoryType;
 
@@ -106,6 +110,8 @@ public class ArtifactoryUtils {
 
         java.util.List<String> parts = new java.util.ArrayList<>();
         String[] placeholders = template.split("\\{|\\}");
+        String type = repoType != null ? (repoType == RepositoryType.MAVEN ? "mvn" : repoType.name().toLowerCase())
+                : null;
 
         for (String placeholder : placeholders) {
             if (placeholder.isEmpty())
@@ -117,7 +123,7 @@ public class ArtifactoryUtils {
                     value = project;
                     break;
                 case "type":
-                    value = repoType != null ? repoType.name().toLowerCase() : null;
+                    value = type;
                     break;
                 case "temporary":
                     value = temporary;
@@ -182,6 +188,35 @@ public class ArtifactoryUtils {
             }
         }
         return urlHostname;
+    }
+
+    /**
+     * Generate MD5 hash of a string and return it as a hex string.
+     * Used to create unique, shortened identifiers from URLs.
+     *
+     * @param input The input string to hash
+     * @return The MD5 hash as a hex string, or the input if hashing fails
+     */
+    public static String generateMd5Hash(String input) {
+        if (input == null || input.isEmpty()) {
+            return input;
+        }
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] hashBytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hashBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            return hexString.toString();
+        } catch (NoSuchAlgorithmException e) {
+            // MD5 should always be available, but if not, return the input
+            return input;
+        }
     }
 
     // PackageTypes can be [maven, npm, generic-http]

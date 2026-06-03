@@ -64,8 +64,8 @@ public class ArtifactoryBuildGroupBuilder {
         return this;
     }
 
-    public ArtifactoryBuildGroupBuilder addConstituent(String storeKey) {
-        includedRepositories.add(storeKey);
+    public ArtifactoryBuildGroupBuilder addConstituent(String hostKey) {
+        includedRepositories.add(hostKey);
         return this;
     }
 
@@ -94,6 +94,9 @@ public class ArtifactoryBuildGroupBuilder {
                                     tempBuild,
                                     TEMPORARY_BUILDS_GROUP));
         }
+        logger.warn(
+                "### Attempting to add COMMON_BUILD_GROUP_CONSTITUENTS_GROUP {}",
+                COMMON_BUILD_GROUP_CONSTITUENTS_GROUP);
         includedRepositories.add(
                 ArtifactoryUtils
                         .createRepositoryName(
@@ -159,7 +162,8 @@ public class ArtifactoryBuildGroupBuilder {
                                 "Creating remote repository {} from url {}",
                                 artifactRepository.id,
                                 artifactRepository.url);
-                        // TODO: What are Indy 'implied' repositories - why can't we just use a single remote repository?
+                        // TODO: Used for user-defined extra repositories. Still need to discuss
+                        //    naming of repo using MD5 versus numeric suffix
                         if (!artifactory.repository(artifactRepository.id).exists()) {
                             RemoteRepository r = artifactory.repositories()
                                     .builders()
@@ -196,9 +200,21 @@ public class ArtifactoryBuildGroupBuilder {
             if (host == null) {
                 logger.warn("No host in repository URL entered: {}. Skipping!", url);
             } else {
-                // TODO: Do we need to use convertIllegalCharacters(id) like for Indy
-                //   See https://jfrog.com/help/r/jfrog-artifactory-documentation/repository-naming-rules-and-limitations
-                String id = host.replaceAll("\\.", "-");
+                // Create a unique ID that includes both host and path using MD5 hash
+                // This ensures two URLs with same host but different paths get different repository IDs
+                String hostWithDashes = host.replaceAll("\\.", "-");
+                String path = uri.getPath();
+
+                String id;
+                if (path != null && !path.isEmpty() && !path.equals("/")) {
+                    // Include path in the ID using MD5 hash to keep it short and valid
+                    String urlHash = ArtifactoryUtils.generateMd5Hash(path);
+                    id = hostWithDashes + "-" + urlHash;
+                } else {
+                    // No significant path, just use host
+                    id = hostWithDashes;
+                }
+
                 result = ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
             }
         }
