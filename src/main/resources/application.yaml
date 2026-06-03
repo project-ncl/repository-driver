@@ -122,7 +122,7 @@ repository-driver:
   tracking-service:
     api-url: http://localhost:8080
   repository:
-    naming-structure: "{project}{type}{build}{virtual}"
+    naming-structure: "{project}{type}{temporary}{build}{virtual}"
 #    naming-structure: "{project}{temporary}{build}{virtual}{type}"
     # Previously in indy this was using e.g.
     # indy-{maven|npm}/api/content/maven/hosted/pnc-builds/....

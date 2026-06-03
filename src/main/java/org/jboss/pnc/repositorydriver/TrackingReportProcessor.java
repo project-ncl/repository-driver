@@ -304,7 +304,7 @@ public class TrackingReportProcessor {
                     artifactFilterArchive.accepts(download));
             if (artifactFilterArchive.accepts(download)) {
                 // TODO: Need to change this - likely just make getDownloadsTargetRepository
-                // return a repositoryid to represent the changed repository
+                //    return a repositoryid to represent the changed repository
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
                 RepositoryId newId = RepositoryId.builder()
                         .project(download.getRepoId().getProject())

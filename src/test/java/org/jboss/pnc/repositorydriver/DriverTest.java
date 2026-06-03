@@ -145,11 +145,11 @@ public class DriverTest {
         // then
         Assertions.assertEquals(
                 // TODO: Was "http://localhost/folo/track/build-X/maven/group/build-X/",
-                "http://artifactory-host/api/pnc-build-X-virtual-maven",
+                "http://artifactory-host/api/pnc-mvn-build-X-virtual",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
                 // TODO: Was "http://localhost/folo/track/build-X/maven/hosted/build-X/",
-                "http://artifactory-host/api/pnc-build-X-maven",
+                "http://artifactory-host/api/pnc-mvn-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 

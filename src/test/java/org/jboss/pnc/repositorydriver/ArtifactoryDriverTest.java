@@ -144,7 +144,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                         false,
                         false,
                         "build-ABCDEF");
-        assertEquals("pnc-build-ABCDEF-maven", name);
+        assertEquals("pnc-mvn-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(
                 configuration.getNamingStructure(),
@@ -153,7 +153,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                 false,
                 false,
                 "build-ABCDEF");
-        assertEquals("pnc-build-ABCDEF-maven", name);
+        assertEquals("pnc-mvn-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(
                 configuration.getNamingStructure(),
@@ -162,7 +162,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                 true,
                 false,
                 "build-ABCDEF");
-        assertEquals("pnc-build-ABCDEF-virtual-maven", name);
+        assertEquals("pnc-mvn-build-ABCDEF-virtual", name);
 
         name = ArtifactoryUtils.createRepositoryName(
                 configuration.getNamingStructure(),
@@ -171,7 +171,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                 false,
                 true,
                 "build-ABCDEF");
-        assertEquals("pnc-temporary-build-ABCDEF-maven", name);
+        assertEquals("pnc-mvn-temporary-build-ABCDEF", name);
     }
 
     @Test
@@ -196,10 +196,10 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
         // then
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-build-X-virtual-maven",
+                "http://artifactory-host/api/pnc-mvn-build-X-virtual",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-build-X-maven",
+                "http://artifactory-host/api/pnc-mvn-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 

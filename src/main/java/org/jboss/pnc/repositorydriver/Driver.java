@@ -1187,40 +1187,12 @@ public class Driver {
     }
 
     @WithSpan()
-    public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId)
-            throws RepositoryDriverException {
-
+    public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId) {
         try {
             userLog.info("Sealing tracking record");
             // TODO: Indy seal returned a boolean - this doesn't?
             trackingServiceClient.sealReport(buildContentId);
             uploadLogs("", "seal");
-
-            //            IndyFoloAdminClientModule foloAdmin;
-            //            try {
-            //                foloAdmin = indy.module(IndyFoloAdminClientModule.class);
-            //            } catch (IndyClientException e) {
-            //                throw new RepositoryDriverException(
-            //                        "Failed to retrieve Indy client module for the artifact tracker: %s",
-            //                        e,
-            //                        e.getMessage());
-            //            }
-            //
-            //            try {
-            //                userLog.info("Sealing tracking record");
-            //                boolean sealed = foloAdmin.sealTrackingRecord(buildContentId);
-            //                if (!sealed) {
-            //                    String message = "Failed to seal content-tracking record for: " + buildContentId + ".";
-            //                    throw new RepositoryDriverException(message);
-            //                }
-            //                uploadLogs("", "seal");
-            //            } catch (IndyClientException e) {
-            //                throw new RepositoryDriverException(
-            //                        "Failed to seal tracking report for: %s. Reason: %s",
-            //                        e,
-            //                        buildContentId,
-            //                        e.getMessage());
-            //            }
         } catch (Exception ex) {
             userLog.error(ex.getMessage());
             uploadLogs(ex.getMessage(), "seal");
