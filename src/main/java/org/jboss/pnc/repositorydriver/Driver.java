@@ -879,12 +879,7 @@ public class Driver {
                     sourceTargetPaths.getSource(),
                     sourceTargetPaths.getTarget());
 
-            if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-                artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
-            } else {
-                // TODO: Indy backend support removed - only Artifactory is supported
-                throw new RepositoryDriverException("Indy backend is no longer supported. Use Artifactory backend.");
-            }
+            artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
         }
     }
 
