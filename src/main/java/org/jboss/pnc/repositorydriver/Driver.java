@@ -892,39 +892,45 @@ public class Driver {
         String sourcePackageTypeStr = sourceTargetPaths.getSource().getPackageType().name().toLowerCase();
         String targetPackageTypeStr = sourceTargetPaths.getTarget().getPackageType().name().toLowerCase();
 
-        String sourceRepository = ArtifactoryUtils.createRepositoryName(
-                configuration.getNamingStructure(),
-                configuration.getDeploymentType().toString(),
-                ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
-                false,
-                false,
-                sourceTargetPaths.getSource().getRepositoryId().getName());
-        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
-        String targetRepository = ArtifactoryUtils.createRepositoryName(
-                configuration.getNamingStructure(),
-                configuration.getDeploymentType().toString(),
-                ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
-                false,
-                false,
-                sourceTargetPaths.getTarget().getRepositoryId().getName());
+        //        String sourceRepository = ArtifactoryUtils.createRepositoryName(
+        //                configuration.getNamingStructure(),
+        //                configuration.getDeploymentType().toString(),
+        //                ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
+        //                false,
+        //                false,
+        //                sourceTargetPaths.getSource().getRepositoryId().getName());
+        //        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
+        //        String targetRepository = ArtifactoryUtils.createRepositoryName(
+        //                configuration.getNamingStructure(),
+        //                configuration.getDeploymentType().toString(),
+        //                ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
+        //                false,
+        //                false,
+        //                sourceTargetPaths.getTarget().getRepositoryId().getName());
         logger.info(
-                "### Looking for source {} and package type {} and repository {} ",
+                "### Looking for source ID {} and package type {} source repository {} target repository {}",
                 sourceTargetPaths.getSource().getRepositoryId(),
                 sourceTargetPaths.getSource().getPackageType(),
-                sourceRepository);
-        RepositoryHandle handle = artifactory.repository(sourceRepository);
+                sourceTargetPaths.getSource().getRepositoryId(),
+                sourceTargetPaths.getTarget().getRepositoryId());
+        RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().getRepositoryId().getName());
         logger.warn("### Got handle {}", handle.getClass().getName());
         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (!handle.exists()) {
-            throw new RuntimeException("Unable to find repository " + sourceRepository);
+            throw new RuntimeException(
+                    "Unable to find source repository " + sourceTargetPaths.getSource().getRepositoryId().getName());
+        }
+        if (!artifactory.repository(sourceTargetPaths.getTarget().getRepositoryId().getName()).exists()) {
+            throw new RuntimeException(
+                    "Unable to find target repository " + sourceTargetPaths.getTarget().getRepositoryId().getName());
         }
 
         List<String> copied = new ArrayList<>();
         for (String path : sourceTargetPaths.getPaths()) {
             try {
                 // Where should we promote to?
-                handle.folder(path).copy(targetRepository, path);
+                handle.folder(path).copy(sourceTargetPaths.getTarget().getRepositoryId().getName(), path);
                 copied.add(path);
             } catch (CopyMoveException e) {
                 logger.error("Caught exception promoting {}", path, e);
@@ -956,12 +962,7 @@ public class Driver {
                     sourceTargetPaths.getSource(),
                     sourceTargetPaths.getTarget());
 
-            if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-                artifactoryPromoteByPath(sourceTargetPaths, false, false);
-            } else {
-                // TODO: Indy backend support removed - only Artifactory is supported
-                throw new RepositoryDriverException("Indy backend is no longer supported. Use Artifactory backend.");
-            }
+            artifactoryPromoteByPath(sourceTargetPaths, false, false);
         }
     }
 

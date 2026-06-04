@@ -13,7 +13,5 @@ import lombok.Data;
 public class RepositoryKey {
     private final RepositoryId repositoryId;
     private final PackageType packageType;
-    private final boolean virtualRepository;
     private final boolean temporary;
-    // TODO: What about local vs remote (and virtual but that is above...)
 }
