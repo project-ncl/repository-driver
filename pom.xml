@@ -66,7 +66,7 @@
     <quarkus.platform.version>3.36.1</quarkus.platform.version>
     <atlas.version>1.2.2</atlas.version>
     <compiler-plugin.version>3.15.0</compiler-plugin.version>
-    <surefire-plugin.version>3.5.5</surefire-plugin.version>
+    <surefire-plugin.version>3.5.6</surefire-plugin.version>
     <indy.version>3.4.5</indy.version>
     <wiremock.version>3.0.1</wiremock.version>
     <!-- Package URL -->
