@@ -89,8 +89,7 @@ public class TrackingReportProcessorTest {
         RepositoryKey buildKey = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name(buildContentId).build(),
                 PackageType.MVN,
-                false,
-                false);
+                tempBuild);
         RepositoryKey promotedBuildsKey = new RepositoryKey(
                 RepositoryId.builder()
                         .project("pnc")
@@ -99,8 +98,7 @@ public class TrackingReportProcessorTest {
                                         : configuration.getBuildPromotionTarget(BuildCategory.STANDARD))
                         .build(),
                 PackageType.MVN,
-                false,
-                false);
+                tempBuild);
 
         uploads.add(
                 TrackedEntry.builder()
@@ -236,7 +234,6 @@ public class TrackingReportProcessorTest {
         Set<RepositoryKey> genericRepos = new HashSet<>();
         PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
-
         // then
         Assertions.assertEquals(2, sourceTargetPaths.size());
     }
@@ -250,7 +247,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey buildKey = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name(buildContentId).build(),
                 PackageType.MVN,
-                false,
                 false);
 
         TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
@@ -375,7 +371,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey buildKey = new RepositoryKey(
                 trackedIndyJar.getRepoId(),
                 trackedIndyJar.getPackageType(),
-                false,
                 false);
         downloads.add(trackedIndyJar);
 
@@ -389,7 +384,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey entryKey = new RepositoryKey(
                 entries.get(0).getRepositoryId(),
                 entries.get(0).getPackageType(),
-                false,
                 false);
         Assertions.assertEquals(entryKey, buildKey);
     }
@@ -436,10 +430,10 @@ public class TrackingReportProcessorTest {
              * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
              *
              */
-            Log.info("### entry is " + entry.toString());
+            Log.info("### path " + entry.getRepositoryId().getPath() + " entry is " + entry.toString());
 
             Assertions.assertEquals(PackageType.MVN, entry.getPackageType());
-            Assertions.assertEquals("shared-imports", entry.getRepositoryId().getName());
+            Assertions.assertEquals("pnc-mvn-imports", entry.getRepositoryId().getPath());
         }
     }
 
@@ -451,7 +445,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey repositoryKey = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name("build-xxxxx").build(),
                 PackageType.MVN,
-                false,
                 false); // from app.yaml
         TrackedEntry shouldFilter = mavenEntry(
                 buildContentId,
@@ -464,7 +457,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey repositoryKey2 = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name("build-yyyyy").build(),
                 PackageType.MVN,
-                false,
                 false); // from app.yaml
         TrackedEntry shouldFilter2 = mavenEntry(
                 buildContentId2,
@@ -477,7 +469,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey repositoryKey3 = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name("ignored").build(),
                 PackageType.MVN,
-                false,
                 false);
         TrackedEntry shouldNotFilter = mavenEntry(
                 buildContentId3,
@@ -511,7 +502,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey gpRepositoryKey = new RepositoryKey(
                 genericProxyEntry.getRepoId(),
                 genericProxyEntry.getPackageType(),
-                false,
                 false);
 
         String mavenRepoName = "build-ABCDEFGH";
@@ -549,7 +539,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey dedicatedRepo = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name("h-" + gpRepoName).build(),
                 PackageType.GENERIC,
-                false,
                 false);
         Assertions.assertEquals(dedicatedRepo, gpToDedicatedRepo.getTarget());
 
@@ -561,7 +550,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey metadataRepositoryKey = new RepositoryKey(
                 metadataEntry.getRepoId(),
                 metadataEntry.getPackageType(),
-                false,
                 false);
         SourceTargetPaths mavenToSharedImports = sourceTargetPaths.stream()
                 .filter(a -> a.getSource().equals(metadataRepositoryKey))
@@ -590,7 +578,6 @@ public class TrackingReportProcessorTest {
         RepositoryKey repositoryKey = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name(name).build(),
                 PackageType.MVN,
-                false,
                 false);
         return mavenEntry(name, path, originUrl, repositoryKey);
     }
