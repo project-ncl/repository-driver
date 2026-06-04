@@ -1,5 +1,7 @@
 package org.jboss.pnc.repositorydriver;
 
+import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
+import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedEntry;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.SHARED_IMPORTS_ID;
 
@@ -30,6 +32,9 @@ import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
+import org.commonjava.indy.model.core.StoreKey;
+import org.commonjava.indy.model.core.StoreType;
+import org.jboss.pnc.api.constants.ReposiotryIdentifier;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.ArtifactQuality;
 import org.jboss.pnc.api.enums.BuildCategory;
@@ -45,6 +50,7 @@ import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterArchive;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -261,15 +267,17 @@ public class TrackingReportProcessor {
                 switch (packageType) {
                     case MVN:
                     case NPM:
-                        // TODO: ### Fix and change this.
+                        // TODO: ### Does this need changes...
                         target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
                         promotionPaths.add(source, target, path);
                         break;
 
                     case GENERIC:
+                        // TODO: ### Fix and change this. I think we'll need to rejig how paths work
                         String remoteName = sourceRepoId.getName();
                         genericRepos.add(source);
-                        String hostedName = getGenericHostedRepoName(remoteName);
+                        String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
+//                        String hostedName = getGenericHostedRepoName(remoteName);
                         RepositoryId targetRepoId = RepositoryId.builder()
                                 .project(sourceRepoId.getProject())
                                 .name(hostedName)
@@ -576,49 +584,36 @@ public class TrackingReportProcessor {
 
     private TargetRepository getDownloadsTargetRepository(TrackedEntry download)
             throws RepositoryDriverException {
-        String identifier;
-        String repoPath;
         RepositoryId repoId = download.getRepoId();
         PackageType packageType = download.getPackageType();
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
-
-        // Use new configuration-based approach
-        //        String project = repoId.getProject() != null ? repoId.getProject() : repoId.getName();
-        repoPath = ArtifactoryUtils.parseDownloadTargetRepository(
-                configuration.getDownloadTargetRepository(),
-                repoId.getName(),
-                repoType,
-                download.getOriginUrl());
-
-        logger.info("### repoType {} repoPath {} ", repoType, repoPath);
-        // Extract identifier from originUrl (hostname only)
-        identifier = "unknown";
-        if (download.getOriginUrl() != null && !download.getOriginUrl().isEmpty()) {
-            try {
-                java.net.URL url = new java.net.URL(download.getOriginUrl());
-                identifier = url.getHost();
-            } catch (java.net.MalformedURLException e) {
+        String repoPath;
+        // TODO: Not sure this is entirely right ....
+        if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
+            if (ignoreDependencySource(repoId)) {
+                repoPath = repoId.getPath();
+                //identifier = "indy-" + repoType.name().toLowerCase();
+                //repoPath = getTargetRepositoryPath(download, indyContentModule);
+            } else {
+                repoPath = download.getRepoId().getName() + "-shared-imports";
             }
+        } else if (repoType == RepositoryType.GENERIC_PROXY) {
+            //identifier = "indy-http";
+            //repoPath = getGenericTargetRepositoryPath(repoId);
+            repoPath = download.getRepoId().getName() + "-" + RepositoryConstants.GENERIC_DOWNLOADS;
+        } else {
+            throw new RepositoryDriverException(
+                    "Repository type " + repoType + " is not supported by Indy repo manager driver.");
         }
 
-        // OLD:
-        //         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
-        //     identifier = "indy-" + repoType.name().toLowerCase();
-        //     repoPath = getTargetRepositoryPath(download, indyContentModule);
-        // } else if (repoType == RepositoryType.GENERIC_PROXY) {
-        //     identifier = "indy-http";
-        //     repoPath = getGenericTargetRepositoryPath(repoId);
-        // } else {
-        //     throw new RepositoryDriverException(
-        //             "Repository type " + repoType + " is not supported by Indy repo manager driver.");
-        // }
+        logger.info("### getDownloadsTargetRepository::repoId {} repoType {} repoPath {} ", repoId, repoType, repoPath);
 
         if (!repoPath.endsWith("/")) {
             repoPath += '/';
         }
 
         return TargetRepository.builder()
-                .identifier(identifier)
+                .identifier(repoId.getName())
                 .repositoryType(repoType)
                 .repositoryPath(repoPath)
                 .temporaryRepo(false)
@@ -690,24 +685,35 @@ public class TrackingReportProcessor {
     private TargetRepository getUploadsTargetRepository(RepositoryType repoType, boolean tempBuild)
             throws RepositoryDriverException {
 
-        // Use new configuration-based approach
-        String project = configuration.getDeploymentType().toString();
-        String buildPromotionTarget = getBuildPromotionTarget(tempBuild);
-        String repoPath = ArtifactoryUtils.parseUploadsTargetRepository(
-                configuration.getUploadsTargetRepository(),
-                project,
-                repoType,
-                buildPromotionTarget);
+        String target;
+        if (repoType == RepositoryType.MAVEN) {
+            target = getBuildPromotionTarget(tempBuild);
+//            identifier = ReposiotryIdentifier.INDY_MAVEN;
+        } else if (repoType == RepositoryType.NPM) {
+            target = getBuildPromotionTarget(tempBuild);
+//            identifier = ReposiotryIdentifier.INDY_NPM;
+        } else {
+            throw new RepositoryDriverException(
+                    "Repository type " + repoType + " is not supported for uploads by repo manager driver.");
+        }
 
-        // Use deployment type as identifier for uploads
-        String identifier = project;
+        String project = configuration.getDeploymentType().toString();
+//        // Use new configuration-based approach
+//        String buildPromotionTarget = getBuildPromotionTarget(tempBuild);
+//        String repoPath = ArtifactoryUtils.parseUploadsTargetRepository(
+//                configuration.getUploadsTargetRepository(),
+//                project,
+//                repoType,
+//                buildPromotionTarget);
+
+        String repoPath = project + "-" + target;
 
         if (!repoPath.endsWith("/")) {
             repoPath += '/';
         }
 
         return TargetRepository.builder()
-                .identifier(identifier)
+                .identifier(project)
                 .repositoryType(repoType)
                 .repositoryPath(repoPath)
                 .temporaryRepo(tempBuild)

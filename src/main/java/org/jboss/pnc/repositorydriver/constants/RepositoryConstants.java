@@ -33,4 +33,6 @@ public class RepositoryConstants {
     /** Name of hosted repository used to store artifacts from external sources. */
     public static final String SHARED_IMPORTS_ID = "mvn-imports";
     // "shared-imports"
+
+    public static final String GENERIC_DOWNLOADS = "generic-downloads";
 }
