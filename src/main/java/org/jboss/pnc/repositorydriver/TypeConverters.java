@@ -60,4 +60,15 @@ public class TypeConverters {
                 throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
         }
     }
+
+    /**
+     * Convert RepositoryType to lowercase string representation for repository paths.
+     * MAVEN is converted to "mvn", other types use their name in lowercase.
+     */
+    public static String toRepositoryTypeString(RepositoryType repoType) {
+        if (repoType == null) {
+            return null;
+        }
+        return repoType == RepositoryType.MAVEN ? "mvn" : repoType.name().toLowerCase();
+    }
 }

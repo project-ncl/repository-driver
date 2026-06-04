@@ -26,8 +26,25 @@ public class ArchiveDownloadEntry {
     public static ArchiveDownloadEntry fromTrackedEntry(
             TrackedEntry entry,
             TargetRepository targetRepository) {
+        // targetRepository.getRepositoryPath() contains both project and name in format: {project}-{name}
+        // We need to split it to extract the project and name parts
+        String repositoryPath = targetRepository.getRepositoryPath();
+        
+        int firstHyphen = repositoryPath.indexOf('-');
+        if (firstHyphen <= 0) {
+            throw new IllegalArgumentException(
+                    "Invalid repository path format: " + repositoryPath + ". Expected format: {project}-{name}");
+        }
+        
+        String project = repositoryPath.substring(0, firstHyphen);
+        String name = repositoryPath.substring(firstHyphen + 1);
+        
+        RepositoryId newId = RepositoryId.builder()
+                .project(project)
+                .name(name)
+                .build();
         return new ArchiveDownloadEntry(
-                entry.getRepoId(),
+                newId,
                 entry.getPackageType(),
                 entry.getPath(),
                 entry.getMd5(),
@@ -35,17 +52,4 @@ public class ArchiveDownloadEntry {
                 entry.getSha1(),
                 entry.getSize());
     }
-
-    // TODO: Remove this method once Indy-specific code is fully migrated
-    // /**
-    //  * Splits repositoryPath like /api/content/maven/hosted/pnc-builds into a storeKey like maven:hosted:pnc-builds
-    //  */
-    // private static StoreKey getStoreKeyFromRepositoryPath(String repositoryPath) {
-    //     String[] split = repositoryPath.split("/");
-    //     if (split.length <= 2) {
-    //         throw new IllegalArgumentException();
-    //     }
-    //
-    //     return new StoreKey(split[split.length - 3], StoreType.get(split[split.length - 2]), split[split.length - 1]);
-    // }
 }
