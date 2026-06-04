@@ -30,9 +30,12 @@ public class RepositoryConstants {
     public static final String TEMPORARY_BUILDS_GROUP = "temp-builds";
     // "temporary-builds"
 
-    /** Name of hosted repository used to store artifacts from external sources. */
-    public static final String SHARED_IMPORTS_ID = "mvn-imports";
+    /** Name of hosted repository used to store Maven artifacts from external sources. */
+    public static final String MVN_SHARED_IMPORTS_ID = "mvn-imports";
     // "shared-imports"
+
+    /** Name of hosted repository used to store NPM artifacts from external sources. */
+    public static final String NPM_SHARED_IMPORTS_ID = "npm-imports";
 
     public static final String GENERIC_DOWNLOADS = "generic-downloads";
 }

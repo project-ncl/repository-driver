@@ -14,33 +14,28 @@ public class TrackingReportMocks {
     public static RepositoryKey centralKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("central").build(),
             PackageType.MVN,
-            false, // not virtual
             false // not temporary
     );
 
     public static RepositoryKey sharedImportsKey = new RepositoryKey(
-            RepositoryId.builder().project("pnc").name(RepositoryConstants.SHARED_IMPORTS_ID).build(),
+            RepositoryId.builder().project("pnc").name(RepositoryConstants.MVN_SHARED_IMPORTS_ID).build(),
             PackageType.MVN,
-            false, // not virtual
             false // not temporary
     );
 
     public static RepositoryKey ignoredKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("ignored").build(),
             PackageType.MVN,
-            false,
             false);
 
     public static RepositoryKey toBeIgnoredKey = new RepositoryKey(
             RepositoryId.builder().name("tobeignored").build(),
             PackageType.MVN,
-            false,
             false);
 
     public static RepositoryKey notToBeIgnoredKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("nottobeignored").build(),
             PackageType.MVN,
-            false,
             false);
 
     public static String indyPom = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";

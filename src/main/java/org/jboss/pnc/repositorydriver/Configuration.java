@@ -159,9 +159,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.repository.naming-structure")
     String namingStructure;
 
-//    @ConfigProperty(name = "repository-driver.repository.download-target-repository")
-//    String downloadTargetRepository;
-//
-//    @ConfigProperty(name = "repository-driver.repository.uploads-target-repository")
-//    String uploadsTargetRepository;
+    //    @ConfigProperty(name = "repository-driver.repository.download-target-repository")
+    //    String downloadTargetRepository;
+    //
+    //    @ConfigProperty(name = "repository-driver.repository.uploads-target-repository")
+    //    String uploadsTargetRepository;
 }

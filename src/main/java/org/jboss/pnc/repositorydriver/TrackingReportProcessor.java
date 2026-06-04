@@ -1,9 +1,9 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
+import static org.jboss.pnc.api.trackingservice.dto.PackageType.MVN;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedEntry;
-import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.SHARED_IMPORTS_ID;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.MVN_SHARED_IMPORTS_ID;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.NPM_SHARED_IMPORTS_ID;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -32,9 +32,6 @@ import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
-import org.commonjava.indy.model.core.StoreKey;
-import org.commonjava.indy.model.core.StoreType;
-import org.jboss.pnc.api.constants.ReposiotryIdentifier;
 import org.jboss.pnc.api.constants.RepositoryIdentifier;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.ArtifactQuality;
@@ -262,13 +259,12 @@ public class TrackingReportProcessor {
             RepositoryId sourceRepoId = download.getRepoId();
             PackageType packageType = download.getPackageType();
             if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
-                RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false, false);
+                RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
                 RepositoryKey target;
                 // this has not been captured, so promote it.
                 switch (packageType) {
                     case MVN:
                     case NPM:
-                        // TODO: ### Does this need changes...
                         target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
                         promotionPaths.add(source, target, path);
                         break;
@@ -278,12 +274,12 @@ public class TrackingReportProcessor {
                         String remoteName = sourceRepoId.getName();
                         genericRepos.add(source);
                         String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
-//                        String hostedName = getGenericHostedRepoName(remoteName);
+                        //                        String hostedName = getGenericHostedRepoName(remoteName);
                         RepositoryId targetRepoId = RepositoryId.builder()
                                 .project(sourceRepoId.getProject())
                                 .name(hostedName)
                                 .build();
-                        target = new RepositoryKey(targetRepoId, packageType, false, false);
+                        target = new RepositoryKey(targetRepoId, packageType, false);
                         promotionPaths.add(source, target, path);
                         break;
 
@@ -353,8 +349,8 @@ public class TrackingReportProcessor {
                         .project(configuration.getDeploymentType().toString())
                         .name(getBuildPromotionTarget(tempBuild))
                         .build();
-                RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false, tempBuild);
-                RepositoryKey target = new RepositoryKey(targetRepoId, packageType, false, tempBuild);
+                RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, tempBuild);
+                RepositoryKey target = new RepositoryKey(targetRepoId, packageType, tempBuild);
                 promotionPaths.add(source, target, path);
             }
         }
@@ -713,55 +709,15 @@ public class TrackingReportProcessor {
                 .build();
     }
 
-    /*
-     * Commented out - Old Indy-specific code
-     * private TargetRepository getUploadsTargetRepository_OLD(RepositoryType repoType, boolean tempBuild)
-     * throws RepositoryDriverException {
-     *
-     * PackageType packageType;
-     * String identifier;
-     * if (repoType == RepositoryType.MAVEN) {
-     * packageType = PackageType.MVN;
-     * identifier = ReposiotryIdentifier.INDY_MAVEN;
-     * } else if (repoType == RepositoryType.NPM) {
-     * packageType = PackageType.NPM;
-     * identifier = ReposiotryIdentifier.INDY_NPM;
-     * } else {
-     * throw new RepositoryDriverException(
-     * "Repository type " + repoType + " is not supported for uploads by Indy repo manager driver.");
-     * }
-     *
-     * RepositoryId repoId = RepositoryId.builder()
-     * .project(configuration.getDeploymentType().toString())
-     * .name(getBuildPromotionTarget(tempBuild))
-     * .build();
-     * RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType, false, tempBuild);
-     * String repoPath = "/api/" + indyContentModule.contentPath(
-     * new org.commonjava.indy.model.core.StoreKey(
-     * TypeConverters.getIndyPackageTypeKey(repoType),
-     * org.commonjava.indy.model.core.StoreType.hosted,
-     * getBuildPromotionTarget(tempBuild)));
-     * if (!repoPath.endsWith("/")) {
-     * repoPath += '/';
-     * }
-     * return TargetRepository.builder()
-     * .identifier(identifier)
-     * .repositoryType(repoType)
-     * .repositoryPath(repoPath)
-     * .temporaryRepo(tempBuild)
-     * .build();
-     * }
-     */
-
     private RepositoryKey getSharedImportsPromotionTarget(
             PackageType packageType,
             Map<PackageType, RepositoryKey> promotionTargetsCache) {
         if (!promotionTargetsCache.containsKey(packageType)) {
             RepositoryId repoId = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
-                    .name(SHARED_IMPORTS_ID)
+                    .name(packageType == MVN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
                     .build();
-            RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType, false, false);
+            RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType, false);
             promotionTargetsCache.put(packageType, repositoryKey);
         }
         return promotionTargetsCache.get(packageType);
