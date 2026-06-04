@@ -33,4 +33,13 @@ public class SourceTargetPaths {
     public void addPath(String path) {
         paths.add(path);
     }
+
+    @Override
+    public String toString() {
+        return "SourceTargetPaths{" +
+                "source=" + source +
+                ", target=" + target +
+                ", paths=" + paths +
+                '}';
+    }
 }

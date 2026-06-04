@@ -110,8 +110,7 @@ public class ArtifactoryUtils {
 
         java.util.List<String> parts = new java.util.ArrayList<>();
         String[] placeholders = template.split("\\{|\\}");
-        String type = repoType != null ? (repoType == RepositoryType.MAVEN ? "mvn" : repoType.name().toLowerCase())
-                : null;
+        String type = TypeConverters.toRepositoryTypeString(repoType);
 
         for (String placeholder : placeholders) {
             if (placeholder.isEmpty())
