@@ -41,6 +41,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
     DeploymentType deploymentType;
 
+    @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
+    String environment;
+
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
 
@@ -233,10 +236,4 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.repository.naming-structure")
     String namingStructure;
-
-    //    @ConfigProperty(name = "repository-driver.repository.download-target-repository")
-    //    String downloadTargetRepository;
-    //
-    //    @ConfigProperty(name = "repository-driver.repository.uploads-target-repository")
-    //    String uploadsTargetRepository;
 }
