@@ -23,6 +23,7 @@ quarkus:
         enabled: false
 repository-driver:
   deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  environment: DEV # Artifactory environment (e.g., DEV, PROD)
   http-client:
     connect-timeout: 1
     request-timeout: 3

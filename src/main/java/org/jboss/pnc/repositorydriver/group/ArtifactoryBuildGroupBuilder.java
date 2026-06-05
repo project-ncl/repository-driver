@@ -39,7 +39,7 @@ public class ArtifactoryBuildGroupBuilder {
     private RepositorySettings settings;
     private String name;
     private String description;
-    private List<String> includedRepositories = new ArrayList<>();
+    private final List<String> includedRepositories = new ArrayList<>();
 
     // use #builder
     private ArtifactoryBuildGroupBuilder() {
@@ -169,7 +169,7 @@ public class ArtifactoryBuildGroupBuilder {
                                     .builders()
                                     .remoteRepositoryBuilder()
                                     .projectKey(configuration.getDeploymentType().toString())
-                                    .environments(Collections.singletonList("DEV"))
+                                    .environments(Collections.singletonList(configuration.getEnvironment()))
                                     .archiveBrowsingEnabled(true)
                                     .description("Remote repository for " + artifactRepository.url)
                                     .repositorySettings(settings)
@@ -230,7 +230,7 @@ public class ArtifactoryBuildGroupBuilder {
                 .builders()
                 .virtualRepositoryBuilder()
                 .projectKey(configuration.getDeploymentType().toString())
-                .environments(Collections.singletonList("DEV"))
+                .environments(Collections.singletonList(configuration.getEnvironment()))
                 .repositorySettings(settings)
                 .description(description)
                 .repositories(includedRepositories)

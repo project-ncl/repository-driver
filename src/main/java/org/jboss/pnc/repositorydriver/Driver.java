@@ -748,7 +748,7 @@ public class Driver {
                         .localRepositoryBuilder()
                         .archiveBrowsingEnabled(brewPullActive)
                         .projectKey(configuration.getDeploymentType().toString())
-                        .environments(Collections.singletonList("DEV"))
+                        .environments(Collections.singletonList(configuration.getEnvironment()))
                         .description("PNC Build repository for " + hostedName)
                         .repositorySettings(settings)
                         .key(hostedName)
@@ -827,7 +827,6 @@ public class Driver {
         //                false,
         //                false,
         //                sourceTargetPaths.getSource().getRepositoryId().getName());
-        //        // TODO: Promotion - should this be instead of pnc-maven-build-ABC, something like pnc-builds-hosted/build-ABC ?
         //        String targetRepository = ArtifactoryUtils.createRepositoryName(
         //                configuration.getNamingStructure(),
         //                configuration.getDeploymentType().toString(),
