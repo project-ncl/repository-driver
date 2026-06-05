@@ -33,14 +33,6 @@ import lombok.Setter;
 @Dependent
 public class Configuration {
 
-    // TODO: This will be removed later.
-    public enum Backend {
-        INDY, ARTIFACTORY
-    }
-
-    @ConfigProperty(name = "repository-driver.backend", defaultValue = "indy")
-    Backend backend;
-
     @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
     DeploymentType deploymentType;
 
