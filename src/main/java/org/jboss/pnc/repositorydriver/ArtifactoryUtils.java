@@ -155,38 +155,18 @@ public class ArtifactoryUtils {
     }
 
     /**
-     * Extract hostname from URL and convert dots to dashes.
+     * Extract hostname from URL
      *
      * @param originUrl The origin URL
-     * @return The hostname with dots replaced by dashes, or "unknown" if parsing fails
+     * @return Hostname only portion
      */
-    private static String extractHostnameFromUrl(String originUrl) {
-        String urlHostname = "unknown";
-        if (originUrl != null && !originUrl.isEmpty()) {
-            try {
-                java.net.URL url = new java.net.URL(originUrl);
-                urlHostname = url.getHost().replace(".", "-");
-            } catch (java.net.MalformedURLException e) {
-                // If URL parsing fails, try to extract hostname manually
-                String temp = originUrl;
-                // Remove protocol
-                if (temp.contains("://")) {
-                    temp = temp.substring(temp.indexOf("://") + 3);
-                }
-                // Extract hostname (before first / or :)
-                int slashIdx = temp.indexOf('/');
-                int colonIdx = temp.indexOf(':');
-                if (slashIdx > 0 && colonIdx > 0) {
-                    temp = temp.substring(0, Math.min(slashIdx, colonIdx));
-                } else if (slashIdx > 0) {
-                    temp = temp.substring(0, slashIdx);
-                } else if (colonIdx > 0) {
-                    temp = temp.substring(0, colonIdx);
-                }
-                urlHostname = temp.replace(".", "-");
-            }
+    public static String extractHostnameFromUrl(String originUrl) {
+        try {
+            java.net.URL url = new java.net.URL(originUrl);
+            return url.getHost();
+        } catch (java.net.MalformedURLException e) {
+            throw new IllegalArgumentException("Unable to parse url " + originUrl, e);
         }
-        return urlHostname;
     }
 
     /**

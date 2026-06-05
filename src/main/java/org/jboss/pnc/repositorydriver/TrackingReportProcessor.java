@@ -258,7 +258,12 @@ public class TrackingReportProcessor {
             String path = download.getPath();
             RepositoryId sourceRepoId = download.getRepoId();
             PackageType packageType = download.getPackageType();
-            logger.warn("### collectDownloadsPromotions::source {} ignoreDependencySource(source) {} download {} artifactFilterPromotion.accepts(download) {}", sourceRepoId, ignoreDependencySource(sourceRepoId), download,  artifactFilterPromotion.accepts(download));
+            logger.warn(
+                    "### collectDownloadsPromotions::source {} ignoreDependencySource(source) {} download {} artifactFilterPromotion.accepts(download) {}",
+                    sourceRepoId,
+                    ignoreDependencySource(sourceRepoId),
+                    download,
+                    artifactFilterPromotion.accepts(download));
             if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
                 RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
                 RepositoryKey target;
@@ -271,11 +276,15 @@ public class TrackingReportProcessor {
                         break;
 
                     case GENERIC:
-                        // TODO: ### Fix and change this. I think we'll need to rejig how paths work
-                        String remoteName = sourceRepoId.getName();
                         genericRepos.add(source);
+                        path = source.repositoryId().getName() + "/"
+                                + ArtifactoryUtils.extractHostnameFromUrl(download.getOriginUrl()) + path;
                         String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
-                        //                        String hostedName = getGenericHostedRepoName(remoteName);
+                        logger.info(
+                                "Translating source repository name {} to {} with path {}",
+                                source.repositoryId().getName(),
+                                hostedName,
+                                path);
                         RepositoryId targetRepoId = RepositoryId.builder()
                                 .project(sourceRepoId.getProject())
                                 .name(hostedName)
@@ -586,9 +595,14 @@ public class TrackingReportProcessor {
                 repoPath = repoId.getPath();
                 //repoPath = getTargetRepositoryPath(download, indyContentModule);
             } else {
-                repoPath = download.getRepoId().getProject() + "-" + TypeConverters.toRepositoryTypeString(repoType) + "-imports";
+                repoPath = download.getRepoId().getProject() + "-" + TypeConverters.toRepositoryTypeString(repoType)
+                        + "-imports";
             }
-            logger.info("### getDownloadsTargetRepo::ignoreDepSource {} and repoPath {} repoId {}", ignoreDependencySource(repoId), repoPath , repoId);
+            logger.info(
+                    "### getDownloadsTargetRepo::ignoreDepSource {} and repoPath {} repoId {}",
+                    ignoreDependencySource(repoId),
+                    repoPath,
+                    repoId);
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
             identifier = RepositoryIdentifier.ARTIFACTORY_HTTP;
             //repoPath = getGenericTargetRepositoryPath(repoId);
@@ -601,9 +615,9 @@ public class TrackingReportProcessor {
         logger.info("### getDownloadsTargetRepository::repoId {} repoType {} repoPath {} ", repoId, repoType, repoPath);
 
         // TODO: ### Do we need this??
-//        if (!repoPath.endsWith("/")) {
-//            repoPath += '/';
-//        }
+        //        if (!repoPath.endsWith("/")) {
+        //            repoPath += '/';
+        //        }
 
         return TargetRepository.builder()
                 .identifier(identifier)
