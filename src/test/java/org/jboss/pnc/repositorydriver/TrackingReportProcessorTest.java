@@ -102,38 +102,38 @@ public class TrackingReportProcessorTest {
 
         uploads.add(
                 TrackedEntry.builder()
-                        .repoId(buildKey.getRepositoryId())
-                        .packageType(buildKey.getPackageType())
+                        .repoId(buildKey.repositoryId())
+                        .packageType(buildKey.packageType())
                         .path(TrackingReportMocks.indyJar)
                         .build());
         uploads.add(
                 TrackedEntry.builder()
-                        .repoId(buildKey.getRepositoryId())
-                        .packageType(buildKey.getPackageType())
+                        .repoId(buildKey.repositoryId())
+                        .packageType(buildKey.packageType())
                         .path(TrackingReportMocks.indyJar + ".md5")
                         .build());
         uploads.add(
                 TrackedEntry.builder()
-                        .repoId(buildKey.getRepositoryId())
-                        .packageType(buildKey.getPackageType())
+                        .repoId(buildKey.repositoryId())
+                        .packageType(buildKey.packageType())
                         .path(TrackingReportMocks.indyJar + ".sha1")
                         .build());
         uploads.add(
                 TrackedEntry.builder()
-                        .repoId(buildKey.getRepositoryId())
-                        .packageType(buildKey.getPackageType())
+                        .repoId(buildKey.repositoryId())
+                        .packageType(buildKey.packageType())
                         .path(TrackingReportMocks.indyPom)
                         .build());
         uploads.add(
                 TrackedEntry.builder()
-                        .repoId(buildKey.getRepositoryId())
-                        .packageType(buildKey.getPackageType())
+                        .repoId(buildKey.repositoryId())
+                        .packageType(buildKey.packageType())
                         .path(TrackingReportMocks.indyPom + ".md5")
                         .build());
         uploads.add(
                 TrackedEntry.builder()
-                        .repoId(buildKey.getRepositoryId())
-                        .packageType(buildKey.getPackageType())
+                        .repoId(buildKey.repositoryId())
+                        .packageType(buildKey.packageType())
                         .path(TrackingReportMocks.indyPom + ".sha1")
                         .build());
 
@@ -172,8 +172,8 @@ public class TrackingReportProcessorTest {
         downloads.add(TrackingReportMocks.indyPomFromCentral);
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.ignoredKey.getRepositoryId())
-                        .packageType(TrackingReportMocks.ignoredKey.getPackageType())
+                        .repoId(TrackingReportMocks.ignoredKey.repositoryId())
+                        .packageType(TrackingReportMocks.ignoredKey.packageType())
                         .path(TrackingReportMocks.indyJar)
                         .build());
 
@@ -203,20 +203,20 @@ public class TrackingReportProcessorTest {
         String pom1 = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.centralKey.getRepositoryId())
-                        .packageType(TrackingReportMocks.centralKey.getPackageType())
+                        .repoId(TrackingReportMocks.centralKey.repositoryId())
+                        .packageType(TrackingReportMocks.centralKey.packageType())
                         .path(pom1)
                         .build());
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.toBeIgnoredKey.getRepositoryId())
-                        .packageType(TrackingReportMocks.toBeIgnoredKey.getPackageType())
+                        .repoId(TrackingReportMocks.toBeIgnoredKey.repositoryId())
+                        .packageType(TrackingReportMocks.toBeIgnoredKey.packageType())
                         .path(pom1)
                         .build());
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.notToBeIgnoredKey.getRepositoryId())
-                        .packageType(TrackingReportMocks.notToBeIgnoredKey.getPackageType())
+                        .repoId(TrackingReportMocks.notToBeIgnoredKey.repositoryId())
+                        .packageType(TrackingReportMocks.notToBeIgnoredKey.packageType())
                         .path(pom1)
                         .build());
 
@@ -579,8 +579,8 @@ public class TrackingReportProcessorTest {
 
     private static TrackedEntry mavenEntry(String name, String path, String originUrl, RepositoryKey repositoryKey) {
         return TrackedEntry.builder()
-                .repoId(repositoryKey.getRepositoryId())
-                .packageType(repositoryKey.getPackageType())
+                .repoId(repositoryKey.repositoryId())
+                .packageType(repositoryKey.packageType())
                 .path(path)
                 .originUrl(originUrl)
                 .md5("0bee89b07a248e27c83fc3d5951213c1")
