@@ -51,7 +51,7 @@ public class TrackingReportMocks {
 
     static {
         indyPomFromCentral = TrackedEntry.builder()
-                .repoId(centralKey.getRepositoryId())
+                .repoId(centralKey.repositoryId())
                 .packageType(PackageType.MVN)
                 .path(TrackingReportMocks.indyPom)
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyPom)
@@ -62,7 +62,7 @@ public class TrackingReportMocks {
                 .build();
 
         indyPomSha1FromCentral = TrackedEntry.builder()
-                .repoId(centralKey.getRepositoryId())
+                .repoId(centralKey.repositoryId())
                 .packageType(PackageType.MVN)
                 .path(TrackingReportMocks.indyPom + ".sha1")
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyPom + ".sha1")
@@ -70,7 +70,7 @@ public class TrackingReportMocks {
                 .build();
 
         indyJarFromCentral = TrackedEntry.builder()
-                .repoId(centralKey.getRepositoryId())
+                .repoId(centralKey.repositoryId())
                 .packageType(PackageType.MVN)
                 .path(TrackingReportMocks.indyJar)
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyJar)
@@ -81,7 +81,7 @@ public class TrackingReportMocks {
                 .build();
 
         indyJarSha1FromCentral = TrackedEntry.builder()
-                .repoId(centralKey.getRepositoryId())
+                .repoId(centralKey.repositoryId())
                 .packageType(PackageType.MVN)
                 .path(TrackingReportMocks.indyJar + ".sha1")
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyJar + ".sha1")
