@@ -47,43 +47,6 @@ public class ArtifactoryUtils {
     }
 
     /**
-     * Parse the download-target-repository template and replace placeholders.
-     * Template format: "{project}/{type}/{url}"
-     *
-     * @param template The template string
-     * @param project The project name from RepositoryId
-     * @param repoType The repository type (MAVEN, NPM, GENERIC_PROXY)
-     * @param originUrl The origin URL from TrackedEntry
-     * @return The parsed repository path with placeholders replaced
-     */
-    public static String parseDownloadTargetRepository(
-            String template,
-            String project,
-            RepositoryType repoType,
-            String originUrl) {
-        String urlHostname = extractHostnameFromUrl(originUrl);
-        return parseTemplate(template, project, repoType, null, null, null, urlHostname, null);
-    }
-
-    /**
-     * Parse the uploads-target-repository template and replace placeholders.
-     * Template format: "{project}/{type}/{target}"
-     *
-     * @param template The template string
-     * @param project The project/deployment type name
-     * @param repoType The repository type (MAVEN, NPM)
-     * @param buildPromotionTarget The build promotion target name (from getBuildPromotionTarget)
-     * @return The parsed repository path with placeholders replaced
-     */
-    public static String parseUploadsTargetRepository(
-            String template,
-            String project,
-            RepositoryType repoType,
-            String buildPromotionTarget) {
-        return parseTemplate(template, project, repoType, null, null, null, null, buildPromotionTarget);
-    }
-
-    /**
      * Generic template parser that replaces placeholders with actual values.
      * Supports: {project}, {type}, {temporary}, {virtual}, {build}, {url}, {target}
      * Automatically adds dashes between non-empty parts.
@@ -198,14 +161,6 @@ public class ArtifactoryUtils {
         }
     }
 
-    // PackageTypes can be [maven, npm, generic-http]
-    // TODO: How to handle 'generic-http'? Doesn't match BuildType/RepositoryType.
-    public static BuildType parsePackageType(String packageType) {
-        if (packageType.equals("maven")) {
-            return BuildType.MVN;
-        }
-        return BuildType.NPM;
-    }
 }
 
 // Made with Bob

@@ -153,7 +153,6 @@ public class Driver {
     public RepositoryCreateResponse create(
             @SpanAttribute(value = "repositoryCreateRequest") RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
-        logger.warn("### {}", configuration.getBackend().name());
         try {
             BuildType buildType = repositoryCreateRequest.getBuildType();
             PackageType packageType = TypeConverters.toPackageType(buildType.getRepoType());
@@ -696,12 +695,10 @@ public class Driver {
             boolean brewPullActive,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
 
-        logger.info("### DEBUG::Backend {}", configuration.backend);
-        if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-            try {
-                // Was using try/resources but now switched to injected artifactory for tests
-                // (Artifactory artifactory = createArtifactoryClient()) {
-                String hostedName = ArtifactoryUtils
+        try {
+            // Was using try/resources but now switched to injected artifactory for tests
+            // (Artifactory artifactory = createArtifactoryClient()) {
+            String hostedName = ArtifactoryUtils
                         .createRepositoryName(
                                 configuration.getNamingStructure(),
                                 configuration.getDeploymentType().toString(),
@@ -791,71 +788,6 @@ public class Driver {
                 logger.error("### Caught exception", e);
                 throw new RepositoryDriverException("Error setting up build repositories", e);
             }
-        } else {
-            /*
-             * // if the build-level group doesn't exist, create it.
-             * StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildContentId);
-             * StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildContentId);
-             *
-             * // if the group and repo exist, delete them and recreate them from scratch
-             * IndyStoresClientModule storesModule = indy.stores();
-             * if (storesModule.exists(groupKey)) {
-             * String logCleanupGroupKey = "Cleanup " + groupKey + " before build run.";
-             * logger.info(logCleanupGroupKey);
-             * storesModule.delete(groupKey, logCleanupGroupKey);
-             * }
-             * if (storesModule.exists(hostedKey)) {
-             * HostedRepository hosted = storesModule.load(hostedKey, HostedRepository.class);
-             * if (hosted.isReadonly()) {
-             * hosted.setReadonly(false);
-             * String logWritableHostKey = "Make " + hostedKey + " writable before delete.";
-             * logger.info(logWritableHostKey);
-             * storesModule.update(hosted, logWritableHostKey);
-             * }
-             *
-             * String logCleanupHostedKey = "Cleanup " + hostedKey + " before build run.";
-             * logger.info(logCleanupHostedKey);
-             * storesModule.delete(hostedKey, logCleanupHostedKey, true);
-             * }
-             *
-             * // create build repo
-             * HostedRepository buildArtifacts = new HostedRepository(packageType, buildContentId);
-             * buildArtifacts.setAllowSnapshots(false);
-             * buildArtifacts.setAllowReleases(true);
-             *
-             * buildArtifacts
-             * .setDescription(String.format("Build output for PNC %s build #%s", packageType, buildContentId));
-             *
-             * String logCreatingHostedRepo = "Creating hosted repository for " + packageType + " build: " +
-             * buildContentId
-             * + " (repo: " + buildContentId + ")";
-             * logger.info(logCreatingHostedRepo);
-             * storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
-             *
-             * // create build group
-             * Group buildGroup = IndyBuildGroupBuilder.builder(indy, packageType, buildContentId)
-             * .withDescription(
-             * String.format(
-             * "Aggregation group for PNC %s build #%s",
-             * tempBuild ? "temporary " : "",
-             * buildContentId))
-             * // build-local artifacts
-             * .addConstituent(hostedKey)
-             * // Global-level repos, for captured/shared artifacts and access to the outside world
-             * .addGlobalConstituents(buildType, tempBuild)
-             * // build-specific repos
-             * .addExtraConstituents(extraDependencyRepositories)
-             * // brew pull: see MMENG-1262
-             * .addMetadata(BREW_PULL_METADATA_KEY, Boolean.toString(brewPullActive))
-             * .build();
-             *
-             * String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
-             * + "), with tempBuild: " + tempBuild + " and brewPullAcitve: " + brewPullActive + ".";
-             * logger.info(changelog);
-             * storesModule.create(buildGroup, changelog, Group.class);
-             *
-             */
-        }
     }
 
     /**
@@ -1093,10 +1025,7 @@ public class Driver {
             RepositoryType repositoryType,
             String buildContentId,
             Collection<RepositoryKey> genericRepos) throws RepositoryDriverException {
-        // ### TODO: Remove this. Should build-repo be cleaned up for artifactory?
-        if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-            return;
-        }
+        // TODO: ### Build repos are not cleaned up for Artifactory
         //        try {
         //            String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
         //            StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
@@ -1106,7 +1035,7 @@ public class Driver {
         // TODO: Indy backend support removed - generic repo cleanup no longer applicable
         // The genericRepos parameter is now Collection<RepositoryKey> instead of Collection<StoreKey>
         // For Artifactory backend, this cleanup is not needed (early return above)
-        logger.warn("Generic repo cleanup skipped - Indy backend no longer supported");
+        logger.warn("### Repo cleanup skipped - Indy backend no longer supported");
         //        } catch (IndyClientException e) {
         //            throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
         //        }
@@ -1232,8 +1161,6 @@ public class Driver {
 
     @PreDestroy
     void cleanup() {
-        if (configuration.backend == Configuration.Backend.ARTIFACTORY) {
-            artifactory.close();
-        }
+        artifactory.close();
     }
 }
