@@ -29,16 +29,16 @@ public class ArchiveDownloadEntry {
         // targetRepository.getRepositoryPath() contains both project and name in format: {project}-{name}
         // We need to split it to extract the project and name parts
         String repositoryPath = targetRepository.getRepositoryPath();
-        
+
         int firstHyphen = repositoryPath.indexOf('-');
         if (firstHyphen <= 0) {
             throw new IllegalArgumentException(
                     "Invalid repository path format: " + repositoryPath + ". Expected format: {project}-{name}");
         }
-        
+
         String project = repositoryPath.substring(0, firstHyphen);
         String name = repositoryPath.substring(firstHyphen + 1);
-        
+
         RepositoryId newId = RepositoryId.builder()
                 .project(project)
                 .name(name)
