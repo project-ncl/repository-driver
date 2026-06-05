@@ -871,7 +871,7 @@ public class Driver {
         // imports
         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
             // set read-only only the generic http proxy hosted repos, not shared-imports
-            boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().getPackageType());
+            boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().packageType());
 
             userLog.info(
                     "Promoting {} dependencies from {} to {}",
@@ -889,8 +889,8 @@ public class Driver {
         // TODO: Handling temp and virtual flags
 
         // Convert PackageType enum to string for ArtifactoryUtils
-        String sourcePackageTypeStr = sourceTargetPaths.getSource().getPackageType().name().toLowerCase();
-        String targetPackageTypeStr = sourceTargetPaths.getTarget().getPackageType().name().toLowerCase();
+        String sourcePackageTypeStr = sourceTargetPaths.getSource().packageType().name().toLowerCase();
+        String targetPackageTypeStr = sourceTargetPaths.getTarget().packageType().name().toLowerCase();
 
         //        String sourceRepository = ArtifactoryUtils.createRepositoryName(
         //                configuration.getNamingStructure(),
@@ -909,35 +909,35 @@ public class Driver {
         //                sourceTargetPaths.getTarget().getRepositoryId().getName());
         logger.info(
                 "### Looking for source ID {} and package type {} source repository {} target repository {}",
-                sourceTargetPaths.getSource().getRepositoryId(),
-                sourceTargetPaths.getSource().getPackageType(),
-                sourceTargetPaths.getSource().getRepositoryId(),
-                sourceTargetPaths.getTarget().getRepositoryId());
-        RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().getRepositoryId().getName());
+                sourceTargetPaths.getSource().repositoryId(),
+                sourceTargetPaths.getSource().packageType(),
+                sourceTargetPaths.getSource().repositoryId(),
+                sourceTargetPaths.getTarget().repositoryId());
+        RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().repositoryId().getName());
         logger.warn("### Got handle {}", handle.getClass().getName());
         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (!handle.exists()) {
             throw new RuntimeException(
-                    "Unable to find source repository " + sourceTargetPaths.getSource().getRepositoryId().getName());
+                    "Unable to find source repository " + sourceTargetPaths.getSource().repositoryId().getName());
         }
-        if (!artifactory.repository(sourceTargetPaths.getTarget().getRepositoryId().getName()).exists()) {
+        if (!artifactory.repository(sourceTargetPaths.getTarget().repositoryId().getName()).exists()) {
             throw new RuntimeException(
-                    "Unable to find target repository " + sourceTargetPaths.getTarget().getRepositoryId().getName());
+                    "Unable to find target repository " + sourceTargetPaths.getTarget().repositoryId().getName());
         }
 
         List<String> copied = new ArrayList<>();
         for (String path : sourceTargetPaths.getPaths()) {
             try {
                 // Where should we promote to?
-                handle.folder(path).copy(sourceTargetPaths.getTarget().getRepositoryId().getName(), path);
+                handle.folder(path).copy(sourceTargetPaths.getTarget().repositoryId().getName(), path);
                 copied.add(path);
             } catch (CopyMoveException e) {
                 logger.error("Caught exception promoting {}", path, e);
                 logger.warn("Copied {} so far; removing from promotion", copied);
                 // TODO: ### Should we remove what we have copied so far?
                 RepositoryHandle cleanup = artifactory
-                        .repository(sourceTargetPaths.getTarget().getRepositoryId().getName());
+                        .repository(sourceTargetPaths.getTarget().repositoryId().getName());
                 copied.forEach(cleanup::delete);
             }
         }
