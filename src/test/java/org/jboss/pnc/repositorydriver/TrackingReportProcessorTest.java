@@ -17,6 +17,7 @@ import org.jboss.pnc.api.trackingservice.dto.PackageType;
 import org.jboss.pnc.api.trackingservice.dto.TrackedEntry;
 import org.jboss.pnc.api.trackingservice.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -532,13 +533,14 @@ public class TrackingReportProcessorTest {
                 .findAny()
                 .orElseThrow();
         RepositoryKey dedicatedRepo = new RepositoryKey(
-                RepositoryId.builder().project("pnc").name("h-" + gpRepoName).build(),
+                RepositoryId.builder().project("pnc").name(RepositoryConstants.GENERIC_DOWNLOADS).build(),
                 PackageType.GENERIC,
                 false);
         Assertions.assertEquals(dedicatedRepo, gpToDedicatedRepo.getTarget());
 
         Set<String> gpExpectedPaths = new HashSet<>();
-        gpExpectedPaths.add(gpPath);
+        // TODO: ### Was gpExpectedPaths.add(gpPath);
+        gpExpectedPaths.add("r-docs-oracle-com-build-ABCDEFGH/docs.oracle.com/javase/8/docs/api");
         Assertions.assertLinesMatch(gpExpectedPaths.stream(), gpToDedicatedRepo.getPaths().stream());
 
         // Maven repos

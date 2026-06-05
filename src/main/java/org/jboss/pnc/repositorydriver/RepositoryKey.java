@@ -8,6 +8,6 @@ import org.jboss.pnc.api.trackingservice.dto.PackageType;
  * about a repository
  */
 public record RepositoryKey(RepositoryId repositoryId,
-                            PackageType packageType,
-                            boolean temporary) {
+        PackageType packageType,
+        boolean temporary) {
 }
