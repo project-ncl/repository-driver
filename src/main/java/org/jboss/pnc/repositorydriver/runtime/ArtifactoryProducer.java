@@ -5,7 +5,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.pnc.repositorydriver.Configuration;
 import org.jboss.pnc.repositorydriver.RepositoryDriverException;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.ArtifactoryClientBuilder;
@@ -27,12 +26,10 @@ public class ArtifactoryProducer {
             logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);
             artifactory = ArtifactoryClientBuilder.create()
                     // Attempting to use setPassword fails because we are not defining a username.
-                    // setAccessToken
-                    // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
+                    // Previously setAccessToken caused issues and had to use a HTTPProcessor via
+                    // ArtifactoryTokenProcessor, but currently it seems to be working
                     .setAccessToken(accessToken)
-
                     // .setPassword(accessToken)
-                    // .setUsername("pnc").build();
                     //.setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
                     .setUrl(url)
                     .build();
