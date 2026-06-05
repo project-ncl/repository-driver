@@ -20,32 +20,27 @@ public class ArtifactoryProducer {
     private final Artifactory artifactory;
 
     public ArtifactoryProducer(
-            @ConfigProperty(name = "repository-driver.backend") Configuration.Backend backend,
             @ConfigProperty(name = "repository-driver.artifactory-client.url") String url,
             @ConfigProperty(name = "repository-driver.artifactory-client.accessToken") String accessToken)
             throws RepositoryDriverException {
-        if (backend == Configuration.Backend.ARTIFACTORY) {
-            try {
-                logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);
-                artifactory = ArtifactoryClientBuilder.create()
-                        // Attempting to use setPassword fails because we are not defining a username. 
-                        // setAccessToken
-                        // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
-                        .setAccessToken(accessToken)
+        try {
+            logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);
+            artifactory = ArtifactoryClientBuilder.create()
+                    // Attempting to use setPassword fails because we are not defining a username.
+                    // setAccessToken
+                    // also doesn't appear to work but defining a HTTPProcessor to add the appropriate header works.
+                    .setAccessToken(accessToken)
 
-                        // .setPassword(accessToken)
-                        // .setUsername("pnc").build();
-                        //.setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
-                        .setUrl(url)
-                        .build();
-                logger.info(
-                        "Running against Artifactory version {}",
-                        artifactory.system().version().getVersion());
-            } catch (Exception e) {
-                throw new RepositoryDriverException("Fatal error contacting artifactory", e);
-            }
-        } else {
-            artifactory = null;
+                    // .setPassword(accessToken)
+                    // .setUsername("pnc").build();
+                    //.setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
+                    .setUrl(url)
+                    .build();
+            logger.info(
+                    "Running against Artifactory version {}",
+                    artifactory.system().version().getVersion());
+        } catch (Exception e) {
+            throw new RepositoryDriverException("Fatal error contacting artifactory", e);
         }
     }
 
