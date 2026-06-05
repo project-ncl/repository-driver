@@ -29,7 +29,7 @@ public class TrackingReportMocks {
             false);
 
     public static RepositoryKey toBeIgnoredKey = new RepositoryKey(
-            RepositoryId.builder().name("tobeignored").build(),
+            RepositoryId.builder().project("pnc").name("tobeignored").build(),
             PackageType.MVN,
             false);
 

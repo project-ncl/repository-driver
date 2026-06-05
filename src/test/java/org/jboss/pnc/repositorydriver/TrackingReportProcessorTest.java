@@ -89,7 +89,7 @@ public class TrackingReportProcessorTest {
         RepositoryKey buildKey = new RepositoryKey(
                 RepositoryId.builder().project("pnc").name(buildContentId).build(),
                 PackageType.MVN,
-                false);
+                tempBuild);
         RepositoryKey promotedBuildsKey = new RepositoryKey(
                 RepositoryId.builder()
                         .project("pnc")
@@ -98,7 +98,7 @@ public class TrackingReportProcessorTest {
                                         : configuration.getBuildPromotionTarget())
                         .build(),
                 PackageType.MVN,
-                false);
+                tempBuild);
 
         uploads.add(
                 TrackedEntry.builder()
@@ -229,7 +229,6 @@ public class TrackingReportProcessorTest {
         Set<RepositoryKey> genericRepos = new HashSet<>();
         PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
-
         // then
         Assertions.assertEquals(2, sourceTargetPaths.size());
     }
@@ -418,18 +417,18 @@ public class TrackingReportProcessorTest {
              * path=/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar, md5=0bee89b07a248e27c83fc3d5951213c1,
              * sha256=edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb,
              * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
-             * 
+             *
              * They are now e.g.
              * ArchiveDownloadEntry(repositoryId=RepositoryId(project=pnc, name=build-x), packageType=MVN,
              * path=/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar, md5=0bee89b07a248e27c83fc3d5951213c1,
              * sha256=edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb,
              * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
-             * 
+             *
              */
-            Log.info("### entry is " + entry.toString());
+            Log.info("### path " + entry.getRepositoryId().getPath() + " entry is " + entry.toString());
 
             Assertions.assertEquals(PackageType.MVN, entry.getPackageType());
-            Assertions.assertEquals("shared-imports", entry.getRepositoryId().getName());
+            Assertions.assertEquals("pnc-mvn-imports", entry.getRepositoryId().getPath());
         }
     }
 

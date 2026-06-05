@@ -258,6 +258,7 @@ public class TrackingReportProcessor {
             String path = download.getPath();
             RepositoryId sourceRepoId = download.getRepoId();
             PackageType packageType = download.getPackageType();
+            logger.warn("### collectDownloadsPromotions::source {} ignoreDependencySource(source) {} download {} artifactFilterPromotion.accepts(download) {}", sourceRepoId, ignoreDependencySource(sourceRepoId), download,  artifactFilterPromotion.accepts(download));
             if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
                 RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
                 RepositoryKey target;
@@ -295,7 +296,6 @@ public class TrackingReportProcessor {
     @WithSpan()
     public List<ArchiveDownloadEntry> collectArchivalArtifacts(
             @SpanAttribute(value = "report") TrackingReport report) throws RepositoryDriverException {
-        logger.warn("### collectArchivalArtifacts::start {} ", report);
         Set<TrackedEntry> downloads = report.getDownloads();
         if (downloads == null) {
             return Collections.emptyList();
@@ -308,15 +308,7 @@ public class TrackingReportProcessor {
                     download,
                     artifactFilterArchive.accepts(download));
             if (artifactFilterArchive.accepts(download)) {
-                // TODO: Need to change this - likely just make getDownloadsTargetRepository
-                //    return a repositoryid to represent the changed repository
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
-                RepositoryId newId = RepositoryId.builder()
-                        .project(download.getRepoId().getProject())
-                        .name(targetRepository.getRepositoryPath())
-                        .build();
-                logger.warn("### collectArchivalArtifacts::newId {}", newId);
-
                 ArchiveDownloadEntry entry = fromTrackedEntry(download, targetRepository);
                 deps.add(entry);
             }
@@ -588,13 +580,14 @@ public class TrackingReportProcessor {
         String identifier;
         // TODO: Not sure this is entirely right ....
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
-            identifier = "artifactory-" + repoType.name().toLowerCase();
+            identifier = "artifactory-" + TypeConverters.toRepositoryTypeString(repoType);
             if (ignoreDependencySource(repoId)) {
                 repoPath = repoId.getPath();
                 //repoPath = getTargetRepositoryPath(download, indyContentModule);
             } else {
-                repoPath = download.getRepoId().getName() + "-shared-imports";
+                repoPath = download.getRepoId().getProject() + "-" + TypeConverters.toRepositoryTypeString(repoType) + "-imports";
             }
+            logger.info("### getDownloadsTargetRepo::ignoreDepSource {} and repoPath {} repoId {}", ignoreDependencySource(repoId), repoPath , repoId);
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
             identifier = RepositoryIdentifier.ARTIFACTORY_HTTP;
             //repoPath = getGenericTargetRepositoryPath(repoId);
@@ -606,9 +599,10 @@ public class TrackingReportProcessor {
 
         logger.info("### getDownloadsTargetRepository::repoId {} repoType {} repoPath {} ", repoId, repoType, repoPath);
 
-        if (!repoPath.endsWith("/")) {
-            repoPath += '/';
-        }
+        // TODO: ### Do we need this??
+//        if (!repoPath.endsWith("/")) {
+//            repoPath += '/';
+//        }
 
         return TargetRepository.builder()
                 .identifier(identifier)

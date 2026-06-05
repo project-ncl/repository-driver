@@ -44,7 +44,7 @@ repository-driver:
     enabled: false
     url: http://sidecar:8093/
   ignored-repo-patterns:
-    promotion: [ ".*ignored", ".+tobeigno.+" ]
+    promotion: [ "pnc-ignored", "pnc-tobeigno.+" ]
 #    promotion: [ "maven:.*:ignored", "maven:.+:tobeigno.+" ]
     archive: [ ".*-build-yyyyy", ".*-build-xxxxx" ]
 #    archive: [ "maven:.*:build-yyyyy", "maven:hosted:build-xxxxx" ]

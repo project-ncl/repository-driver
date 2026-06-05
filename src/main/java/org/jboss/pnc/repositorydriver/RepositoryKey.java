@@ -14,5 +14,4 @@ public class RepositoryKey {
     private final RepositoryId repositoryId;
     private final PackageType packageType;
     private final boolean temporary;
-    // TODO: What about local vs remote
 }
