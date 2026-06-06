@@ -68,8 +68,7 @@
     <compiler-plugin.version>3.15.0</compiler-plugin.version>
     <surefire-plugin.version>3.5.6</surefire-plugin.version>
     <indy.version>3.4.5</indy.version>
-    <wiremock.version>3.0.1</wiremock.version>
-    <!-- Package URL -->
+    <wiremock.version>3.13.2</wiremock.version>
     <version.com.github.package-url>1.5.0</version.com.github.package-url>
 
     <version.javadoc.plugin>3.12.0</version.javadoc.plugin>
@@ -80,21 +79,6 @@
 
   <dependencyManagement>
     <dependencies>
-      <!--
-        manual override, because indy-promote-client-java hasn't been update for a while
-        TODO: remove when when indy-promote-client-java is upgrade or removed
-      -->
-      <dependency>
-        <groupId>ch.qos.logback</groupId>
-        <artifactId>logback-classic</artifactId>
-        <version>1.5.38</version>
-      </dependency>
-      <dependency>
-        <groupId>ch.qos.logback</groupId>
-        <artifactId>logback-core</artifactId>
-        <version>1.5.38</version>
-      </dependency>
-
       <dependency>
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>${quarkus.platform.artifact-id}</artifactId>
@@ -104,25 +88,16 @@
       </dependency>
 
       <dependency>
-        <groupId>org.jfrog.artifactory.client</groupId>
+        <groupId>org.jboss.pnc.artifactory-client</groupId>
         <artifactId>artifactory-java-client-services</artifactId>
         <version>2.21.3-SNAPSHOT</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-folo-client-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-promote-client-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-client-core-java</artifactId>
-        <version>${indy.version}</version>
+        <!-- Can interfere with quarkus-logging-kafka -->
+        <exclusions>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -148,14 +123,6 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest-client-jackson</artifactId>
     </dependency>
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-mutiny</artifactId> -->
-    <!-- </dependency> -->
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-resteasy-mutiny</artifactId> -->
-    <!-- </dependency> -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-arc</artifactId>
@@ -185,51 +152,10 @@
       <artifactId>quarkus-micrometer-opentelemetry</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.jfrog.artifactory.client</groupId>
+      <groupId>org.jboss.pnc.artifactory-client</groupId>
       <artifactId>artifactory-java-client-services</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-folo-client-java</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-client-core-java</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>ch.qos.logback</groupId>
-          <artifactId>logback-core</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>log4j-over-slf4j</artifactId>
-        </exclusion>
-        <!-- this dep brakes tests which are not able to start up properly, timing out on "starting server: Undertow - 2.1.0.Final" -->
-        <exclusion>
-          <groupId>io.undertow</groupId>
-          <artifactId>undertow-servlet</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-promote-client-java</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-compiler</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-reflect</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>joda-time</groupId>
-          <artifactId>joda-time</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-identities</artifactId>
@@ -355,16 +281,16 @@
   </dependencies>
 
   <repositories>
-    <repository>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-      <id>jboss-snapshots</id>
-      <url>https://repository.jboss.org/nexus/content/repositories/snapshots</url>
-    </repository>
+    <!--    <repository>-->
+    <!--      <releases>-->
+    <!--        <enabled>false</enabled>-->
+    <!--      </releases>-->
+    <!--      <snapshots>-->
+    <!--        <enabled>true</enabled>-->
+    <!--      </snapshots>-->
+    <!--      <id>jboss-snapshots</id>-->
+    <!--      <url>https://repository.jboss.org/nexus/content/repositories/snapshots</url>-->
+    <!--    </repository>-->
     <repository>
       <releases>
         <enabled>false</enabled>
@@ -377,14 +303,14 @@
       <url>https://central.sonatype.com/repository/maven-snapshots/</url>
     </repository>
 
-    <repository>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <id>central</id>
-      <name>Central Repository</name>
-      <url>https://repo.maven.apache.org/maven2</url>
-    </repository>
+    <!--    <repository>-->
+    <!--      <snapshots>-->
+    <!--        <enabled>false</enabled>-->
+    <!--      </snapshots>-->
+    <!--      <id>central</id>-->
+    <!--      <name>Central Repository</name>-->
+    <!--      <url>https://repo.maven.apache.org/maven2</url>-->
+    <!--    </repository>-->
   </repositories>
 
   <build>
