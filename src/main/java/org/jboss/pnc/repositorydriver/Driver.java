@@ -210,7 +210,6 @@ public class Driver {
                     true,
                     repositoryCreateRequest.isTempBuild(),
                     buildId);
-            //                }
 
             // TODO: With Artifactory will we need the sidecar translation?
             if (configuration.isSidecarEnabled()) {
@@ -228,13 +227,6 @@ public class Driver {
             }
             logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
             logger.info("Using '{}' for deployment build: {}", deployUrl, buildId);
-            //            } catch (IndyClientException e) {
-            //                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
-            //                throw new RepositoryDriverException(
-            //                        "Failed to retrieve Indy client module for the artifact tracker: %s",
-            //                        e,
-            //                        e.getMessage());
-            //            }
 
             uploadLogs("", "create");
             return new RepositoryCreateResponse(
@@ -699,95 +691,95 @@ public class Driver {
             // Was using try/resources but now switched to injected artifactory for tests
             // (Artifactory artifactory = createArtifactoryClient()) {
             String hostedName = ArtifactoryUtils
-                        .createRepositoryName(
-                                configuration.getNamingStructure(),
-                                configuration.getDeploymentType().toString(),
-                                buildType,
-                                false,
-                                tempBuild,
-                                buildContentId);
-                String virtualName = ArtifactoryUtils
-                        .createRepositoryName(
-                                configuration.getNamingStructure(),
-                                configuration.getDeploymentType().toString(),
-                                buildType,
-                                true,
-                                tempBuild,
-                                buildContentId);
-                logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
-                // Check repositories exist and delete if they do
-                RepositoryHandle hostedRepository = artifactory.repository(hostedName);
-                RepositoryHandle virtualRepository = artifactory.repository(virtualName);
-                // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
-                // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
-                if (hostedRepository.exists()) {
-                    hostedRepository.delete();
-                }
-                if (virtualRepository.exists()) {
-                    virtualRepository.delete();
-                }
-
-                RepositorySettings settings = null;
-                switch (packageType) {
-                    case MVN: {
-                        // Create local and virtual repository
-                        // MavenRepositorySettingsImpl implicitly sets package type maven.
-                        settings = new MavenRepositorySettingsImpl();
-                        // https://jfrog.com/help/r/jfrog-artifactory-documentation/additional-settings-for-maven/gradle/ivy/sbt-local-repositories
-                        ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
-                        ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
-                        ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
-                        // Don't need this as we are disabling snapshots
-                        // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
-                        break;
-                    }
-                    case NPM: {
-                        settings = new NpmRepositorySettingsImpl();
-                    }
-                    // TODO: Will we need to support other types here?
-                }
-
-                var repository = artifactory.repositories()
-                        .builders()
-                        .localRepositoryBuilder()
-                        .archiveBrowsingEnabled(brewPullActive)
-                        .projectKey(configuration.getDeploymentType().toString())
-                        .environments(Collections.singletonList(configuration.getEnvironment()))
-                        .description("PNC Build repository for " + hostedName)
-                        .repositorySettings(settings)
-                        .key(hostedName)
-                        .build();
-                String r = artifactory.repositories().create(1, repository);
-
-                logger.info(
-                        "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
-                        r,
-                        extraDependencyRepositories);
-
-                Repository group = ArtifactoryBuildGroupBuilder
-                        .builder(configuration, artifactory, settings, virtualName)
-                        .withDescription(
-                                String.format(
-                                        "Aggregation group for PNC %s build #%s",
-                                        tempBuild ? "temporary " : "",
-                                        buildContentId))
-                        // build-local artifacts
-                        .addConstituent(hostedName)
-                        // Global-level repos, for captured/shared artifacts and access to the outside world
-                        .addGlobalConstituents(buildType, buildCategory, tempBuild)
-                        // build-specific repos
-                        .addExtraConstituents(extraDependencyRepositories)
-                        .build();
-                // TODO: What is the position. Undocumented in the REST API. Comes through as "?pos="
-                String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
-                        + "), with tempBuild: " + tempBuild;
-                logger.info(changelog);
-                artifactory.repositories().create(1, group);
-
-            } catch (Exception e) {
-                logger.error("### Caught exception", e);
-                throw new RepositoryDriverException("Error setting up build repositories", e);
+                    .createRepositoryName(
+                            configuration.getNamingStructure(),
+                            configuration.getDeploymentType().toString(),
+                            buildType,
+                            false,
+                            tempBuild,
+                            buildContentId);
+            String virtualName = ArtifactoryUtils
+                    .createRepositoryName(
+                            configuration.getNamingStructure(),
+                            configuration.getDeploymentType().toString(),
+                            buildType,
+                            true,
+                            tempBuild,
+                            buildContentId);
+            logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
+            // Check repositories exist and delete if they do
+            RepositoryHandle hostedRepository = artifactory.repository(hostedName);
+            RepositoryHandle virtualRepository = artifactory.repository(virtualName);
+            // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+            // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
+            if (hostedRepository.exists()) {
+                hostedRepository.delete();
             }
+            if (virtualRepository.exists()) {
+                virtualRepository.delete();
+            }
+
+            RepositorySettings settings = null;
+            switch (packageType) {
+                case MVN: {
+                    // Create local and virtual repository
+                    // MavenRepositorySettingsImpl implicitly sets package type maven.
+                    settings = new MavenRepositorySettingsImpl();
+                    // https://jfrog.com/help/r/jfrog-artifactory-documentation/additional-settings-for-maven/gradle/ivy/sbt-local-repositories
+                    ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
+                    ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
+                    ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
+                    // Don't need this as we are disabling snapshots
+                    // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
+                    break;
+                }
+                case NPM: {
+                    settings = new NpmRepositorySettingsImpl();
+                }
+                // TODO: Will we need to support other types here?
+            }
+
+            var repository = artifactory.repositories()
+                    .builders()
+                    .localRepositoryBuilder()
+                    .archiveBrowsingEnabled(brewPullActive)
+                    .projectKey(configuration.getDeploymentType().toString())
+                    .environments(Collections.singletonList(configuration.getEnvironment()))
+                    .description("PNC Build repository for " + hostedName)
+                    .repositorySettings(settings)
+                    .key(hostedName)
+                    .build();
+            String r = artifactory.repositories().create(1, repository);
+
+            logger.info(
+                    "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
+                    r,
+                    extraDependencyRepositories);
+
+            Repository group = ArtifactoryBuildGroupBuilder
+                    .builder(configuration, artifactory, settings, virtualName)
+                    .withDescription(
+                            String.format(
+                                    "Aggregation group for PNC %s build #%s",
+                                    tempBuild ? "temporary " : "",
+                                    buildContentId))
+                    // build-local artifacts
+                    .addConstituent(hostedName)
+                    // Global-level repos, for captured/shared artifacts and access to the outside world
+                    .addGlobalConstituents(buildType, buildCategory, tempBuild)
+                    // build-specific repos
+                    .addExtraConstituents(extraDependencyRepositories)
+                    .build();
+            // TODO: What is the position. Undocumented in the REST API. Comes through as "?pos="
+            String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
+                    + "), with tempBuild: " + tempBuild;
+            logger.info(changelog);
+            artifactory.repositories().create(1, group);
+
+        } catch (Exception e) {
+            logger.error("### Caught exception", e);
+            throw new RepositoryDriverException("Error setting up build repositories", e);
+        }
     }
 
     /**
@@ -896,39 +888,6 @@ public class Driver {
             artifactoryPromoteByPath(sourceTargetPaths, false, false);
         }
     }
-
-    // TODO: Indy backend support removed - doPromoteByPath is no longer used
-    /*
-     * private void doPromoteByPath(PathsPromoteRequest req, boolean setSourceRO, boolean setTargetRO)
-     * throws RepositoryDriverException, PromotionValidationException {
-     * IndyPromoteClientModule promoter;
-     * try {
-     * promoter = indy.module(IndyPromoteClientModule.class);
-     * } catch (IndyClientException e) {
-     * throw new RepositoryDriverException(
-     * "Failed to retrieve Indy promote client module. Reason: %s",
-     * e,
-     * e.getMessage());
-     * }
-     *
-     * try {
-     * PathsPromoteResult result = promoter.promoteByPath(req);
-     * if (result.succeeded()) {
-     * if (setSourceRO) {
-     * setHostedReadOnly(req.getSource(), promoter, result);
-     * }
-     * if (setTargetRO) {
-     * setHostedReadOnly(req.getTarget(), promoter, result);
-     * }
-     * } else {
-     * String error = getValidationError(result);
-     * throw new PromotionValidationException("Failed to promote: %s. Reason given was: %s", req, error);
-     * }
-     * } catch (IndyClientException e) {
-     * throw new RepositoryDriverException("Failed to promote: %s. Reason: %s", e, req, e.getMessage());
-     * }
-     * }
-     */
 
     /**
      * Sets readonly flag on a hosted repo after promotion. If it fails, it rolls back the promotion and throws
