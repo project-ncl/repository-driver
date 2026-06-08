@@ -209,7 +209,6 @@ public class Driver {
                     true,
                     repositoryCreateRequest.isTempBuild(),
                     buildId);
-            //                }
 
             // TODO: With Artifactory will we need the sidecar translation?
             if (configuration.isSidecarEnabled()) {
@@ -227,13 +226,6 @@ public class Driver {
             }
             logger.info("Using '{}' for {} repository access in build: {}", downloadsUrl, packageType, buildId);
             logger.info("Using '{}' for deployment build: {}", deployUrl, buildId);
-            //            } catch (IndyClientException e) {
-            //                logger.debug("Failed to retrieve Indy client module for the artifact tracker");
-            //                throw new RepositoryDriverException(
-            //                        "Failed to retrieve Indy client module for the artifact tracker: %s",
-            //                        e,
-            //                        e.getMessage());
-            //            }
 
             uploadLogs("", "create");
             return new RepositoryCreateResponse(
@@ -892,39 +884,6 @@ public class Driver {
             artifactoryPromoteByPath(sourceTargetPaths, false, false);
         }
     }
-
-    // TODO: Indy backend support removed - doPromoteByPath is no longer used
-    /*
-     * private void doPromoteByPath(PathsPromoteRequest req, boolean setSourceRO, boolean setTargetRO)
-     * throws RepositoryDriverException, PromotionValidationException {
-     * IndyPromoteClientModule promoter;
-     * try {
-     * promoter = indy.module(IndyPromoteClientModule.class);
-     * } catch (IndyClientException e) {
-     * throw new RepositoryDriverException(
-     * "Failed to retrieve Indy promote client module. Reason: %s",
-     * e,
-     * e.getMessage());
-     * }
-     *
-     * try {
-     * PathsPromoteResult result = promoter.promoteByPath(req);
-     * if (result.succeeded()) {
-     * if (setSourceRO) {
-     * setHostedReadOnly(req.getSource(), promoter, result);
-     * }
-     * if (setTargetRO) {
-     * setHostedReadOnly(req.getTarget(), promoter, result);
-     * }
-     * } else {
-     * String error = getValidationError(result);
-     * throw new PromotionValidationException("Failed to promote: %s. Reason given was: %s", req, error);
-     * }
-     * } catch (IndyClientException e) {
-     * throw new RepositoryDriverException("Failed to promote: %s. Reason: %s", e, req, e.getMessage());
-     * }
-     * }
-     */
 
     /**
      * Sets readonly flag on a hosted repo after promotion. If it fails, it rolls back the promotion and throws

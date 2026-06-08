@@ -127,22 +127,6 @@
         <artifactId>artifactory-java-client-services</artifactId>
         <version>2.21.3-SNAPSHOT</version>
       </dependency>
-
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-folo-client-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-promote-client-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-client-core-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
     </dependencies>
   </dependencyManagement>
 
@@ -167,14 +151,6 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest-client-jackson</artifactId>
     </dependency>
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-mutiny</artifactId> -->
-    <!-- </dependency> -->
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-resteasy-mutiny</artifactId> -->
-    <!-- </dependency> -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-arc</artifactId>
@@ -208,47 +184,6 @@
       <artifactId>artifactory-java-client-services</artifactId>
     </dependency>
 
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-folo-client-java</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-client-core-java</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>ch.qos.logback</groupId>
-          <artifactId>logback-core</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>log4j-over-slf4j</artifactId>
-        </exclusion>
-        <!-- this dep brakes tests which are not able to start up properly, timing out on "starting server: Undertow - 2.1.0.Final" -->
-        <exclusion>
-          <groupId>io.undertow</groupId>
-          <artifactId>undertow-servlet</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-promote-client-java</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-compiler</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-reflect</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>joda-time</groupId>
-          <artifactId>joda-time</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-identities</artifactId>

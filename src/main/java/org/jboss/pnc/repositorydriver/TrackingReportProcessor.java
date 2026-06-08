@@ -587,7 +587,9 @@ public class TrackingReportProcessor {
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
         String repoPath;
         String identifier;
-        // TODO: Not sure this is entirely right ....
+        // identifier is used in the PNC DB. Previously it was e.g. indy-mvn, indy-npm.
+        // Currently we convert to artifactory-http / npm / mvn
+        // TODO: Should it be artifactory-mvn or artifactory-maven ??
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
             identifier = "artifactory-" + TypeConverters.toRepositoryTypeString(repoType);
             if (ignoreDependencySource(repoId)) {
@@ -624,49 +626,6 @@ public class TrackingReportProcessor {
                 .repositoryPath(repoPath)
                 .temporaryRepo(false)
                 .build();
-    }
-
-    /*
-     * Commented out - Indy-specific code no longer used
-     * private String getTargetRepositoryPath(TrackedEntry download, IndyContentClientModule content) {
-     * String result;
-     * RepositoryId repoId = download.getRepoId();
-     * PackageType packageType = download.getPackageType();
-     * String packageTypeStr = TypeConverters.getIndyPackageTypeKey(TypeConverters.toRepoType(packageType));
-     * if (ignoreDependencySource(repoId)) {
-     * StoreKey sk = new StoreKey(packageTypeStr, StoreType.hosted, repoId.getName());
-     * result = "/api/" + content.contentPath(sk);
-     * } else {
-     * result = "/api/" + content.contentPath(new StoreKey(packageTypeStr, StoreType.hosted, SHARED_IMPORTS_ID));
-     * }
-     * return result;
-     * }
-     *
-     * private String getGenericTargetRepositoryPath(RepositoryId repoId) {
-     * return "/api/content/generic-http/hosted/" + getGenericHostedRepoName(repoId.getName());
-     * }
-     */
-
-    /**
-     * For a remote generic http repo/group computes matching hosted repo name.
-     *
-     * @param remoteName the remote repo name
-     * @return computed hosted repo name
-     */
-    // TODO: NYI
-    private String getGenericHostedRepoName(String remoteName) {
-        String hostedName;
-        // TODO: ### GenericHostedName : what is this?
-        if (remoteName.startsWith("r-") || remoteName.startsWith("g-")) {
-            hostedName = "h-" + remoteName.substring(2);
-        } else {
-            logger.error(
-                    "Unexpected generic http remote repo/group name {}. Using it for hosted repo "
-                            + "without change, but it probably doesn't exist.",
-                    remoteName);
-            hostedName = remoteName;
-        }
-        return hostedName;
     }
 
     /**
