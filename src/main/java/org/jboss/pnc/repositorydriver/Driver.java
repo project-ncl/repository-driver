@@ -749,6 +749,7 @@ public class Driver {
                     .repositorySettings(settings)
                     .key(hostedName)
                     .build();
+            // TODO: What is the position. Undocumented in the REST API. Comes through as "?pos="
             String r = artifactory.repositories().create(1, repository);
 
             logger.info(
@@ -770,7 +771,6 @@ public class Driver {
                     // build-specific repos
                     .addExtraConstituents(extraDependencyRepositories)
                     .build();
-            // TODO: What is the position. Undocumented in the REST API. Comes through as "?pos="
             String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
                     + "), with tempBuild: " + tempBuild;
             logger.info(changelog);
@@ -983,55 +983,10 @@ public class Driver {
             RepositoryType repositoryType,
             String buildContentId,
             Collection<RepositoryKey> genericRepos) throws RepositoryDriverException {
-        // TODO: ### Build repos are not cleaned up for Artifactory
-        //        try {
-        //            String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
-        //            StoreKey key = new StoreKey(packageType, StoreType.group, buildContentId);
-        //            IndyStoresClientModule indyStores = indy.stores();
-        //            indyStores.delete(key, "[Post-Build] Removing build aggregation group: " + buildContentId);
-
-        // TODO: Indy backend support removed - generic repo cleanup no longer applicable
-        // The genericRepos parameter is now Collection<RepositoryKey> instead of Collection<StoreKey>
-        // For Artifactory backend, this cleanup is not needed (early return above)
-        logger.warn("### Repo cleanup skipped - Indy backend no longer supported");
-        //        } catch (IndyClientException e) {
-        //            throw new RepositoryDriverException("Failed to retrieve Indy stores module. Reason: %s", e, e.getMessage());
-        //        }
-    }
-
-    /**
-     * For a remote generic http repo/group computes matching hosted repo name.
-     *
-     * @param remoteName the remote repo name
-     * @return computed hosted repo name
-     */
-    // TODO: Came from deleteBuildRepos
-    private String getGenericGroupName(String remoteName) {
-        String groupName;
-        if (remoteName.startsWith("r-")) {
-            groupName = "g-" + remoteName.substring(2);
-        } else {
-            logger.error("Unexpected generic http remote repo name {}. Cannot convert it to a group name.", remoteName);
-            groupName = null;
+        for (RepositoryKey key : genericRepos) {
+            logger.info("Deleting remote build repository {}", key.repositoryId().getPath());
+            artifactory.repository(key.repositoryId().getPath()).delete();
         }
-        return groupName;
-    }
-
-    /**
-     * For a generic group computes matching remote repo name.
-     *
-     * @param groupName the group name
-     * @return computed remote repo name
-     */
-    private String getGenericRemoteName(String groupName) {
-        String remoteName;
-        if (groupName.startsWith("g-")) {
-            remoteName = "r-" + groupName.substring(2);
-        } else {
-            logger.error("Unexpected generic http group name {}. Cannot convert it to a remote repo name.", groupName);
-            remoteName = null;
-        }
-        return remoteName;
     }
 
     private Runnable heartBeatSender(Request heartBeat) {
