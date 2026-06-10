@@ -229,6 +229,7 @@ public class ArtifactoryBuildGroupBuilder {
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
+                .artifactoryRequestsCanRetrieveRemoteArtifacts(true)
                 .projectKey(configuration.getDeploymentType().toString())
                 .environments(Collections.singletonList(configuration.getEnvironment()))
                 .repositorySettings(settings)

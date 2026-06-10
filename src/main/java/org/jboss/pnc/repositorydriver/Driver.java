@@ -79,6 +79,7 @@ import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.impl.CopyMoveException;
 import org.jfrog.artifactory.client.model.Repository;
+import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
 import org.jfrog.artifactory.client.model.repository.settings.impl.NpmRepositorySettingsImpl;
@@ -722,9 +723,14 @@ public class Driver {
                     // MavenRepositorySettingsImpl implicitly sets package type maven.
                     settings = new MavenRepositorySettingsImpl();
                     // https://jfrog.com/help/r/jfrog-artifactory-documentation/additional-settings-for-maven/gradle/ivy/sbt-local-repositories
+                    // TODO: Should we disable this? It verifies that the value set for
+                    //       groupId:artifactId:version in the POM is consistent with the deployed path.
                     ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
                     ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
                     ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
+                    // Don't alter repository references in the poms.
+                    ((MavenRepositorySettingsImpl) settings).setPomRepositoryReferencesCleanupPolicy(
+                            PomCleanupPolicy.nothing);
                     // Don't need this as we are disabling snapshots
                     // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
                     break;
