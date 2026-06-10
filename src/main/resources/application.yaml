@@ -123,7 +123,7 @@ repository-driver:
     enabled: false
     url:
   http-client:
-    connect-timeout: 5lo
+    connect-timeout: 5
     request-timeout: 15
   callback-retry-duration: 600
   callback-retry-delay-msec: 500

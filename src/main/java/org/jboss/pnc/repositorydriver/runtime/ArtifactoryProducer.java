@@ -25,12 +25,7 @@ public class ArtifactoryProducer {
         try {
             logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);
             artifactory = ArtifactoryClientBuilder.create()
-                    // Attempting to use setPassword fails because we are not defining a username.
-                    // Previously setAccessToken caused issues and had to use a HTTPProcessor via
-                    // ArtifactoryTokenProcessor, but currently it seems to be working
                     .setAccessToken(accessToken)
-                    // .setPassword(accessToken)
-                    //.setHttpProcessor(new ArtifactoryTokenProcessor(accessToken))
                     .setUrl(url)
                     .build();
             logger.info(
