@@ -1,6 +1,6 @@
 package org.jboss.pnc.repositorydriver.group;
 
-import static org.jboss.pnc.repositorydriver.Driver.GRADLE_PLUGINS_REPO;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.GRADLE_PLUGINS_REPO;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -252,6 +252,7 @@ public class ArtifactoryBuildGroupBuilder {
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
+                .artifactoryRequestsCanRetrieveRemoteArtifacts(true)
                 .projectKey(configuration.getDeploymentType().toString())
                 .environments(Collections.singletonList(configuration.getEnvironment()))
                 .repositorySettings(settings)

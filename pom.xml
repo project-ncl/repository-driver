@@ -281,16 +281,6 @@
   </dependencies>
 
   <repositories>
-    <!--    <repository>-->
-    <!--      <releases>-->
-    <!--        <enabled>false</enabled>-->
-    <!--      </releases>-->
-    <!--      <snapshots>-->
-    <!--        <enabled>true</enabled>-->
-    <!--      </snapshots>-->
-    <!--      <id>jboss-snapshots</id>-->
-    <!--      <url>https://repository.jboss.org/nexus/content/repositories/snapshots</url>-->
-    <!--    </repository>-->
     <repository>
       <releases>
         <enabled>false</enabled>
@@ -302,15 +292,6 @@
       <name>Central Portal Snapshots</name>
       <url>https://central.sonatype.com/repository/maven-snapshots/</url>
     </repository>
-
-    <!--    <repository>-->
-    <!--      <snapshots>-->
-    <!--        <enabled>false</enabled>-->
-    <!--      </snapshots>-->
-    <!--      <id>central</id>-->
-    <!--      <name>Central Repository</name>-->
-    <!--      <url>https://repo.maven.apache.org/maven2</url>-->
-    <!--    </repository>-->
   </repositories>
 
   <build>
