@@ -38,4 +38,7 @@ public class RepositoryConstants {
     public static final String NPM_SHARED_IMPORTS_ID = "npm-imports";
 
     public static final String GENERIC_DOWNLOADS = "generic-downloads";
+
+    /** Store key of gradle-plugins remote repository. */
+    public static final String GRADLE_PLUGINS_REPO = "gradle-plugins";
 }

@@ -108,9 +108,6 @@ import net.jodah.failsafe.event.ExecutionAttemptedEvent;
 @RequestScoped
 public class Driver {
 
-    /** Store key of gradle-plugins remote repository. */
-    public static final String GRADLE_PLUGINS_REPO = "maven:remote:gradle-plugins";
-
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
