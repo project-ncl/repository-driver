@@ -310,9 +310,11 @@ public class Driver {
 
                 try {
                     // the promotion is done only after a successfully collected downloads and uploads
-                    PromotionPaths downloadsPromotions = trackingReportProcessor
-                            .collectDownloadsPromotions(report, genericRepos);
-                    promoteDownloads(downloadsPromotions, promoteRequest.isTempBuild(), buildContentId);
+                    promoteDownloads(
+                            trackingReportProcessor
+                                    .collectDownloadsPromotions(report, genericRepos),
+                            promoteRequest.isTempBuild(),
+                            buildContentId);
                     promoteUploads(
                             trackingReportProcessor.collectUploadsPromotions(
                                     report,
