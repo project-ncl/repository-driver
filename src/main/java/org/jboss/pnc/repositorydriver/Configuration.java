@@ -33,14 +33,29 @@ import lombok.Setter;
 @Dependent
 public class Configuration {
 
+    @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
+    DeploymentType deploymentType;
+
+    @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
+    String environment;
+
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
+
+    @ConfigProperty(name = "repository-driver.artifactory-client.url")
+    String artifactoryUrl;
+
+    @ConfigProperty(name = "repository-driver.artifactory-client.accessToken")
+    String accessToken;
 
     @ConfigProperty(name = "repository-driver.indy-client.api-url")
     String indyUrl;
 
     @ConfigProperty(name = "repository-driver.archive-service.api-url")
     String archiveServiceEndpoint;
+
+    @ConfigProperty(name = "repository-driver.archive-service.enabled", defaultValue = "true")
+    boolean archiveServiceEnabled;
 
     @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
@@ -133,4 +148,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.heartbeat.interval", defaultValue = "5")
     long heartbeatInterval;
 
+    @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
+    boolean bifrostUploaderEnabled;
+
+    @ConfigProperty(name = "repository-driver.repository.naming-structure")
+    String namingStructure;
 }

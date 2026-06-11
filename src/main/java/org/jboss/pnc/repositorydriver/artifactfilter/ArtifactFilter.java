@@ -17,7 +17,7 @@
  */
 package org.jboss.pnc.repositorydriver.artifactfilter;
 
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
+import org.jboss.pnc.api.trackingservice.dto.TrackedEntry;
 
 public interface ArtifactFilter {
 
@@ -27,6 +27,6 @@ public interface ArtifactFilter {
      * @param artifact the audited artifact
      * @return true if the artifact should be accepted, false otherwise
      */
-    boolean accepts(TrackedContentEntryDTO artifact);
+    boolean accepts(TrackedEntry artifact);
 
 }

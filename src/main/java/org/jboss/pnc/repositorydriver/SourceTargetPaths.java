@@ -3,28 +3,26 @@ package org.jboss.pnc.repositorydriver;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.commonjava.indy.model.core.StoreKey;
-
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
 public class SourceTargetPaths {
 
-    private final StoreKey source;
-    private final StoreKey target;
+    private final RepositoryKey source;
+    private final RepositoryKey target;
     private final Set<String> paths;
 
-    public SourceTargetPaths(StoreKey source, StoreKey target) {
+    public SourceTargetPaths(RepositoryKey source, RepositoryKey target) {
         this.source = source;
         this.target = target;
         this.paths = new HashSet<>();
     }
 
-    public StoreKey getSource() {
+    public RepositoryKey getSource() {
         return source;
     }
 
-    public StoreKey getTarget() {
+    public RepositoryKey getTarget() {
         return target;
     }
 
@@ -34,5 +32,14 @@ public class SourceTargetPaths {
 
     public void addPath(String path) {
         paths.add(path);
+    }
+
+    @Override
+    public String toString() {
+        return "SourceTargetPaths{" +
+                "source=" + source +
+                ", target=" + target +
+                ", paths=" + paths +
+                '}';
     }
 }

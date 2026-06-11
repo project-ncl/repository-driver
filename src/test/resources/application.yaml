@@ -1,0 +1,73 @@
+quarkus:
+  index-dependency:
+    tracking-service:
+      group-id: org.jboss.pnc
+      artifact-id: pnc-api
+      classifier: jakarta
+  arc:
+    # to use the injected Mock instead
+    exclude-types: org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
+  oidc:
+    enabled: false
+  oidc-client:
+    enabled: false
+  http:
+    auth:
+      basic: false
+  security:
+    ldap:
+      enabled: false
+  log:
+    console:
+      json:
+        enabled: false
+repository-driver:
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  environment: DEV # Artifactory environment (e.g., DEV, PROD)
+  http-client:
+    connect-timeout: 1
+    request-timeout: 3
+  build-promotion-target: "build-target"
+  temp-build-promotion-target: "temp-target"
+  ignored-path-patterns:
+    archive:
+      maven: [ ".*/maven-metadata\\.xml(\\..+)?$" ]
+    promotion:
+      maven: [ ".*/maven-metadata\\.xml$", ".*\\.sha1$" ]
+      npm:
+      generic:
+    result:
+      maven:
+      npm:
+      generic:
+  indy-sidecar:
+    enabled: false
+    url: http://sidecar:8093/
+  ignored-repo-patterns:
+    promotion: [ "pnc-ignored", "pnc-tobeigno.+" ]
+#    promotion: [ "maven:.*:ignored", "maven:.+:tobeigno.+" ]
+    archive: [ ".*-build-yyyyy", ".*-build-xxxxx" ]
+#    archive: [ "maven:.*:build-yyyyy", "maven:hosted:build-xxxxx" ]
+  self-base-url: "http://localhost:8081/"
+  artifactory-client:
+    url: "http://artifactory-host/api/"
+    accessToken: "TOKEN"
+  indy-client:
+    api-url: "http://indy-host/api/"
+  archive-service:
+    enabled: true
+    api-url: "http://archive-service/archive/"
+  bifrost-uploader:
+    api-url: "http://bifrost-host/"
+  heartbeat:
+    interval: 1
+  tracking-service:
+    api-url: http://localhost:8080
+  repository:
+    naming-structure: "{project}{type}{temporary}{build}{virtual}"
+
+"%dev":
+  quarkus:
+    log:
+      console:
+        json: false

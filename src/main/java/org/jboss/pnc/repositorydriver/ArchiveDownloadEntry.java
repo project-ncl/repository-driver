@@ -1,9 +1,9 @@
 package org.jboss.pnc.repositorydriver;
 
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
-import org.commonjava.indy.model.core.StoreKey;
-import org.commonjava.indy.model.core.StoreType;
+import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
+import org.jboss.pnc.api.trackingservice.dto.PackageType;
+import org.jboss.pnc.api.trackingservice.dto.TrackedEntry;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,34 +15,41 @@ import lombok.ToString;
 @Getter
 @ToString
 public class ArchiveDownloadEntry {
-    private final StoreKey storeKey;
+    private final RepositoryId repositoryId;
+    private final PackageType packageType;
     private final String path;
     private final String md5;
     private final String sha256;
     private final String sha1;
     private final Long size;
 
-    public static ArchiveDownloadEntry fromTrackedContentEntry(
-            TrackedContentEntryDTO dto,
+    public static ArchiveDownloadEntry fromTrackedEntry(
+            TrackedEntry entry,
             TargetRepository targetRepository) {
-        return new ArchiveDownloadEntry(
-                getStoreKeyFromRepositoryPath(targetRepository.getRepositoryPath()),
-                dto.getPath(),
-                dto.getMd5(),
-                dto.getSha256(),
-                dto.getSha1(),
-                dto.getSize());
-    }
+        // targetRepository.getRepositoryPath() contains both project and name in format: {project}-{name}
+        // We need to split it to extract the project and name parts
+        String repositoryPath = targetRepository.getRepositoryPath();
 
-    /**
-     * Splits repositoryPath like /api/content/maven/hosted/pnc-builds into a storeKey like maven:hosted:pnc-builds
-     */
-    private static StoreKey getStoreKeyFromRepositoryPath(String repositoryPath) {
-        String[] split = repositoryPath.split("/");
-        if (split.length <= 2) {
-            throw new IllegalArgumentException();
+        int firstHyphen = repositoryPath.indexOf('-');
+        if (firstHyphen <= 0) {
+            throw new IllegalArgumentException(
+                    "Invalid repository path format: " + repositoryPath + ". Expected format: {project}-{name}");
         }
 
-        return new StoreKey(split[split.length - 3], StoreType.get(split[split.length - 2]), split[split.length - 1]);
+        String project = repositoryPath.substring(0, firstHyphen);
+        String name = repositoryPath.substring(firstHyphen + 1);
+
+        RepositoryId newId = RepositoryId.builder()
+                .project(project)
+                .name(name)
+                .build();
+        return new ArchiveDownloadEntry(
+                newId,
+                entry.getPackageType(),
+                entry.getPath(),
+                entry.getMd5(),
+                entry.getSha256(),
+                entry.getSha1(),
+                entry.getSize());
     }
 }

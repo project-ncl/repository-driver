@@ -1,6 +1,15 @@
 quarkus:
   application:
     name: pnc-repository-driver
+  index-dependency:
+    tracking-service:
+      group-id: org.jboss.pnc
+      artifact-id: pnc-api
+      classifier: jakarta
+  rest-client:
+    tracking-service:
+      url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
+      scope: jakarta.inject.Singleton
   otel:
     enabled: true
     traces:
@@ -67,6 +76,8 @@ pnc_client_auth:
   #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
 
 repository-driver:
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  environment: DEV # Artifactory environment (e.g., DEV, PROD)
   ignored-path-patterns:
     archive:
       maven:
@@ -81,9 +92,14 @@ repository-driver:
   ignored-repo-patterns:
     promotion:
     archive:
+  # Note - both these targets will have the deployment prefixed so a target
+  # of mvn-builds could become pnc-devel-mvn-builds
   temp-build-promotion-target:
   build-promotion-target:
   self-base-url:
+  artifactory-client:
+    url:
+    accessToken:
   indy-client:
     api-url:
     request-timeout: 30
@@ -97,6 +113,7 @@ repository-driver:
   callback-retry-delay-msec: 500
   callback-retry-max-delay-msec: 5000
   archive-service:
+    enabled: true
     api-url:
     prefer-http-2: true
     running-wait-for: 60
@@ -104,60 +121,8 @@ repository-driver:
     running-retry-max-delay-msec: 5000
   heartbeat:
     interval: 30
-
-"%test":
-  quarkus:
-    arc:
-      # to use the injected Mock instead
-      exclude-types: org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
-    oidc:
-      enabled: false
-    oidc-client:
-      enabled: false
-    http:
-      auth:
-        basic: false
-    security:
-      ldap:
-        enabled: false
-    log:
-      console:
-        json: false
-  repository-driver:
-    http-client:
-      connect-timeout: 1
-      request-timeout: 3
-    build-promotion-target: "build-target"
-    temp-build-promotion-target: "temp-target"
-    ignored-path-patterns:
-      archive:
-        maven: [".*/maven-metadata\\.xml(\\..+)?$"]
-      promotion:
-        maven: [".*/maven-metadata\\.xml$", ".*\\.sha1$"]
-        npm:
-        generic:
-      result:
-        maven:
-        npm:
-        generic:
-    indy-sidecar:
-      enabled: false
-      url: http://sidecar:8093/
-    ignored-repo-patterns:
-      promotion: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
-      archive: ["maven:.*:build-yyyyy", "maven:hosted:build-xxxxx"]
-    self-base-url: "http://localhost:8081/"
-    indy-client:
-      api-url: "http://indy-host/api/"
-    archive-service:
-      api-url: "http://archive-service/archive/"
-    bifrost-uploader:
-      api-url: "http://bifrost-host/"
-    heartbeat:
-      interval: 1
-
-"%dev":
-  quarkus:
-    log:
-      console:
-        json: false
+  tracking-service:
+    api-url: http://localhost:8080
+  repository:
+    naming-structure: "{project}{type}{temporary}{build}{virtual}"
+#    naming-structure: "{project}{temporary}{build}{virtual}{type}"
