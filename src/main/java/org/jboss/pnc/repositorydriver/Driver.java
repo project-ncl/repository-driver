@@ -156,7 +156,6 @@ public class Driver {
             PackageType packageType = TypeConverters.toPackageType(buildType.getRepoType());
             String buildId = repositoryCreateRequest.getBuildContentId();
 
-            //            try {
             setupBuildRepos(
                     repositoryCreateRequest.getBuildContentId(),
                     buildType,
@@ -164,34 +163,13 @@ public class Driver {
                     repositoryCreateRequest.isTempBuild(),
                     repositoryCreateRequest.isBrewPullActive(),
                     repositoryCreateRequest.getExtraRepositories());
-            //            } catch (IndyClientException e) {
-            //                logger.debug("Failed to setup repository or repository group for this build");
-            //                throw new RepositoryDriverException(
-            //                        "Failed to setup repository or repository group for this build: %s",
-            //                        e,
-            //                        e.getMessage());
-            //            }
 
             String downloadsUrl;
             String deployUrl;
 
-            //            try {
-            // TODO: ### Eventually to be replaced by pnc-tracking-service??
             trackingServiceClient.clearReport(buildId);
             trackingServiceClient.initReport(buildId);
-            //                if (configuration.backend == Configuration.Backend.INDY) {
-            //                    // manually initialize the tracking record, just in case (somehow) nothing gets downloaded/uploaded.
-            //                    IndyFoloAdminClientModule foloAdminModule = indy.module(IndyFoloAdminClientModule.class);
-            //                    foloAdminModule.clearTrackingRecord(buildId);
-            //                    foloAdminModule.initReport(buildId);
-            //
-            //                    // TODO: ### How are these URLs being calculated? Are they the hosted/group repo URLs from setupBuildRepos
-            //                    StoreKey groupKey = new StoreKey(packageType, StoreType.group, buildId);
-            //                    downloadsUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, groupKey);
-            //
-            //                    StoreKey hostedKey = new StoreKey(packageType, StoreType.hosted, buildId);
-            //                    deployUrl = indy.module(IndyFoloContentClientModule.class).trackingUrl(buildId, hostedKey);
-            //                } else {
+
             // TODO: This assumes artifactoryUrl always has a '/' at the end.
             deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
                     configuration.getNamingStructure(),
