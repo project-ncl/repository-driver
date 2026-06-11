@@ -71,7 +71,7 @@ public class Public {
     @Path("/create")
     public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
-        logger.info("Requested new repository: {}", repositoryCreateRequest.getBuildContentId());
+        logger.info("Requested new repository: {}", clean(repositoryCreateRequest.getBuildContentId()));
         return driver.create(repositoryCreateRequest);
     }
 
@@ -84,7 +84,7 @@ public class Public {
     @PUT
     @Path("/seal")
     public void seal(String buildContentId) throws RepositoryDriverException {
-        logger.info("Sealing: {}", buildContentId);
+        logger.info("Sealing: {}", clean(buildContentId));
         driver.sealTrackingReport(buildContentId);
     }
 
@@ -97,7 +97,7 @@ public class Public {
     @PUT
     @Path("/promote")
     public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
-        logger.info("Requested promotion: {}", promoteRequest.getBuildContentId());
+        logger.info("Requested promotion: {}", clean(promoteRequest.getBuildContentId()));
         driver.promote(promoteRequest);
     }
 
@@ -105,7 +105,7 @@ public class Public {
     @POST
     @Path("/archive")
     public void archive(ArchiveRequest archiveRequest) throws RepositoryDriverException {
-        logger.info("Requested archival: {}", archiveRequest.getBuildContentId());
+        logger.info("Requested archival: {}", clean(archiveRequest.getBuildContentId()));
         driver.archive(archiveRequest);
     }
 
@@ -118,11 +118,18 @@ public class Public {
     public RepositoryPromoteResult collectRepoManagerResult(
             @PathParam("id") String buildContentId,
             RepositoryCollectRequest collectRequest) throws RepositoryDriverException {
-        logger.info("Getting repository manager result for build record id {}.", buildContentId);
+        logger.info("Getting repository manager result for build record id {}.", clean(buildContentId));
         return driver.collectRepoManagerResult(
                 buildContentId,
                 collectRequest.isTempBuild(),
                 collectRequest.getBuildCategory());
+    }
+
+    /**
+     * Removes CR/LF from input before logging to prevent log forging
+     */
+    private static String clean(String input) {
+        return input == null ? null : input.replaceAll("[\r\n]", "_");
     }
 
     @GET
