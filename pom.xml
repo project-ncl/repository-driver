@@ -164,6 +164,11 @@
       <groupId>org.jboss.pnc.artifactory-client</groupId>
       <artifactId>artifactory-java-client-services</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.jfrog.buildinfo</groupId>
+      <artifactId>build-info-extractor</artifactId>
+      <version>2.43.9</version>
+    </dependency>
 
     <dependency>
       <groupId>org.commonjava.atlas</groupId>

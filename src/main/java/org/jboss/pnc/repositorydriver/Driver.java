@@ -287,20 +287,45 @@ public class Driver {
 
                 try {
                     // the promotion is done only after a successfully collected downloads and uploads
-                    promoteDownloads(
-                            trackingReportProcessor
-                                    .collectDownloadsPromotions(report, genericRepos),
-                            promoteRequest.isTempBuild(),
-                            buildContentId);
-                    promoteUploads(
-                            trackingReportProcessor.collectUploadsPromotions(
+                    // Use BuildInfo-based promotion instead of path-based promotion
+                    Map<RepositoryKey, org.jfrog.build.api.Build> buildInfos = trackingReportProcessor
+                            .createPromotionBuildInfos(
                                     report,
                                     promoteRequest.isTempBuild(),
+                                    buildContentId,
                                     buildType.getRepoType(),
                                     buildCategory,
-                                    buildContentId),
-                            promoteRequest.isTempBuild(),
-                            buildContentId);
+                                    genericRepos);
+
+                    // Promote each BuildInfo to its target repository
+                    for (Map.Entry<RepositoryKey, org.jfrog.build.api.Build> entry : buildInfos.entrySet()) {
+                        RepositoryKey targetRepo = entry.getKey();
+                        org.jfrog.build.api.Build buildInfo = entry.getValue();
+
+                        // Determine if this is artifacts or dependencies based on module content
+                        boolean hasArtifacts = buildInfo.getModules().get(0).getArtifacts() != null
+                                && !buildInfo.getModules().get(0).getArtifacts().isEmpty();
+                        boolean hasDependencies = buildInfo.getModules().get(0).getDependencies() != null
+                                && !buildInfo.getModules().get(0).getDependencies().isEmpty();
+
+                        // Promote artifacts if present
+                        if (hasArtifacts) {
+                            logger.info(
+                                    "Promoting artifacts for BuildInfo {} to {}",
+                                    buildInfo.getName(),
+                                    targetRepo.repositoryId().getName());
+                            promoteBuildInfo(targetRepo, buildInfo, promoteRequest.isTempBuild(), true);
+                        }
+
+                        // Promote dependencies if present
+                        if (hasDependencies) {
+                            logger.info(
+                                    "Promoting dependencies for BuildInfo {} to {}",
+                                    buildInfo.getName(),
+                                    targetRepo.repositoryId().getName());
+                            promoteBuildInfo(targetRepo, buildInfo, promoteRequest.isTempBuild(), false);
+                        }
+                    }
                 } catch (RepositoryDriverException e) {
                     String message = "Failed promoting downloaded or uploaded artifacts: ";
                     userLog.error(message, e);
@@ -870,6 +895,100 @@ public class Driver {
 
             artifactoryPromoteByPath(sourceTargetPaths, false, false);
         }
+    }
+
+    /**
+     * Promotes a BuildInfo to a target repository using Artifactory's Build API.
+     * This method uploads the BuildInfo metadata and then promotes it to the target repository.
+     *
+     * <p>
+     * This replaces the path-based promotion approach with BuildInfo-based promotion,
+     * which provides better traceability and atomic operations.
+     * </p>
+     *
+     * @param targetRepo the target repository key
+     * @param buildInfo the BuildInfo object containing artifacts and dependencies
+     * @param tempBuild whether this is a temporary build
+     * @param promoteArtifacts true to promote artifacts (uploads), false to promote dependencies (downloads)
+     * @throws PromotionValidationException if upload or promotion fails
+     */
+    private void promoteBuildInfo(
+            RepositoryKey targetRepo,
+            org.jfrog.build.api.Build buildInfo,
+            boolean tempBuild,
+            boolean promoteArtifacts) throws PromotionValidationException {
+
+        String buildName = buildInfo.getName();
+        String buildNumber = buildInfo.getNumber();
+        String targetRepoName = targetRepo.repositoryId().getName();
+        String scope = promoteArtifacts ? "artifacts" : "dependencies";
+
+        try {
+            // Step 1: Upload BuildInfo to Artifactory
+            logger.info("Uploading BuildInfo {} #{} to Artifactory", buildName, buildNumber);
+            artifactory.builds().uploadBuild(buildInfo);
+            userLog.info(
+                    "Uploaded BuildInfo {} #{} with {} artifacts and {} dependencies",
+                    buildName,
+                    buildNumber,
+                    buildInfo.getModules().get(0).getArtifacts() != null
+                            ? buildInfo.getModules().get(0).getArtifacts().size()
+                            : 0,
+                    buildInfo.getModules().get(0).getDependencies() != null
+                            ? buildInfo.getModules().get(0).getDependencies().size()
+                            : 0);
+
+        } catch (Exception e) {
+            String message = String.format(
+                    "Failed to upload BuildInfo %s #%s to Artifactory",
+                    buildName,
+                    buildNumber);
+            logger.error(message, e);
+            throw new PromotionValidationException(message, e);
+        }
+
+        try {
+            // Step 2: Create BuildPromotionRequest using concrete implementation
+            org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl promotionRequest = new org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl();
+
+            promotionRequest.setTargetRepo(targetRepoName);
+            promotionRequest.setStatus("promoted");
+            promotionRequest.setComment("Promoted by PNC Repository Driver - " + scope);
+            promotionRequest.setCopy(false); // Move artifacts, don't copy them
+
+            // Set flags for what to promote: artifacts (uploads) or dependencies (downloads)
+            promotionRequest.setArtifacts(promoteArtifacts);
+            promotionRequest.setDependencies(!promoteArtifacts);
+
+            // Step 3: Promote the build
+            logger.info(
+                    "Promoting BuildInfo {} #{} ({}) to repository {}",
+                    buildName,
+                    buildNumber,
+                    scope,
+                    targetRepoName);
+            artifactory.builds().promoteBuild(buildName, buildNumber, promotionRequest);
+
+            userLog.info(
+                    "Successfully promoted BuildInfo {} #{} ({}) to {}",
+                    buildName,
+                    buildNumber,
+                    scope,
+                    targetRepoName);
+
+        } catch (Exception e) {
+            String message = String.format(
+                    "Failed to promote BuildInfo %s #%s (%s) to repository %s",
+                    buildName,
+                    buildNumber,
+                    scope,
+                    targetRepoName);
+            logger.error(message, e);
+            throw new PromotionValidationException(message, e);
+        }
+
+        // TODO: Cleanup and set repositories to readonly. While changing maven repositories
+        //     not to handle release or snapshot deploymentType might work not sure about npm or generic repos
     }
 
     /**

@@ -116,17 +116,25 @@ public class ArtifactoryBuildGroupBuilder {
                     .orElse(List.of())) {
                 includedRepositories.add(
                         ArtifactoryUtils
-                                .createRepositoryName(                                    configuration.getNamingStructure(),
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
-                                        buildType, false, tempBuild, hostedConstituent));
+                                        buildType,
+                                        false,
+                                        tempBuild,
+                                        hostedConstituent));
             }
             for (String groupConstituent : configuration.getBuildGroupConstituentsGroup(buildCategory)
                     .orElse(List.of())) {
                 includedRepositories.add(
                         ArtifactoryUtils
-                                .createRepositoryName(                                    configuration.getNamingStructure(),
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
-                                        buildType, false, tempBuild, groupConstituent));
+                                        buildType,
+                                        false,
+                                        tempBuild,
+                                        groupConstituent));
             }
         }
 
