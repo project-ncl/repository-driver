@@ -8,9 +8,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.jboss.pnc.api.trackingservice.dto.TrackDownloadRequest;
-import org.jboss.pnc.api.trackingservice.dto.TrackUploadRequest;
-import org.jboss.pnc.api.trackingservice.dto.TrackingReport;
+import org.jboss.pnc.api.tracker.dto.TrackDownloadRequest;
+import org.jboss.pnc.api.tracker.dto.TrackUploadRequest;
+import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.TrackingReportMocks;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,11 +40,11 @@ public class TrackingServiceClientMock implements TrackingServiceClient {
         logger.info("Mock: Getting tracking report for id: {}", id);
 
         // Return a mock tracking report with some sample data
-        HashSet<org.jboss.pnc.api.trackingservice.dto.TrackedEntry> downloads = new HashSet<>();
+        HashSet<org.jboss.pnc.api.tracker.dto.TrackedEntry> downloads = new HashSet<>();
         downloads.add(TrackingReportMocks.indyPomFromCentral);
         downloads.add(TrackingReportMocks.indyJarFromCentral);
 
-        HashSet<org.jboss.pnc.api.trackingservice.dto.TrackedEntry> uploads = new HashSet<>();
+        HashSet<org.jboss.pnc.api.tracker.dto.TrackedEntry> uploads = new HashSet<>();
         // Add some mock uploads if needed
 
         return TrackingReport.builder()

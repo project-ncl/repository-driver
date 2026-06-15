@@ -1,6 +1,6 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.jboss.pnc.api.trackingservice.dto.PackageType.MVN;
+import static org.jboss.pnc.api.tracker.dto.PackageType.MVN;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedEntry;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.MVN_SHARED_IMPORTS_ID;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.NPM_SHARED_IMPORTS_ID;
@@ -357,6 +357,267 @@ public class TrackingReportProcessor {
             }
         }
         return promotionPaths;
+    }
+
+    /**
+     * Creates BuildInfo objects for promotion, grouped by target repository. Each BuildInfo contains both filtered
+     * artifacts (uploads) and dependencies (downloads).
+     *
+     * <p>
+     * This method replaces the separate collectDownloadsPromotions and collectUploadsPromotions methods by creating
+     * unified BuildInfo objects that can be promoted using Artifactory's Build API.
+     * </p>
+     *
+     * <p>
+     * Filtering logic:
+     * </p>
+     * <ul>
+     * <li>Downloads: filtered by both ignoreDependencySource() and artifactFilterPromotion.accepts()</li>
+     * <li>Uploads: filtered by artifactFilterPromotion.accepts()</li>
+     * </ul>
+     *
+     * <p>
+     * Grouping strategy:
+     * </p>
+     * <ul>
+     * <li>Maven downloads → maven-shared-imports target</li>
+     * <li>NPM downloads → npm-shared-imports target</li>
+     * <li>Generic downloads → generic-downloads target (paths already transformed by Artifactory plugin)</li>
+     * <li>Maven/NPM uploads → build promotion target (temp or permanent)</li>
+     * </ul>
+     *
+     * @param report the tracking report containing uploads and downloads
+     * @param tempBuild whether this is a temporary build
+     * @param buildContentId the build content ID (tracking ID)
+     * @param repositoryType the repository type for uploads
+     * @param buildCategory
+     * @param genericRepos collection to populate with generic repository keys
+     * @return map of target repository keys to BuildInfo objects
+     * @throws RepositoryDriverException if BuildInfo creation fails
+     */
+    @WithSpan()
+    public Map<RepositoryKey, org.jfrog.build.api.Build> createPromotionBuildInfos(
+            @SpanAttribute(value = "report") TrackingReport report,
+            @SpanAttribute(value = "tempBuild") boolean tempBuild,
+            @SpanAttribute(value = "buildContentId") String buildContentId,
+            @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
+            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
+            @SpanAttribute(value = "genericRepos") Collection<RepositoryKey> genericRepos)
+            throws RepositoryDriverException {
+
+        Map<RepositoryKey, GroupedEntries> groupedByTarget = new HashMap<>();
+        Map<PackageType, RepositoryKey> promotionTargetsCache = new HashMap<>();
+
+        // Process downloads with filtering
+        Set<TrackedEntry> downloads = report.getDownloads();
+        if (downloads != null) {
+            for (TrackedEntry download : downloads) {
+                RepositoryId sourceRepoId = download.getRepoId();
+                PackageType packageType = download.getPackageType();
+
+                // Apply both filters for downloads
+                if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
+                    RepositoryKey target;
+
+                    switch (packageType) {
+                        case MVN:
+                        case NPM:
+                            target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
+                            break;
+
+                        case GENERIC:
+                            // Generic downloads go to generic-downloads target
+                            // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
+                            RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
+                            genericRepos.add(source);
+
+                            String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
+                            RepositoryId targetRepoId = RepositoryId.builder()
+                                    .project(sourceRepoId.getProject())
+                                    .name(hostedName)
+                                    .build();
+                            target = new RepositoryKey(targetRepoId, packageType, false);
+                            break;
+
+                        default:
+                            // Skip other package types
+                            continue;
+                    }
+
+                    // Add to grouped entries
+                    GroupedEntries entries = groupedByTarget.computeIfAbsent(target, k -> new GroupedEntries());
+                    entries.downloads.add(download);
+                }
+            }
+        }
+
+        // Process uploads with filtering
+        Set<TrackedEntry> uploads = report.getUploads();
+        if (uploads != null) {
+            PackageType packageType = TypeConverters.toPackageType(repositoryType);
+
+            // Determine target for uploads
+            RepositoryId targetRepoId = RepositoryId.builder()
+                    .project(configuration.getDeploymentType().toString())
+                    .name(getBuildPromotionTarget(buildCategory, tempBuild))
+                    .build();
+            RepositoryKey target = new RepositoryKey(targetRepoId, packageType, tempBuild);
+
+            for (TrackedEntry upload : uploads) {
+                // Apply filter for uploads
+                if (artifactFilterPromotion.accepts(upload)) {
+                    // Add to grouped entries
+                    GroupedEntries entries = groupedByTarget.computeIfAbsent(target, k -> new GroupedEntries());
+                    entries.uploads.add(upload);
+                }
+            }
+        }
+
+        // Create BuildInfo for each target repository
+        Map<RepositoryKey, org.jfrog.build.api.Build> buildInfoMap = new HashMap<>();
+
+        for (Map.Entry<RepositoryKey, GroupedEntries> entry : groupedByTarget.entrySet()) {
+            RepositoryKey targetRepo = entry.getKey();
+            GroupedEntries entries = entry.getValue();
+
+            // Skip if no artifacts or dependencies
+            if (entries.uploads.isEmpty() && entries.downloads.isEmpty()) {
+                continue;
+            }
+
+            // Determine module name based on package type
+            // TODO: This is a bit of hack to establish a module name - the problem is that
+            //       we don't know the actual top level for a multi-module project so this could
+            //       end up picking the wrong one. Really the RepositoryPromoteRequest needs to
+            //       pass the name in.
+            String moduleName = determineModuleName(targetRepo, buildContentId, entries);
+
+            // Create TrackingReport subset for this target
+            TrackingReport subReport = TrackingReport.builder()
+                    .uploads(entries.uploads)
+                    .downloads(entries.downloads)
+                    .trackingID(buildContentId)
+                    .build();
+
+            // Convert to BuildInfo with computed module name
+            org.jfrog.build.api.Build build = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
+                    .fromTrackingReport(subReport, moduleName);
+
+            logger.info(
+                    "Created BuildInfo {} for target {} with {} artifacts and {} dependencies",
+                    moduleName,
+                    targetRepo.repositoryId().getName(),
+                    entries.uploads.size(),
+                    entries.downloads.size());
+
+            buildInfoMap.put(targetRepo, build);
+        }
+
+        return buildInfoMap;
+    }
+
+    /**
+     * Determines the module name for a BuildInfo based on package type.
+     * Reuses logic from computeIdentifier() method.
+     *
+     * @param targetRepo the target repository key
+     * @param trackingId the tracking ID
+     * @param entries the grouped entries (uploads and downloads)
+     * @return the module name for the BuildInfo
+     */
+    private String determineModuleName(RepositoryKey targetRepo, String trackingId, GroupedEntries entries) {
+        PackageType packageType = targetRepo.packageType();
+
+        switch (packageType) {
+            case MVN:
+                // Extract GAV from first Maven artifact
+                return extractMavenModuleName(entries, trackingId);
+
+            case NPM:
+                // Use NPM package identifier
+                return extractNpmModuleName(entries, trackingId);
+
+            case GENERIC:
+                // TODO: Improve generic module naming strategy
+                return "generic-" + trackingId;
+
+            default:
+                return targetRepo.repositoryId().getName() + "-" + trackingId;
+        }
+    }
+
+    /**
+     * Extracts Maven module name (GAV) from entries.
+     * Tries uploads first, then downloads.
+     *
+     * @param entries the grouped entries
+     * @param trackingId fallback tracking ID
+     * @return Maven GAV or fallback name
+     */
+    private String extractMavenModuleName(GroupedEntries entries, String trackingId) {
+        // Try uploads first
+        for (TrackedEntry upload : entries.uploads) {
+            ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(upload.getPath());
+            if (pathInfo == null) {
+                pathInfo = ArtifactPathInfo.parse(upload.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
+            }
+            if (pathInfo != null) {
+                return pathInfo.getProjectId().toString(); // Returns groupId:artifactId:version
+            }
+        }
+
+        // Try downloads
+        for (TrackedEntry download : entries.downloads) {
+            ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(download.getPath());
+            if (pathInfo == null) {
+                pathInfo = ArtifactPathInfo.parse(download.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
+            }
+            if (pathInfo != null) {
+                return pathInfo.getProjectId().toString();
+            }
+        }
+
+        // Fallback
+        return "maven-" + trackingId;
+    }
+
+    /**
+     * Extracts NPM module name from entries.
+     * Tries uploads first, then downloads.
+     *
+     * @param entries the grouped entries
+     * @param trackingId fallback tracking ID
+     * @return NPM package identifier or fallback name
+     */
+    private String extractNpmModuleName(GroupedEntries entries, String trackingId) {
+        // Try uploads first
+        for (TrackedEntry upload : entries.uploads) {
+            NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(upload.getPath());
+            if (npmPathInfo != null) {
+                NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
+                return packageRef.toString(); // Returns package@version
+            }
+        }
+
+        // Try downloads
+        for (TrackedEntry download : entries.downloads) {
+            NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(download.getPath());
+            if (npmPathInfo != null) {
+                NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
+                return packageRef.toString();
+            }
+        }
+
+        // Fallback
+        return "npm-" + trackingId;
+    }
+
+    /**
+     * Helper class to group uploads and downloads for a target repository.
+     */
+    private static class GroupedEntries {
+        Set<TrackedEntry> uploads = new java.util.HashSet<>();
+        Set<TrackedEntry> downloads = new java.util.HashSet<>();
     }
 
     /**
