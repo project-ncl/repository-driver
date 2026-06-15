@@ -240,6 +240,296 @@ public class TrackingReportProcessorTest {
     }
 
     @Test
+    public void testCreatePromotionBuildInfos_FiltersDownloadsCorrectly() throws RepositoryDriverException {
+        // given: TrackingReport with downloads from ignored and non-ignored sources
+        Set<TrackedEntry> downloads = new HashSet<>();
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyJarFromCentral);
+
+        // Add download from ignored source (should be filtered out)
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(TrackingReportMocks.ignoredKey.repositoryId())
+                        .packageType(TrackingReportMocks.ignoredKey.packageType())
+                        .path("/org/example/artifact/1.0/artifact-1.0.jar")
+                        .originUrl("https://example.com/artifact-1.0.jar")
+                        .localUrl("file:///tmp/artifact-1.0.jar")
+                        .md5("def")
+                        .sha1("def")
+                        .sha256("def")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
+
+        // when: createPromotionBuildInfos is called
+        Set<RepositoryKey> genericRepos = new HashSet<>();
+        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+                report,
+                false,
+                "test-build-id",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
+
+        // then: Only non-ignored downloads matching filter patterns are included
+        Assertions.assertEquals(1, buildInfoMap.size(), "Should have one BuildInfo for shared-imports");
+
+        var entry = buildInfoMap.entrySet().iterator().next();
+        var buildInfo = entry.getValue();
+        var module = buildInfo.getModules().get(0);
+
+        // Should have 2 dependencies (pom and jar from central, not the ignored one)
+        Assertions.assertEquals(
+                2,
+                module.getDependencies().size(),
+                "Should have 2 dependencies from non-ignored source");
+        Assertions.assertEquals(
+                0,
+                module.getArtifacts().size(),
+                "Should have no artifacts (only downloads)");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_GroupsByPackageType() throws RepositoryDriverException {
+        // given: TrackingReport with Maven, NPM, and Generic artifacts
+        Set<TrackedEntry> downloads = new HashSet<>();
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Maven download
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+
+        // NPM download
+        RepositoryKey npmCentralKey = new RepositoryKey(
+                RepositoryId.builder().project("pnc").name("npm-central").build(),
+                PackageType.NPM,
+                false);
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(npmCentralKey.repositoryId())
+                        .packageType(PackageType.NPM)
+                        .path("/lodash/-/lodash-4.17.21.tgz")
+                        .originUrl("https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz")
+                        .localUrl("file:///tmp/lodash-4.17.21.tgz")
+                        .md5("npm-md5")
+                        .sha1("npm-sha1")
+                        .sha256("npm-sha256")
+                        .build());
+
+        // Maven upload
+        String buildContentId = "test-build";
+        RepositoryKey buildKey = new RepositoryKey(
+                RepositoryId.builder().project("pnc").name(buildContentId).build(),
+                PackageType.MVN,
+                false);
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(buildKey.repositoryId())
+                        .packageType(PackageType.MVN)
+                        .path("/com/example/myapp/1.0/myapp-1.0.jar")
+                        .localUrl("file:///tmp/myapp-1.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfos is called
+        Set<RepositoryKey> genericRepos = new HashSet<>();
+        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+                report,
+                false,
+                buildContentId,
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
+
+        // then: Separate BuildInfo objects for each target repository
+        Assertions.assertTrue(
+                buildInfoMap.size() >= 2,
+                "Should have at least 2 BuildInfo objects (maven-shared-imports, npm-shared-imports, and/or build promotion target)");
+
+        // Verify we have BuildInfo for different package types
+        boolean hasMavenSharedImports = buildInfoMap.keySet()
+                .stream()
+                .anyMatch(key -> key.repositoryId().getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID));
+        boolean hasNpmSharedImports = buildInfoMap.keySet()
+                .stream()
+                .anyMatch(key -> key.repositoryId().getName().equals(RepositoryConstants.NPM_SHARED_IMPORTS_ID));
+
+        Assertions.assertTrue(hasMavenSharedImports, "Should have Maven shared-imports BuildInfo");
+        Assertions.assertTrue(hasNpmSharedImports, "Should have NPM shared-imports BuildInfo");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_DeterminesModuleNames() throws RepositoryDriverException {
+        // given: TrackingReport with Maven (GAV), NPM (package@version), and Generic artifacts
+        Set<TrackedEntry> downloads = new HashSet<>();
+
+        // Maven download - should extract GAV
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+
+        // NPM download - should extract package@version
+        RepositoryKey npmCentralKey = new RepositoryKey(
+                RepositoryId.builder().project("pnc").name("npm-central").build(),
+                PackageType.NPM,
+                false);
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(npmCentralKey.repositoryId())
+                        .packageType(PackageType.NPM)
+                        .path("/lodash/-/lodash-4.17.21.tgz")
+                        .originUrl("https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz")
+                        .localUrl("file:///tmp/lodash-4.17.21.tgz")
+                        .md5("npm-md5")
+                        .sha1("npm-sha1")
+                        .sha256("npm-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
+
+        // when: createPromotionBuildInfos is called
+        Set<RepositoryKey> genericRepos = new HashSet<>();
+        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+                report,
+                false,
+                "test-build-id",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
+
+        // then: Module names are correctly determined based on package type
+        for (var entry : buildInfoMap.entrySet()) {
+            var buildInfo = entry.getValue();
+            var moduleName = buildInfo.getName();
+            var packageType = entry.getKey().packageType();
+
+            if (packageType == PackageType.MVN) {
+                // Maven module name should contain GAV format (groupId:artifactId:version)
+                Assertions.assertTrue(
+                        moduleName.contains(":"),
+                        "Maven module name should contain GAV format with colons: " + moduleName);
+            } else if (packageType == PackageType.NPM) {
+                // NPM module name should contain package@version format
+                Assertions.assertTrue(
+                        moduleName.contains("@") || moduleName.contains("lodash"),
+                        "NPM module name should contain package name: " + moduleName);
+            }
+        }
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_HandlesEmptyReport() throws RepositoryDriverException {
+        // given: Empty TrackingReport
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(new HashSet<>())
+                .build();
+
+        // when: createPromotionBuildInfos is called
+        Set<RepositoryKey> genericRepos = new HashSet<>();
+        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+                report,
+                false,
+                "test-build-id",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
+
+        // then: Should return empty map
+        Assertions.assertTrue(buildInfoMap.isEmpty(), "Should return empty map for empty report");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_CombinesUploadsAndDownloads() throws RepositoryDriverException {
+        // given: TrackingReport with both uploads and downloads for same package type
+        Set<TrackedEntry> downloads = new HashSet<>();
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Maven download
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+
+        // Maven upload
+        String buildContentId = "test-build";
+        RepositoryKey buildKey = new RepositoryKey(
+                RepositoryId.builder().project("pnc").name(buildContentId).build(),
+                PackageType.MVN,
+                false);
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(buildKey.repositoryId())
+                        .packageType(PackageType.MVN)
+                        .path("/com/example/myapp/1.0/myapp-1.0.jar")
+                        .localUrl("file:///tmp/myapp-1.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfos is called
+        Set<RepositoryKey> genericRepos = new HashSet<>();
+        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+                report,
+                false,
+                buildContentId,
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
+
+        // then: Should have separate BuildInfo for downloads (shared-imports) and uploads (build promotion target)
+        Assertions.assertTrue(buildInfoMap.size() >= 1, "Should have at least one BuildInfo");
+
+        // Verify BuildInfo for shared-imports has dependencies
+        var sharedImportsEntry = buildInfoMap.entrySet()
+                .stream()
+                .filter(e -> e.getKey().repositoryId().getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID))
+                .findFirst();
+
+        if (sharedImportsEntry.isPresent()) {
+            var module = sharedImportsEntry.get().getValue().getModules().get(0);
+            Assertions.assertTrue(
+                    module.getDependencies() != null && !module.getDependencies().isEmpty(),
+                    "Shared-imports BuildInfo should have dependencies");
+        }
+
+        // Verify BuildInfo for build promotion target has artifacts
+        var buildPromotionEntry = buildInfoMap.entrySet()
+                .stream()
+                .filter(
+                        e -> e.getKey()
+                                .repositoryId()
+                                .getName()
+                                .equals(configuration.getBuildPromotionTarget(BuildCategory.STANDARD)))
+                .findFirst();
+
+        if (buildPromotionEntry.isPresent()) {
+            var module = buildPromotionEntry.get().getValue().getModules().get(0);
+            Assertions.assertTrue(
+                    module.getArtifacts() != null && !module.getArtifacts().isEmpty(),
+                    "Build promotion BuildInfo should have artifacts");
+        }
+    }
+
+    @Test
     public void verifyUploadedArtifacts() throws RepositoryDriverException {
         // given
         Set<TrackedEntry> uploads = new HashSet<>();

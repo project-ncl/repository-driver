@@ -37,6 +37,7 @@ import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
 import org.jboss.pnc.repositorydriver.testresource.WiremockTestServer;
 import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.Builds;
 import org.jfrog.artifactory.client.ItemHandle;
 import org.jfrog.artifactory.client.Repositories;
 import org.jfrog.artifactory.client.RepositoryHandle;
@@ -111,6 +112,10 @@ public class DriverTest {
         // artifactory.repositories
         // Use RETURNS_DEEP_STUBS to mock 'all the way down'.
         Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
+
+        // artifactory.builds() - mock for BuildInfo API
+        Mockito.when(artifactory.builds()).thenReturn(Mockito.mock(Builds.class, RETURNS_DEEP_STUBS));
+
         // Replace the cdi ArtifactoryProducer bean with a mocked version
         ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
         Mockito.when(artifactoryProducer.produce()).thenReturn(artifactory);
