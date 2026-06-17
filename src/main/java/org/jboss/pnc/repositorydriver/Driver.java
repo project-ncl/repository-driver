@@ -159,6 +159,7 @@ public class Driver {
                 setupBuildRepos(
                         repositoryCreateRequest.getBuildContentId(),
                         buildType,
+                        repositoryCreateRequest.getBuildCategory(),
                         packageType,
                         repositoryCreateRequest.isTempBuild(),
                         repositoryCreateRequest.isBrewPullActive(),
@@ -236,6 +237,7 @@ public class Driver {
         String buildContentId = promoteRequest.getBuildContentId();
         String buildConfigurationId = promoteRequest.getBuildConfigurationId();
         BuildType buildType = promoteRequest.getBuildType();
+        BuildCategory buildCategory = promoteRequest.getBuildCategory();
         TrackedContentDTO report;
         try {
             report = retrieveTrackingReport(buildContentId);
@@ -276,7 +278,7 @@ public class Driver {
                     uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                             report,
                             promoteRequest.isTempBuild(),
-                            promoteRequest.getBuildCategory());
+                            buildCategory);
                 } catch (RepositoryDriverException e) {
                     String message = "Failed collecting downloaded or uploaded artifacts: ";
                     userLog.error(message, e);
@@ -297,6 +299,7 @@ public class Driver {
                                     report,
                                     promoteRequest.isTempBuild(),
                                     buildType.getRepoType(),
+                                    buildCategory,
                                     buildContentId),
                             promoteRequest.isTempBuild(),
                             buildContentId);
@@ -650,6 +653,7 @@ public class Driver {
     private void setupBuildRepos(
             String buildContentId,
             BuildType buildType,
+            BuildCategory buildCategory,
             String packageType,
             boolean tempBuild,
             boolean brewPullActive,
@@ -693,7 +697,7 @@ public class Driver {
         storesModule.create(buildArtifacts, logCreatingHostedRepo, HostedRepository.class);
 
         // create build group
-        Group buildGroup = BuildGroupBuilder.builder(indy, packageType, buildContentId)
+        Group buildGroup = BuildGroupBuilder.builder(configuration, indy, packageType, buildContentId)
                 .withDescription(
                         String.format(
                                 "Aggregation group for PNC %s build #%s",
@@ -702,7 +706,7 @@ public class Driver {
                 // build-local artifacts
                 .addConstituent(hostedKey)
                 // Global-level repos, for captured/shared artifacts and access to the outside world
-                .addGlobalConstituents(buildType, tempBuild)
+                .addGlobalConstituents(buildType, buildCategory, tempBuild)
                 // build-specific repos
                 .addExtraConstituents(extraDependencyRepositories)
                 // brew pull: see MMENG-1262

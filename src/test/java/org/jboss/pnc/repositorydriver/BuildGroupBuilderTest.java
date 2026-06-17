@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.inject.Inject;
+
 import org.commonjava.indy.client.core.Indy;
 import org.commonjava.indy.client.core.IndyClientException;
 import org.commonjava.indy.client.core.module.IndyStoresClientModule;
@@ -18,10 +20,16 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import io.quarkus.test.junit.QuarkusTest;
+
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
+@QuarkusTest
 public class BuildGroupBuilderTest {
+
+    @Inject
+    Configuration configuration;
 
     @Test
     public void shouldAddExtraRepositoryToBuildGroup() throws IndyClientException {
@@ -38,7 +46,8 @@ public class BuildGroupBuilderTest {
         List<String> repositories = new ArrayList<>();
         repositories.add("http://test.com/maven");
         repositories.add("invalid url"); // should not be added
-        Group buildGroup = BuildGroupBuilder.builder(indy, MavenPackageTypeDescriptor.MAVEN_PKG_KEY, "build-X")
+        Group buildGroup = BuildGroupBuilder
+                .builder(configuration, indy, MavenPackageTypeDescriptor.MAVEN_PKG_KEY, "build-X")
                 .addExtraConstituents(repositories)
                 .build();
 

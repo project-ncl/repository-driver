@@ -105,6 +105,7 @@ public class DriverTest {
         RepositoryCreateRequest request = RepositoryCreateRequest.builder()
                 .buildContentId("build-X")
                 .buildType(BuildType.MVN)
+                .buildCategory(BuildCategory.STANDARD)
                 .tempBuild(false)
                 .build();
         // when

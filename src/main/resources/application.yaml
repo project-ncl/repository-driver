@@ -67,6 +67,21 @@ pnc_client_auth:
   #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
 
 repository-driver:
+  # Build Category Configuration
+  build-categories:
+    # Default category
+    default:
+      build-promotion-target: pnc-builds
+      temp-build-promotion-target: temporary-builds
+      build-group-constituents:
+        temp-hosted:
+          - temporary-builds
+        temp-group:
+          - builds-untested+shared-imports+public
+        hosted: [] # deliberately left empty
+        group:
+          - builds-untested+shared-imports+public
+
   ignored-path-patterns:
     archive:
       maven:
@@ -81,8 +96,6 @@ repository-driver:
   ignored-repo-patterns:
     promotion:
     archive:
-  temp-build-promotion-target:
-  build-promotion-target:
   self-base-url:
   indy-client:
     api-url:
@@ -127,8 +140,43 @@ repository-driver:
     http-client:
       connect-timeout: 1
       request-timeout: 3
-    build-promotion-target: "build-target"
-    temp-build-promotion-target: "temp-target"
+
+    # Build Category Configuration
+    build-categories:
+      # Default category
+      default:
+        build-promotion-target: target
+        temp-build-promotion-target: temporary-target
+        build-group-constituents:
+          temp-hosted:
+            - constituent-temp-hosted
+          temp-group:
+            - constituent-temp-group
+          hosted:
+            - consituent-hosted
+          group:
+            - constituent-group
+
+      # Standard category
+      standard:
+        build-group-constituents:
+          temp-hosted:
+            - temp-central
+          temp-group: []
+          hosted:
+            - central
+
+      # Service category
+      service:
+        build-promotion-target: service-builds
+        temp-build-promotion-target: temporary-service-builds
+        build-group-constituents:
+          temp-hosted:
+            - central
+          temp-group: []
+          hosted:
+            - central
+          group: []
     ignored-path-patterns:
       archive:
         maven: [".*/maven-metadata\\.xml(\\..+)?$"]

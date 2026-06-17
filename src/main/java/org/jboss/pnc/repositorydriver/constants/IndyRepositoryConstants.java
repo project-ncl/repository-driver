@@ -22,12 +22,6 @@ package org.jboss.pnc.repositorydriver.constants;
  */
 public class IndyRepositoryConstants {
 
-    /** Name of group that contains common builds groups' constituents. */
-    public static final String COMMON_BUILD_GROUP_CONSTITUENTS_GROUP = "builds-untested+shared-imports+public";
-
-    /** Name of repository used to access all previous temporary build outputs. */
-    public static final String TEMPORARY_BUILDS_GROUP = "temporary-builds";
-
     /** Name of hosted repository used to store artifacts from external sources. */
     public static final String SHARED_IMPORTS_ID = "shared-imports";
 
