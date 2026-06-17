@@ -223,7 +223,7 @@ public class TrackingReportProcessor {
 
                 logger.info("Recording upload: {}", identifier);
                 RepositoryType repoType = TypeConverters.toRepoType(storeKey.getPackageType());
-                TargetRepository targetRepository = getUploadsTargetRepository(repoType, tempBuild);
+                TargetRepository targetRepository = getUploadsTargetRepository(repoType, buildCategory, tempBuild);
 
                 RepositoryArtifact artifact = RepositoryArtifact.builder()
                         .md5(upload.getMd5())
@@ -311,6 +311,7 @@ public class TrackingReportProcessor {
             @SpanAttribute(value = "report") TrackedContentDTO report,
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
             @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
+            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
             @SpanAttribute(value = "buildContentId") String buildContentId) {
         PromotionPaths promotionPaths = new PromotionPaths();
         Set<TrackedContentEntryDTO> uploads = report.getUploads();
@@ -322,7 +323,10 @@ public class TrackingReportProcessor {
             if (artifactFilterPromotion.accepts(upload)) {
                 String packageType = TypeConverters.getIndyPackageTypeKey(repositoryType);
                 StoreKey source = new StoreKey(packageType, StoreType.hosted, buildContentId);
-                StoreKey target = new StoreKey(packageType, StoreType.hosted, getBuildPromotionTarget(tempBuild));
+                StoreKey target = new StoreKey(
+                        packageType,
+                        StoreType.hosted,
+                        getBuildPromotionTarget(buildCategory, tempBuild));
                 promotionPaths.add(source, target, path);
             }
         }
@@ -634,16 +638,19 @@ public class TrackingReportProcessor {
         return artifact;
     }
 
-    private TargetRepository getUploadsTargetRepository(RepositoryType repoType, boolean tempBuild)
+    private TargetRepository getUploadsTargetRepository(
+            RepositoryType repoType,
+            BuildCategory buildCategory,
+            boolean tempBuild)
             throws RepositoryDriverException {
 
         StoreKey storeKey;
         String identifier;
         if (repoType == RepositoryType.MAVEN) {
-            storeKey = new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(tempBuild));
+            storeKey = new StoreKey(MAVEN_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(buildCategory, tempBuild));
             identifier = ReposiotryIdentifier.INDY_MAVEN;
         } else if (repoType == RepositoryType.NPM) {
-            storeKey = new StoreKey(NPM_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(tempBuild));
+            storeKey = new StoreKey(NPM_PKG_KEY, StoreType.hosted, getBuildPromotionTarget(buildCategory, tempBuild));
             identifier = ReposiotryIdentifier.INDY_NPM;
         } else {
             throw new RepositoryDriverException(
@@ -670,8 +677,9 @@ public class TrackingReportProcessor {
         return promotionTargetsCache.get(packageType);
     }
 
-    private String getBuildPromotionTarget(boolean tempBuild) {
-        return tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget();
+    private String getBuildPromotionTarget(BuildCategory buildCategory, boolean tempBuild) {
+        return tempBuild ? configuration.getTempBuildPromotionTarget(buildCategory)
+                : configuration.getBuildPromotionTarget(buildCategory);
     }
 
     /**

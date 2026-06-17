@@ -24,7 +24,10 @@ import java.util.Optional;
 import jakarta.enterprise.context.Dependent;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.pnc.api.enums.BuildCategory;
 
+import io.smallrye.config.ConfigValue;
+import io.smallrye.config.SmallRyeConfig;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -32,6 +35,8 @@ import lombok.Setter;
 @Setter
 @Dependent
 public class Configuration {
+    private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
+            .unwrap(SmallRyeConfig.class);
 
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
@@ -74,12 +79,6 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
     Duration keyCloakRequestTimeout;
-
-    @ConfigProperty(name = "repository-driver.build-promotion-target")
-    String buildPromotionTarget;
-
-    @ConfigProperty(name = "repository-driver.temp-build-promotion-target")
-    String tempBuildPromotionTarget;
 
     @ConfigProperty(name = "repository-driver.ignored-repo-patterns.archive")
     Optional<List<String>> ignoredRepoPatternsArchive;
@@ -133,4 +132,87 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.heartbeat.interval", defaultValue = "5")
     long heartbeatInterval;
 
+    private static String getBuildCategoryConfig(String category, String leafConfig) {
+        return "repository-driver.build-categories." + category + "." + leafConfig;
+    }
+
+    /**
+     * get the config value for buildcategory. if no values specified for that buildcategory, use the 'default' one
+     * 
+     * @param buildCategory
+     * @param leafConfig
+     * @return
+     */
+    private String getConfigString(BuildCategory buildCategory, String leafConfig) {
+
+        if (buildCategory == null) {
+            // fallback if buildCategory is null
+            buildCategory = BuildCategory.STANDARD;
+        }
+
+        String buildCategoryConfig = getBuildCategoryConfig(buildCategory.name().toLowerCase(), leafConfig);
+        String defaultBuildCategoryConfig = getBuildCategoryConfig("default", leafConfig);
+
+        ConfigValue configValue = CONFIG_READ.getConfigValue(buildCategoryConfig);
+
+        if (configValue.getValue() == null) {
+            // if the raw value is null, assume that that config was never specified
+            // get the default value instead
+            return CONFIG_READ.getOptionalValue(defaultBuildCategoryConfig, String.class).orElse(null);
+        } else {
+            return configValue.getValue();
+        }
+    }
+
+    /**
+     * get the config value list for buildcategory. if no values specified for that buildcategory, use the 'default' one
+     * 
+     * @param buildCategory
+     * @param leafConfig
+     * @return
+     */
+    private Optional<List<String>> getConfigListString(BuildCategory buildCategory, String leafConfig) {
+
+        if (buildCategory == null) {
+            // fallback if buildCategory is null
+            buildCategory = BuildCategory.STANDARD;
+        }
+
+        String buildCategoryConfig = getBuildCategoryConfig(buildCategory.name().toLowerCase(), leafConfig);
+        String defaultBuildCategoryConfig = getBuildCategoryConfig("default", leafConfig);
+
+        ConfigValue configValue = CONFIG_READ.getConfigValue(buildCategoryConfig);
+
+        if (configValue.getValue() == null) {
+            // if the raw value is null, assume that that config was never specified
+            // get the default value instead
+            return CONFIG_READ.getOptionalValues(defaultBuildCategoryConfig, String.class);
+        } else {
+            return CONFIG_READ.getOptionalValues(buildCategoryConfig, String.class);
+        }
+    }
+
+    public String getBuildPromotionTarget(BuildCategory buildCategory) {
+        return getConfigString(buildCategory, "build-promotion-target");
+    }
+
+    public String getTempBuildPromotionTarget(BuildCategory buildCategory) {
+        return getConfigString(buildCategory, "temp-build-promotion-target");
+    }
+
+    public Optional<List<String>> getBuildGroupConstituentsTempHosted(BuildCategory buildCategory) {
+        return getConfigListString(buildCategory, "build-group-constituents.temp-hosted");
+    }
+
+    public Optional<List<String>> getBuildGroupConstituentsTempGroup(BuildCategory buildCategory) {
+        return getConfigListString(buildCategory, "build-group-constituents.temp-group");
+    }
+
+    public Optional<List<String>> getBuildGroupConstituentsHosted(BuildCategory buildCategory) {
+        return getConfigListString(buildCategory, "build-group-constituents.hosted");
+    }
+
+    public Optional<List<String>> getBuildGroupConstituentsGroup(BuildCategory buildCategory) {
+        return getConfigListString(buildCategory, "build-group-constituents.group");
+    }
 }

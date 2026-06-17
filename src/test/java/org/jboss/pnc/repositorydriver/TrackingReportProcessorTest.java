@@ -91,7 +91,8 @@ public class TrackingReportProcessorTest {
         StoreKey promotedBuildsKey = new StoreKey(
                 PackageTypeConstants.PKG_TYPE_MAVEN,
                 StoreType.hosted,
-                tempBuild ? configuration.getTempBuildPromotionTarget() : configuration.getBuildPromotionTarget());
+                tempBuild ? configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD)
+                        : configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
 
         uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar));
         uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar + ".md5"));
@@ -103,7 +104,12 @@ public class TrackingReportProcessorTest {
 
         // when
         PromotionPaths promotionPaths = trackingReportProcessor
-                .collectUploadsPromotions(report, tempBuild, RepositoryType.MAVEN, buildContentId);
+                .collectUploadsPromotions(
+                        report,
+                        tempBuild,
+                        RepositoryType.MAVEN,
+                        BuildCategory.STANDARD,
+                        buildContentId);
         Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
 
         // then

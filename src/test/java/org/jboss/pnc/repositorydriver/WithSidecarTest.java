@@ -8,6 +8,7 @@ import static org.mockito.Mockito.any;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
+import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
@@ -51,6 +52,7 @@ public class WithSidecarTest {
         RepositoryCreateRequest request = RepositoryCreateRequest.builder()
                 .buildContentId("build-X")
                 .buildType(BuildType.MVN)
+                .buildCategory(BuildCategory.STANDARD)
                 .tempBuild(false)
                 .build();
         configuration.setSidecarEnabled(true);

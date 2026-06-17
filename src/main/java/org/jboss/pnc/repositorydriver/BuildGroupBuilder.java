@@ -1,8 +1,6 @@
 package org.jboss.pnc.repositorydriver;
 
 import static org.jboss.pnc.repositorydriver.Driver.GRADLE_PLUGINS_REPO;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.COMMON_BUILD_GROUP_CONSTITUENTS_GROUP;
-import static org.jboss.pnc.repositorydriver.constants.IndyRepositoryConstants.TEMPORARY_BUILDS_GROUP;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -20,6 +18,7 @@ import org.commonjava.indy.model.core.RemoteRepository;
 import org.commonjava.indy.model.core.StoreKey;
 import org.commonjava.indy.model.core.StoreType;
 import org.commonjava.indy.model.core.dto.StoreListingDTO;
+import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +33,7 @@ public class BuildGroupBuilder {
 
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
 
+    private Configuration configuration;
     private Indy indy;
     private Group buildGroup;
     private String packageType;
@@ -43,8 +43,13 @@ public class BuildGroupBuilder {
     private BuildGroupBuilder() {
     }
 
-    public static BuildGroupBuilder builder(Indy indy, String packageType, String buildContentId) {
+    public static BuildGroupBuilder builder(
+            Configuration configuration,
+            Indy indy,
+            String packageType,
+            String buildContentId) {
         BuildGroupBuilder buildGroupBuilder = new BuildGroupBuilder();
+        buildGroupBuilder.configuration = configuration;
         buildGroupBuilder.indy = indy;
         buildGroupBuilder.packageType = packageType;
         buildGroupBuilder.buildContentId = buildContentId;
@@ -74,12 +79,30 @@ public class BuildGroupBuilder {
      *
      * @param buildType the build type
      */
-    public BuildGroupBuilder addGlobalConstituents(BuildType buildType, boolean tempBuild) {
+    public BuildGroupBuilder addGlobalConstituents(
+            BuildType buildType,
+            BuildCategory buildCategory,
+            boolean tempBuild) {
         // 1. global builds artifacts
         if (tempBuild) {
-            buildGroup.addConstituent(new StoreKey(packageType, StoreType.hosted, TEMPORARY_BUILDS_GROUP));
+            for (String hostedTempConstituent : configuration.getBuildGroupConstituentsTempHosted(buildCategory)
+                    .orElse(List.of())) {
+                buildGroup.addConstituent(new StoreKey(packageType, StoreType.hosted, hostedTempConstituent));
+            }
+            for (String groupTempConstituent : configuration.getBuildGroupConstituentsTempGroup(buildCategory)
+                    .orElse(List.of())) {
+                buildGroup.addConstituent(new StoreKey(packageType, StoreType.group, groupTempConstituent));
+            }
+        } else {
+            for (String hostedConstituent : configuration.getBuildGroupConstituentsHosted(buildCategory)
+                    .orElse(List.of())) {
+                buildGroup.addConstituent(new StoreKey(packageType, StoreType.hosted, hostedConstituent));
+            }
+            for (String groupConstituent : configuration.getBuildGroupConstituentsGroup(buildCategory)
+                    .orElse(List.of())) {
+                buildGroup.addConstituent(new StoreKey(packageType, StoreType.group, groupConstituent));
+            }
         }
-        buildGroup.addConstituent(new StoreKey(packageType, StoreType.group, COMMON_BUILD_GROUP_CONSTITUENTS_GROUP));
 
         // add build-type-specific constituents
         switch (buildType) {
