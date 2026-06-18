@@ -50,7 +50,7 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.artifactory-client.url")
     String artifactoryUrl;
 
-    @ConfigProperty(name = "repository-driver.artifactory-client.accessToken")
+    @ConfigProperty(name = "repository-driver.artifactory-client.access-token")
     String accessToken;
 
     @ConfigProperty(name = "repository-driver.indy-client.api-url")

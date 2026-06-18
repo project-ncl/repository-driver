@@ -86,7 +86,7 @@ repository-driver:
   self-base-url: "http://localhost:8081/"
   artifactory-client:
     url: "http://artifactory-host/api/"
-    accessToken: "TOKEN"
+    access-token: "TOKEN"
   indy-client:
     api-url: "http://indy-host/api/"
   archive-service:
