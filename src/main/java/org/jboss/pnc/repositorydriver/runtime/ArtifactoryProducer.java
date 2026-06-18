@@ -20,7 +20,7 @@ public class ArtifactoryProducer {
 
     public ArtifactoryProducer(
             @ConfigProperty(name = "repository-driver.artifactory-client.url") String url,
-            @ConfigProperty(name = "repository-driver.artifactory-client.accessToken") String accessToken)
+            @ConfigProperty(name = "repository-driver.artifactory-client.access-token") String accessToken)
             throws RepositoryDriverException {
         try {
             logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);

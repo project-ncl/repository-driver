@@ -115,7 +115,7 @@ repository-driver:
   self-base-url:
   artifactory-client:
     url:
-    accessToken:
+    access-token:
   indy-client:
     api-url:
     request-timeout: 30
