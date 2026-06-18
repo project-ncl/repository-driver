@@ -64,7 +64,7 @@ public class Public {
     Driver driver;
 
     /**
-     * Create a new repository for the build. If Indy responds with en error an error response is returned to the
+     * Create a new repository for the build. If Indy responds with an error an error response is returned to the
      * invoker.
      */
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
