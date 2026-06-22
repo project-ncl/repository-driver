@@ -82,6 +82,8 @@ repository-driver:
   build-categories:
     # Default category
     default:
+      # Note - both these targets will have the deployment prefixed so a target
+      # of mvn-builds could become pnc-devel-mvn-builds
       build-promotion-target: pnc-builds
       temp-build-promotion-target: temp-builds
       build-group-constituents:
@@ -108,10 +110,6 @@ repository-driver:
   ignored-repo-patterns:
     promotion:
     archive:
-  # Note - both these targets will have the deployment prefixed so a target
-  # of mvn-builds could become pnc-devel-mvn-builds
-  temp-build-promotion-target:
-  build-promotion-target:
   self-base-url:
   artifactory-client:
     url:
