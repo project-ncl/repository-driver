@@ -95,7 +95,6 @@ public class ArtifactoryBuildGroupBuilder {
                                         configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
                                         buildType,
-                                        false,
                                         tempBuild,
                                         hostedTempConstituent));
             }
@@ -107,7 +106,6 @@ public class ArtifactoryBuildGroupBuilder {
                                         configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
                                         buildType,
-                                        false,
                                         tempBuild,
                                         groupTempConstituent));
             }
@@ -120,7 +118,6 @@ public class ArtifactoryBuildGroupBuilder {
                                         configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
                                         buildType,
-                                        false,
                                         tempBuild,
                                         hostedConstituent));
             }
@@ -132,7 +129,6 @@ public class ArtifactoryBuildGroupBuilder {
                                         configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
                                         buildType,
-                                        false,
                                         tempBuild,
                                         groupConstituent));
             }
@@ -148,7 +144,6 @@ public class ArtifactoryBuildGroupBuilder {
                                         configuration.getNamingStructure(),
                                         configuration.getDeploymentType().toString(),
                                         buildType,
-                                        false,
                                         tempBuild,
                                         GRADLE_PLUGINS_REPO));
                 break;
