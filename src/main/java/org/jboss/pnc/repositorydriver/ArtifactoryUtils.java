@@ -11,19 +11,18 @@ public class ArtifactoryUtils {
     /**
      * Builds the repository name for Artifactory based repositories using the naming-structure template.
      * <p>
-     * Template format: "{project}{temporary}{build}{virtual}{type}"
+     * Template format: "{project}{type}{temporary}{build}"
      * The name might look like e.g.
      *
      * <pre>{@code
-     *     pnc-temporary-build-ABCDEF-virtual-maven
-     *     pnc-build-ABCDEF-maven
+     *     pnc-mvn-temp-build-ABCDEF
+     *     pnc-build-ABCDEF
      *     }</pre>
      * </p>
      *
      * @param namingStructure the naming structure template from configuration
      * @param project The project/deployment type name
      * @param buildType Type of the build (e.g. maven)
-     * @param isVirtual Whether to create virtual (or group) based repos.
      * @param isTempBuild Whether temporary builds are enabled
      * @param buildContentId The BuildId
      * @return formatted repository name
@@ -32,15 +31,13 @@ public class ArtifactoryUtils {
             String namingStructure,
             String project,
             BuildType buildType,
-            boolean isVirtual,
             boolean isTempBuild,
             String buildContentId) {
         return parseTemplate(
                 namingStructure,
                 project,
                 buildType.getRepoType(),
-                isTempBuild ? "temporary" : null,
-                isVirtual ? "virtual" : null,
+                isTempBuild ? "temp" : null,
                 buildContentId,
                 null,
                 null);
@@ -48,14 +45,13 @@ public class ArtifactoryUtils {
 
     /**
      * Generic template parser that replaces placeholders with actual values.
-     * Supports: {project}, {type}, {temporary}, {virtual}, {build}, {url}, {target}
+     * Supports: {project}, {type}, {temporary}, {build}, {url}, {target}
      * Automatically adds dashes between non-empty parts.
      *
      * @param template The template string with placeholders
      * @param project The project/deployment name
      * @param repoType The repository type
      * @param temporary The temporary value (e.g., "temporary" or null)
-     * @param virtual The virtual value (e.g., "virtual" or null)
      * @param build The build ID
      * @param url The extracted hostname from URL
      * @param target The build promotion target
@@ -66,7 +62,6 @@ public class ArtifactoryUtils {
             String project,
             RepositoryType repoType,
             String temporary,
-            String virtual,
             String build,
             String url,
             String target) {
@@ -89,9 +84,6 @@ public class ArtifactoryUtils {
                     break;
                 case "temporary":
                     value = temporary;
-                    break;
-                case "virtual":
-                    value = virtual;
                     break;
                 case "build":
                     value = build;

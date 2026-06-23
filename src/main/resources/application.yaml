@@ -93,8 +93,9 @@ repository-driver:
           builds-imports-public
 #          - builds-untested+shared-imports+public
         hosted: [] # deliberately left empty
+        # Indy allows same name for group/hosted but Artifactory doesn't
         group:
-          - builds-imports-public
+          - builds-imports-public-virt
 #          - builds-untested+shared-imports+public
   ignored-path-patterns:
     archive:
@@ -138,5 +139,5 @@ repository-driver:
   tracking-service:
     api-url: http://localhost:8080
   repository:
-    naming-structure: "{project}{type}{temporary}{build}{virtual}"
-#    naming-structure: "{project}{temporary}{build}{virtual}{type}"
+    naming-structure: "{project}{type}{temporary}{build}"
+#    naming-structure: "{project}{temporary}{build}{type}"

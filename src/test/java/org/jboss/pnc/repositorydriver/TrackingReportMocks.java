@@ -13,30 +13,27 @@ public class TrackingReportMocks {
     // RepositoryKey replacements for old StoreKey
     public static RepositoryKey centralKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("central").build(),
-            PackageType.MVN,
-            false // not temporary
+            PackageType.MVN
+    // not temporary
     );
 
     public static RepositoryKey sharedImportsKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name(RepositoryConstants.MVN_SHARED_IMPORTS_ID).build(),
-            PackageType.MVN,
-            false // not temporary
+            PackageType.MVN
+    // not temporary
     );
 
     public static RepositoryKey ignoredKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("ignored").build(),
-            PackageType.MVN,
-            false);
+            PackageType.MVN);
 
     public static RepositoryKey toBeIgnoredKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("tobeignored").build(),
-            PackageType.MVN,
-            false);
+            PackageType.MVN);
 
     public static RepositoryKey notToBeIgnoredKey = new RepositoryKey(
             RepositoryId.builder().project("pnc").name("nottobeignored").build(),
-            PackageType.MVN,
-            false);
+            PackageType.MVN);
 
     public static String indyPom = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
     public static String noFileExtensionArtifact = "/org/jboss/shrinkwrap/shrinkwrap-api/1.2.6/shrinkwrap-api-1.2.6";
