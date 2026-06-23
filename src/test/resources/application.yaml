@@ -34,11 +34,11 @@ repository-driver:
         temp-hosted:
           - constituent-temp-hosted
         temp-group:
-          - constituent-temp-group
+          - constituent-temp-virt
         hosted:
-          - consituent-hosted
+          - constituent-hosted
         group:
-          - constituent-group
+          - constituent-virt
 
     # Standard category
     standard:
@@ -98,7 +98,7 @@ repository-driver:
   tracking-service:
     api-url: http://localhost:8080
   repository:
-    naming-structure: "{project}{type}{temporary}{build}{virtual}"
+    naming-structure: "{project}{type}{temporary}{build}"
 
 "%dev":
   quarkus:
