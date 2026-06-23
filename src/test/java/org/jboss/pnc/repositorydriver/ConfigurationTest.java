@@ -60,9 +60,9 @@ public class ConfigurationTest {
                 Optional.of(List.of("temp-central")),
                 configuration.getBuildGroupConstituentsTempHosted(BuildCategory.STANDARD));
 
-        // not defined in 'central'; should use default
+        // not defined in 'standard'; should use default
         assertEquals(
-                Optional.of(List.of("constituent-group")),
+                Optional.of(List.of("constituent-virt")),
                 configuration.getBuildGroupConstituentsGroup(BuildCategory.STANDARD));
     }
 

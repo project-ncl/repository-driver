@@ -10,7 +10,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -244,63 +243,68 @@ public class TrackingReportProcessor {
         return artifacts;
     }
 
-    @WithSpan()
-    public PromotionPaths collectDownloadsPromotions(
-            @SpanAttribute(value = "report") TrackingReport report,
-            @SpanAttribute(value = "genericRepos") Collection<RepositoryKey> genericRepos) {
-        PromotionPaths promotionPaths = new PromotionPaths();
-        Set<TrackedEntry> downloads = report.getDownloads();
-        if (downloads == null) {
-            return promotionPaths;
-        }
-        Map<PackageType, RepositoryKey> promotionTargetsCache = new HashMap<>();
-        for (TrackedEntry download : downloads) {
-            String path = download.getPath();
-            RepositoryId sourceRepoId = download.getRepoId();
-            PackageType packageType = download.getPackageType();
-            logger.warn(
-                    "### collectDownloadsPromotions::source {} ignoreDependencySource(source) {} download {} artifactFilterPromotion.accepts(download) {}",
-                    sourceRepoId,
-                    ignoreDependencySource(sourceRepoId),
-                    download,
-                    artifactFilterPromotion.accepts(download));
-            if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
-                RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
-                RepositoryKey target;
-                // this has not been captured, so promote it.
-                switch (packageType) {
-                    case MVN:
-                    case NPM:
-                        target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
-                        promotionPaths.add(source, target, path);
-                        break;
-
-                    case GENERIC:
-                        genericRepos.add(source);
-                        path = source.repositoryId().getName() + "/"
-                                + ArtifactoryUtils.extractHostnameFromUrl(download.getOriginUrl()) + path;
-                        String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
-                        logger.info(
-                                "Translating source repository name {} to {} with path {}",
-                                source.repositoryId().getName(),
-                                hostedName,
-                                path);
-                        RepositoryId targetRepoId = RepositoryId.builder()
-                                .project(sourceRepoId.getProject())
-                                .name(hostedName)
-                                .build();
-                        target = new RepositoryKey(targetRepoId, packageType, false);
-                        promotionPaths.add(source, target, path);
-                        break;
-
-                    default:
-                        // do not promote anything else anywhere
-                        break;
-                }
-            }
-        }
-        return promotionPaths;
-    }
+    /*
+     * @WithSpan()
+     * public PromotionPaths collectDownloadsPromotions(
+     *
+     * @SpanAttribute(value = "report") TrackingReport report,
+     *
+     * @SpanAttribute(value = "genericRepos") Collection<RepositoryKey> genericRepos) {
+     * PromotionPaths promotionPaths = new PromotionPaths();
+     * Set<TrackedEntry> downloads = report.getDownloads();
+     * if (downloads == null) {
+     * return promotionPaths;
+     * }
+     * Map<PackageType, RepositoryKey> promotionTargetsCache = new HashMap<>();
+     * for (TrackedEntry download : downloads) {
+     * String path = download.getPath();
+     * RepositoryId sourceRepoId = download.getRepoId();
+     * PackageType packageType = download.getPackageType();
+     * logger.warn(
+     * "### collectDownloadsPromotions::source {} ignoreDependencySource(source) {} download {} artifactFilterPromotion.accepts(download) {}"
+     * ,
+     * sourceRepoId,
+     * ignoreDependencySource(sourceRepoId),
+     * download,
+     * artifactFilterPromotion.accepts(download));
+     * if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
+     * RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
+     * RepositoryKey target;
+     * // this has not been captured, so promote it.
+     * switch (packageType) {
+     * case MVN:
+     * case NPM:
+     * target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
+     * promotionPaths.add(source, target, path);
+     * break;
+     *
+     * case GENERIC:
+     * genericRepos.add(source);
+     * path = source.repositoryId().getName() + "/"
+     * + ArtifactoryUtils.extractHostnameFromUrl(download.getOriginUrl()) + path;
+     * String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
+     * logger.info(
+     * "Translating source repository name {} to {} with path {}",
+     * source.repositoryId().getName(),
+     * hostedName,
+     * path);
+     * RepositoryId targetRepoId = RepositoryId.builder()
+     * .project(sourceRepoId.getProject())
+     * .name(hostedName)
+     * .build();
+     * target = new RepositoryKey(targetRepoId, packageType, false);
+     * promotionPaths.add(source, target, path);
+     * break;
+     *
+     * default:
+     * // do not promote anything else anywhere
+     * break;
+     * }
+     * }
+     * }
+     * return promotionPaths;
+     * }
+     */
 
     @WithSpan()
     public List<ArchiveDownloadEntry> collectArchivalArtifacts(
@@ -326,38 +330,45 @@ public class TrackingReportProcessor {
         return deps;
     }
 
-    @WithSpan()
-    public PromotionPaths collectUploadsPromotions(
-            @SpanAttribute(value = "report") TrackingReport report,
-            @SpanAttribute(value = "tempBuild") boolean tempBuild,
-            @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
-            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
-            @SpanAttribute(value = "buildContentId") String buildContentId) {
-        PromotionPaths promotionPaths = new PromotionPaths();
-        Set<TrackedEntry> uploads = report.getUploads();
-        if (uploads == null) {
-            return promotionPaths;
-        }
-        for (TrackedEntry upload : uploads) {
-            String path = upload.getPath();
-            if (artifactFilterPromotion.accepts(upload)) {
-                PackageType packageType = TypeConverters.toPackageType(repositoryType);
-                // TODO: ### Project value for RepositoryId - using deployment type as project identifier
-                RepositoryId sourceRepoId = RepositoryId.builder()
-                        .project(configuration.getDeploymentType().toString())
-                        .name(buildContentId)
-                        .build();
-                RepositoryId targetRepoId = RepositoryId.builder()
-                        .project(configuration.getDeploymentType().toString())
-                        .name(getBuildPromotionTarget(buildCategory, tempBuild))
-                        .build();
-                RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, tempBuild);
-                RepositoryKey target = new RepositoryKey(targetRepoId, packageType, tempBuild);
-                promotionPaths.add(source, target, path);
-            }
-        }
-        return promotionPaths;
-    }
+    /*
+     * @WithSpan()
+     * public PromotionPaths collectUploadsPromotions(
+     *
+     * @SpanAttribute(value = "report") TrackingReport report,
+     *
+     * @SpanAttribute(value = "tempBuild") boolean tempBuild,
+     *
+     * @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
+     *
+     * @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
+     *
+     * @SpanAttribute(value = "buildContentId") String buildContentId) {
+     * PromotionPaths promotionPaths = new PromotionPaths();
+     * Set<TrackedEntry> uploads = report.getUploads();
+     * if (uploads == null) {
+     * return promotionPaths;
+     * }
+     * for (TrackedEntry upload : uploads) {
+     * String path = upload.getPath();
+     * if (artifactFilterPromotion.accepts(upload)) {
+     * PackageType packageType = TypeConverters.toPackageType(repositoryType);
+     * // TODO: ### Project value for RepositoryId - using deployment type as project identifier
+     * RepositoryId sourceRepoId = RepositoryId.builder()
+     * .project(configuration.getDeploymentType().toString())
+     * .name(buildContentId)
+     * .build();
+     * RepositoryId targetRepoId = RepositoryId.builder()
+     * .project(configuration.getDeploymentType().toString())
+     * .name(getBuildPromotionTarget(buildCategory, tempBuild))
+     * .build();
+     * RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, tempBuild);
+     * RepositoryKey target = new RepositoryKey(targetRepoId, packageType, tempBuild);
+     * promotionPaths.add(source, target, path);
+     * }
+     * }
+     * return promotionPaths;
+     * }
+     */
 
     /**
      * Creates BuildInfo objects for promotion, grouped by target repository. Each BuildInfo contains both filtered
@@ -402,7 +413,7 @@ public class TrackingReportProcessor {
             @SpanAttribute(value = "buildContentId") String buildContentId,
             @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
             @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
-            @SpanAttribute(value = "genericRepos") Collection<RepositoryKey> genericRepos)
+            @SpanAttribute(value = "genericRepos") Set<RepositoryKey> genericRepos)
             throws RepositoryDriverException {
 
         Map<RepositoryKey, GroupedEntries> groupedByTarget = new HashMap<>();
@@ -428,7 +439,7 @@ public class TrackingReportProcessor {
                         case GENERIC:
                             // Generic downloads go to generic-downloads target
                             // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
-                            RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
+                            RepositoryKey source = new RepositoryKey(sourceRepoId, packageType);
                             genericRepos.add(source);
 
                             String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
@@ -436,7 +447,7 @@ public class TrackingReportProcessor {
                                     .project(sourceRepoId.getProject())
                                     .name(hostedName)
                                     .build();
-                            target = new RepositoryKey(targetRepoId, packageType, false);
+                            target = new RepositoryKey(targetRepoId, packageType);
                             break;
 
                         default:
@@ -461,7 +472,7 @@ public class TrackingReportProcessor {
                     .project(configuration.getDeploymentType().toString())
                     .name(getBuildPromotionTarget(buildCategory, tempBuild))
                     .build();
-            RepositoryKey target = new RepositoryKey(targetRepoId, packageType, tempBuild);
+            RepositoryKey target = new RepositoryKey(targetRepoId, packageType);
 
             for (TrackedEntry upload : uploads) {
                 // Apply filter for uploads
@@ -949,7 +960,7 @@ public class TrackingReportProcessor {
                     .project(configuration.getDeploymentType().toString())
                     .name(packageType == MVN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
                     .build();
-            RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType, false);
+            RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType);
             promotionTargetsCache.put(packageType, repositoryKey);
         }
         return promotionTargetsCache.get(packageType);

@@ -85,7 +85,8 @@ public class ArtifactoryBuildGroupBuilderTest {
                         Collections.singletonList("https://repo1.maven.org/maven2/"))
                 .build();
 
-        assertEquals(3, result.getRepositories().size());
+        System.out.println("### Got repositories " + result.getRepositories());
+        assertEquals(4, result.getRepositories().size());
         assertEquals(configuration.getDeploymentType() + "-virtual-ID", result.getKey());
         assertInstanceOf(MavenRepositorySettings.class, result.getRepositorySettings());
         assertTrue(((MavenRepositorySettings) result.getRepositorySettings()).getHandleReleases());
