@@ -156,8 +156,24 @@ public class Driver {
             PackageType packageType = TypeConverters.toPackageType(buildType.getRepoType());
             String buildId = repositoryCreateRequest.getBuildContentId();
 
+            // Calculate repository names once
+            String hostedRepoName = ArtifactoryUtils.createRepositoryName(
+                    configuration.getNamingStructure(),
+                    configuration.getDeploymentType().toString(),
+                    buildType,
+                    repositoryCreateRequest.isTempBuild(),
+                    buildId);
+            String virtualRepoName = ArtifactoryUtils.createRepositoryName(
+                    configuration.getNamingStructure(),
+                    configuration.getDeploymentType().toString(),
+                    buildType,
+                    repositoryCreateRequest.isTempBuild(),
+                    buildId + "-virt");
+
             setupBuildRepos(
-                    repositoryCreateRequest.getBuildContentId(),
+                    hostedRepoName,
+                    virtualRepoName,
+                    buildId,
                     buildType,
                     repositoryCreateRequest.getBuildCategory(),
                     packageType,
@@ -172,20 +188,8 @@ public class Driver {
             trackingServiceClient.initReport(buildId);
 
             // TODO: This assumes artifactoryUrl always has a '/' at the end.
-            deployUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                    configuration.getNamingStructure(),
-                    configuration.getDeploymentType().toString(),
-                    buildType,
-                    false,
-                    repositoryCreateRequest.isTempBuild(),
-                    buildId);
-            downloadsUrl = configuration.artifactoryUrl + ArtifactoryUtils.createRepositoryName(
-                    configuration.getNamingStructure(),
-                    configuration.getDeploymentType().toString(),
-                    buildType,
-                    true,
-                    repositoryCreateRequest.isTempBuild(),
-                    buildId);
+            deployUrl = configuration.artifactoryUrl + hostedRepoName;
+            downloadsUrl = configuration.artifactoryUrl + virtualRepoName;
 
             // TODO: With Artifactory will we need the sidecar translation?
             if (configuration.isSidecarEnabled()) {
@@ -679,9 +683,14 @@ public class Driver {
      * product-level content group with which this build is associated. The group also provides a tracking target, so
      * the repository manager can keep track of downloads and uploads for the build.
      *
+     * @param hostedName the name of the hosted repository
+     * @param virtualName the name of the virtual/group repository
+     * @param buildContentId the build content ID for logging
      * @param packageType the package type key used by Indy
      */
     private void setupBuildRepos(
+            String hostedName,
+            String virtualName,
             String buildContentId,
             BuildType buildType,
             BuildCategory buildCategory,
@@ -693,22 +702,6 @@ public class Driver {
         try {
             // Was using try/resources but now switched to injected artifactory for tests
             // (Artifactory artifactory = createArtifactoryClient()) {
-            String hostedName = ArtifactoryUtils
-                    .createRepositoryName(
-                            configuration.getNamingStructure(),
-                            configuration.getDeploymentType().toString(),
-                            buildType,
-                            false,
-                            tempBuild,
-                            buildContentId);
-            String virtualName = ArtifactoryUtils
-                    .createRepositoryName(
-                            configuration.getNamingStructure(),
-                            configuration.getDeploymentType().toString(),
-                            buildType,
-                            true,
-                            tempBuild,
-                            buildContentId);
             logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
             // Check repositories exist and delete if they do
             RepositoryHandle hostedRepository = artifactory.repository(hostedName);

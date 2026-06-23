@@ -147,7 +147,6 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                         configuration.getDeploymentType().toString(),
                         BuildType.MVN_RPM,
                         false,
-                        false,
                         "build-ABCDEF");
         assertEquals("pnc-mvn-build-ABCDEF", name);
 
@@ -156,6 +155,13 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                 configuration.getDeploymentType().toString(),
                 BuildType.GRADLE,
                 false,
+                "build-ABCDEF");
+        assertEquals("pnc-mvn-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getNamingStructure(),
+                configuration.getDeploymentType().toString(),
+                BuildType.GRADLE,
                 false,
                 "build-ABCDEF");
         assertEquals("pnc-mvn-build-ABCDEF", name);
@@ -165,18 +171,8 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                 configuration.getDeploymentType().toString(),
                 BuildType.GRADLE,
                 true,
-                false,
                 "build-ABCDEF");
-        assertEquals("pnc-mvn-build-ABCDEF-virtual", name);
-
-        name = ArtifactoryUtils.createRepositoryName(
-                configuration.getNamingStructure(),
-                configuration.getDeploymentType().toString(),
-                BuildType.GRADLE,
-                false,
-                true,
-                "build-ABCDEF");
-        assertEquals("pnc-mvn-temporary-build-ABCDEF", name);
+        assertEquals("pnc-mvn-temp-build-ABCDEF", name);
     }
 
     @Test
@@ -201,7 +197,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
         // then
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-mvn-build-X-virtual",
+                "http://artifactory-host/api/pnc-mvn-build-X-virt",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
                 "http://artifactory-host/api/pnc-mvn-build-X",
