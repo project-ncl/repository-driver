@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import jakarta.inject.Inject;
@@ -16,6 +17,7 @@ import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -452,6 +454,210 @@ public class TrackingReportProcessorTest {
 
         // then: Should return empty map
         Assertions.assertTrue(buildInfoMap.isEmpty(), "Should return empty map for empty report");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_MultipleRepositoriesForMavenAndGeneric()
+            throws RepositoryDriverException {
+        // given: TrackingReport with Maven downloads, Generic downloads, and Maven uploads
+        Set<TrackedEntry> downloads = new HashSet<>();
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Maven downloads from central - should go to pnc-mvn-imports
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyJarFromCentral);
+
+        // Additional Maven downloads from jackson-core
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(TrackingReportMocks.centralKey.repositoryId())
+                        .packageType(PackageType.MVN)
+                        .path("/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.jar")
+                        .originUrl(
+                                "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.jar")
+                        .localUrl("file:///tmp/jackson-core-2.0.0.jar")
+                        .md5("jackson-md5")
+                        .sha1("jackson-sha1")
+                        .sha256("jackson-sha256")
+                        .build());
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(TrackingReportMocks.centralKey.repositoryId())
+                        .packageType(PackageType.MVN)
+                        .path("/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.pom")
+                        .originUrl(
+                                "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.pom")
+                        .localUrl("file:///tmp/jackson-core-2.0.0.pom")
+                        .md5("jackson-pom-md5")
+                        .sha1("jackson-pom-sha1")
+                        .sha256("jackson-pom-sha256")
+                        .build());
+
+        // Generic downloads from different repositories - should go to pnc-generic-downloads
+        RepositoryKey genericRepo1 = new RepositoryKey(
+                RepositoryId.builder().project("pnc").name("generic-repo-1").build(),
+                PackageType.GENERIC);
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(genericRepo1.repositoryId())
+                        .packageType(PackageType.GENERIC)
+                        .path("/files/archive1.tar.gz")
+                        .originUrl("https://example.com/archive1.tar.gz")
+                        .localUrl("file:///tmp/archive1.tar.gz")
+                        .md5("gen1-md5")
+                        .sha1("gen1-sha1")
+                        .sha256("gen1-sha256")
+                        .build());
+
+        RepositoryKey genericRepo2 = new RepositoryKey(
+                RepositoryId.builder().project("pnc").name("generic-repo-2").build(),
+                PackageType.GENERIC);
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(genericRepo2.repositoryId())
+                        .packageType(PackageType.GENERIC)
+                        .path("/files/archive2.zip")
+                        .originUrl("https://example.com/archive2.zip")
+                        .localUrl("file:///tmp/archive2.zip")
+                        .md5("gen2-md5")
+                        .sha1("gen2-sha1")
+                        .sha256("gen2-sha256")
+                        .build());
+
+        // Maven uploads - should go to pnc-mvn-builds (build promotion target)
+        uploads.add(
+                TrackedEntry.builder()
+                        .packageType(PackageType.MVN)
+                        .path("/com/example/myapp/1.0/myapp-1.0.jar")
+                        .localUrl("file:///tmp/myapp-1.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
+        uploads.add(
+                TrackedEntry.builder()
+                        .packageType(PackageType.MVN)
+                        .path("/com/example/myapp/1.0/myapp-1.0.pom")
+                        .localUrl("file:///tmp/myapp-1.0.pom")
+                        .md5("upload-pom-md5")
+                        .sha1("upload-pom-sha1")
+                        .sha256("upload-pom-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-build-id")
+                .downloads(downloads)
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfos is called
+        Set<RepositoryKey> genericRepos = new HashSet<>();
+        Map<RepositoryKey, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor
+                .createPromotionBuildInfos(
+                        report,
+                        false,
+                        "test-build-id",
+                        RepositoryType.MAVEN,
+                        BuildCategory.STANDARD,
+                        genericRepos);
+
+        // then: Should have multiple BuildInfo objects for different target repositories
+        Assertions.assertEquals(
+                3,
+                buildInfoMap.size(),
+                "Should have exactly 3 BuildInfo objects: pnc-mvn-imports, pnc-generic-downloads, and pnc-mvn-builds (build promotion target). Got: "
+                        + buildInfoMap.size());
+
+        // Verify Maven shared-imports BuildInfo exists with dependencies
+        RepositoryKey mvnSharedImportsKey = buildInfoMap.keySet()
+                .stream()
+                .filter(key -> key.repositoryId().getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID))
+                .findFirst()
+                .orElse(null);
+        Assertions.assertNotNull(
+                mvnSharedImportsKey,
+                "Should have Maven shared-imports repository key (pnc-mvn-imports)");
+        Assertions.assertEquals(PackageType.MVN, mvnSharedImportsKey.packageType());
+        Assertions.assertEquals(
+                "pnc",
+                mvnSharedImportsKey.repositoryId().getProject(),
+                "Project should be 'pnc' from deployment config");
+
+        org.jfrog.build.api.Build mvnSharedImportsBuild = buildInfoMap.get(mvnSharedImportsKey);
+        Assertions.assertNotNull(mvnSharedImportsBuild, "Should have BuildInfo for Maven shared-imports");
+        Assertions.assertEquals(1, mvnSharedImportsBuild.getModules().size());
+        org.jfrog.build.api.Module mvnModule = mvnSharedImportsBuild.getModules().get(0);
+        Assertions.assertEquals(
+                4,
+                mvnModule.getDependencies().size(),
+                "Maven shared-imports should have 4 dependencies (indy pom, indy jar, jackson jar, jackson pom)");
+        Assertions.assertEquals(0, mvnModule.getArtifacts().size(), "Maven shared-imports should have no artifacts");
+
+        // Verify generic-downloads BuildInfo exists with dependencies
+        RepositoryKey genericDownloadsKey = buildInfoMap.keySet()
+                .stream()
+                .filter(key -> key.repositoryId().getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
+                .findFirst()
+                .orElse(null);
+        Assertions.assertNotNull(
+                genericDownloadsKey,
+                "Should have generic-downloads repository key (pnc-generic-downloads)");
+        Assertions.assertEquals(PackageType.GENERIC, genericDownloadsKey.packageType());
+
+        org.jfrog.build.api.Build genericDownloadsBuild = buildInfoMap.get(genericDownloadsKey);
+        Assertions.assertNotNull(genericDownloadsBuild, "Should have BuildInfo for generic-downloads");
+        Assertions.assertEquals(1, genericDownloadsBuild.getModules().size());
+        org.jfrog.build.api.Module genericModule = genericDownloadsBuild.getModules().get(0);
+        Assertions.assertEquals(
+                2,
+                genericModule.getDependencies().size(),
+                "Generic downloads should have 2 dependencies (from 2 different repos)");
+        Assertions.assertEquals(0, genericModule.getArtifacts().size(), "Generic downloads should have no artifacts");
+
+        // Verify build promotion target BuildInfo exists with artifacts (pnc-mvn-builds)
+        RepositoryKey buildPromotionKey = buildInfoMap.keySet()
+                .stream()
+                .filter(
+                        key -> !key.repositoryId().getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID)
+                                && !key.repositoryId().getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
+                .findFirst()
+                .orElse(null);
+        Assertions
+                .assertNotNull(buildPromotionKey, "Should have build promotion target repository key (pnc-mvn-builds)");
+        Assertions.assertEquals(PackageType.MVN, buildPromotionKey.packageType());
+        // The build promotion target name comes from configuration.getBuildPromotionTarget(BuildCategory.STANDARD)
+        // which defaults to "target" in test config, but with project prefix becomes "prod-mvn-target"
+
+        org.jfrog.build.api.Build buildPromotionBuild = buildInfoMap.get(buildPromotionKey);
+        Assertions.assertNotNull(buildPromotionBuild, "Should have BuildInfo for build promotion target");
+        Assertions.assertEquals(1, buildPromotionBuild.getModules().size());
+        org.jfrog.build.api.Module buildModule = buildPromotionBuild.getModules().get(0);
+        Assertions.assertEquals(
+                2,
+                buildModule.getArtifacts().size(),
+                "Build promotion target should have 2 artifacts (jar and pom)");
+        Assertions.assertEquals(
+                0,
+                buildModule.getDependencies().size(),
+                "Build promotion target should have no dependencies");
+
+        // Verify genericRepos collection was populated with source generic repositories
+        Assertions.assertEquals(
+                2,
+                genericRepos.size(),
+                "Should have 2 generic source repositories in genericRepos collection");
+        Assertions.assertTrue(
+                genericRepos.contains(genericRepo1),
+                "Should contain generic-repo-1 in genericRepos collection");
+        Assertions.assertTrue(
+                genericRepos.contains(genericRepo2),
+                "Should contain generic-repo-2 in genericRepos collection");
+
+        // Verify all BuildInfo objects have correct tracking ID
+        for (org.jfrog.build.api.Build build : buildInfoMap.values()) {
+            Assertions
+                    .assertEquals("test-build-id", build.getNumber(), "All builds should have the same tracking ID");
+        }
     }
 
     /*
