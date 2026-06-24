@@ -21,7 +21,6 @@ import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpClient.Version.HTTP_2;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
-import static org.jboss.pnc.api.tracker.dto.PackageType.GENERIC;
 
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -30,7 +29,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -77,12 +75,12 @@ import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
-import org.jfrog.artifactory.client.impl.CopyMoveException;
 import org.jfrog.artifactory.client.model.Repository;
 import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
 import org.jfrog.artifactory.client.model.repository.settings.impl.NpmRepositorySettingsImpl;
+import org.jfrog.build.api.Build;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -110,8 +108,6 @@ public class Driver {
 
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
-
-    public static final String BREW_PULL_METADATA_KEY = "koji-pull";
 
     @Inject
     ArtifactFilterDatabase artifactFilterDatabase;
@@ -178,7 +174,6 @@ public class Driver {
                     repositoryCreateRequest.getBuildCategory(),
                     packageType,
                     repositoryCreateRequest.isTempBuild(),
-                    repositoryCreateRequest.isBrewPullActive(),
                     repositoryCreateRequest.getExtraRepositories());
 
             String downloadsUrl;
@@ -318,7 +313,7 @@ public class Driver {
                                     "Promoting artifacts for BuildInfo {} to {}",
                                     buildInfo.getName(),
                                     targetRepo.repositoryId().getName());
-                            promoteBuildInfo(targetRepo, buildInfo, promoteRequest.isTempBuild(), true);
+                            promoteBuildInfo(targetRepo, buildInfo, true);
                         }
 
                         // Promote dependencies if present
@@ -327,7 +322,7 @@ public class Driver {
                                     "Promoting dependencies for BuildInfo {} to {}",
                                     buildInfo.getName(),
                                     targetRepo.repositoryId().getName());
-                            promoteBuildInfo(targetRepo, buildInfo, promoteRequest.isTempBuild(), false);
+                            promoteBuildInfo(targetRepo, buildInfo, false);
                         }
                     }
                 } catch (RepositoryDriverException e) {
@@ -696,7 +691,6 @@ public class Driver {
             BuildCategory buildCategory,
             PackageType packageType,
             boolean tempBuild,
-            boolean brewPullActive,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
 
         try {
@@ -743,7 +737,7 @@ public class Driver {
             var repository = artifactory.repositories()
                     .builders()
                     .localRepositoryBuilder()
-                    .archiveBrowsingEnabled(brewPullActive)
+                    .archiveBrowsingEnabled(true)
                     .projectKey(configuration.getDeploymentType().toString())
                     .environments(Collections.singletonList(configuration.getEnvironment()))
                     .description("PNC Build repository for " + hostedName)
@@ -789,85 +783,87 @@ public class Driver {
      *
      * @throws RepositoryDriverException in case of an unexpected error during promotion
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
+     *         private void promoteDownloads(PromotionPaths promotionPaths, boolean tempBuild, String
+     *         promotionTrackingId)
+     *         throws RepositoryDriverException, PromotionValidationException {
+     *         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the
+     *         shared
+     *         // imports
+     *         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
+     *         // set read-only only the generic http proxy hosted repos, not shared-imports
+     *         boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().packageType());
+     *
+     *         userLog.info(
+     *         "Promoting {} dependencies from {} to {}",
+     *         sourceTargetPaths.getPaths().size(),
+     *         sourceTargetPaths.getSource(),
+     *         sourceTargetPaths.getTarget());
+     *
+     *         artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
+     *         }
+     *         }
+     *
+     *         // TODO: ### Do need the readonly markers?
+     *         private void artifactoryPromoteByPath(SourceTargetPaths sourceTargetPaths, boolean b, boolean readonly) {
+     *         // TODO: ### For now assuming RepositoryKey::repositoryId is the repository name
+     *         // TODO: Handling temp and virtual flags
+     *
+     *         // Convert PackageType enum to string for ArtifactoryUtils
+     *         String sourcePackageTypeStr = sourceTargetPaths.getSource().packageType().name().toLowerCase();
+     *         String targetPackageTypeStr = sourceTargetPaths.getTarget().packageType().name().toLowerCase();
+     *
+     *         // String sourceRepository = ArtifactoryUtils.createRepositoryName(
+     *         // configuration.getNamingStructure(),
+     *         // configuration.getDeploymentType().toString(),
+     *         // ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
+     *         // false,
+     *         // false,
+     *         // sourceTargetPaths.getSource().getRepositoryId().getName());
+     *         // String targetRepository = ArtifactoryUtils.createRepositoryName(
+     *         // configuration.getNamingStructure(),
+     *         // configuration.getDeploymentType().toString(),
+     *         // ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
+     *         // false,
+     *         // false,
+     *         // sourceTargetPaths.getTarget().getRepositoryId().getName());
+     *         logger.info(
+     *         "### Looking for source ID {} and package type {} source repository {} target repository {}",
+     *         sourceTargetPaths.getSource().repositoryId(),
+     *         sourceTargetPaths.getSource().packageType(),
+     *         sourceTargetPaths.getSource().repositoryId(),
+     *         sourceTargetPaths.getTarget().repositoryId());
+     *         RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().repositoryId().getName());
+     *         logger.warn("### Got handle {}", handle.getClass().getName());
+     *         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+     *         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
+     *         if (!handle.exists()) {
+     *         throw new RuntimeException(
+     *         "Unable to find source repository " + sourceTargetPaths.getSource().repositoryId().getName());
+     *         }
+     *         if (!artifactory.repository(sourceTargetPaths.getTarget().repositoryId().getName()).exists()) {
+     *         throw new RuntimeException(
+     *         "Unable to find target repository " + sourceTargetPaths.getTarget().repositoryId().getName());
+     *         }
+     *
+     *         List<String> copied = new ArrayList<>();
+     *         for (String path : sourceTargetPaths.getPaths()) {
+     *         try {
+     *         // Where should we promote to?
+     *         handle.folder(path).copy(sourceTargetPaths.getTarget().repositoryId().getName(), path);
+     *         copied.add(path);
+     *         } catch (CopyMoveException e) {
+     *         logger.error("Caught exception promoting {}", path, e);
+     *         logger.warn("Copied {} so far; removing from promotion", copied);
+     *         // TODO: ### Should we remove what we have copied so far?
+     *         RepositoryHandle cleanup = artifactory
+     *         .repository(sourceTargetPaths.getTarget().repositoryId().getName());
+     *         copied.forEach(cleanup::delete);
+     *         }
+     *         }
+     *         // TODO: Cleanup and set repositories to readonly. While changing maven repositories
+     *         // not to handle release or snapshot deploymentType might work not sure about npm or generic repos
+     *         }
      */
-    private void promoteDownloads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingId)
-            throws RepositoryDriverException, PromotionValidationException {
-        // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the shared
-        // imports
-        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-            // set read-only only the generic http proxy hosted repos, not shared-imports
-            boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().packageType());
-
-            userLog.info(
-                    "Promoting {} dependencies from {} to {}",
-                    sourceTargetPaths.getPaths().size(),
-                    sourceTargetPaths.getSource(),
-                    sourceTargetPaths.getTarget());
-
-            artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
-        }
-    }
-
-    // TODO: ### Do need the readonly markers?
-    private void artifactoryPromoteByPath(SourceTargetPaths sourceTargetPaths, boolean b, boolean readonly) {
-        // TODO: ### For now assuming RepositoryKey::repositoryId is the repository name
-        // TODO: Handling temp and virtual flags
-
-        // Convert PackageType enum to string for ArtifactoryUtils
-        String sourcePackageTypeStr = sourceTargetPaths.getSource().packageType().name().toLowerCase();
-        String targetPackageTypeStr = sourceTargetPaths.getTarget().packageType().name().toLowerCase();
-
-        //        String sourceRepository = ArtifactoryUtils.createRepositoryName(
-        //                configuration.getNamingStructure(),
-        //                configuration.getDeploymentType().toString(),
-        //                ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
-        //                false,
-        //                false,
-        //                sourceTargetPaths.getSource().getRepositoryId().getName());
-        //        String targetRepository = ArtifactoryUtils.createRepositoryName(
-        //                configuration.getNamingStructure(),
-        //                configuration.getDeploymentType().toString(),
-        //                ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
-        //                false,
-        //                false,
-        //                sourceTargetPaths.getTarget().getRepositoryId().getName());
-        logger.info(
-                "### Looking for source ID {} and package type {} source repository {} target repository {}",
-                sourceTargetPaths.getSource().repositoryId(),
-                sourceTargetPaths.getSource().packageType(),
-                sourceTargetPaths.getSource().repositoryId(),
-                sourceTargetPaths.getTarget().repositoryId());
-        RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().repositoryId().getName());
-        logger.warn("### Got handle {}", handle.getClass().getName());
-        // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
-        // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
-        if (!handle.exists()) {
-            throw new RuntimeException(
-                    "Unable to find source repository " + sourceTargetPaths.getSource().repositoryId().getName());
-        }
-        if (!artifactory.repository(sourceTargetPaths.getTarget().repositoryId().getName()).exists()) {
-            throw new RuntimeException(
-                    "Unable to find target repository " + sourceTargetPaths.getTarget().repositoryId().getName());
-        }
-
-        List<String> copied = new ArrayList<>();
-        for (String path : sourceTargetPaths.getPaths()) {
-            try {
-                // Where should we promote to?
-                handle.folder(path).copy(sourceTargetPaths.getTarget().repositoryId().getName(), path);
-                copied.add(path);
-            } catch (CopyMoveException e) {
-                logger.error("Caught exception promoting {}", path, e);
-                logger.warn("Copied {} so far; removing from promotion", copied);
-                // TODO: ### Should we remove what we have copied so far?
-                RepositoryHandle cleanup = artifactory
-                        .repository(sourceTargetPaths.getTarget().repositoryId().getName());
-                copied.forEach(cleanup::delete);
-            }
-        }
-        // TODO: Cleanup and set repositories to readonly. While changing maven repositories
-        //     not to handle release or snapshot deploymentType might work not sure about npm or generic repos
-    }
 
     /**
      * Promote the build output to the consolidated build repo (using path promotion, where the build repo contents are
@@ -876,39 +872,37 @@ public class Driver {
      * @throws RepositoryDriverException when the repository client API throws an exception due to something unexpected
      *         in transport
      * @throws PromotionValidationException when the promotion process results in an error due to validation failure
+     *         private void promoteUploads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingID)
+     *         throws RepositoryDriverException, PromotionValidationException {
+     *         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
+     *         userLog.info(
+     *         "Promoting {} build output from {} to {}",
+     *         sourceTargetPaths.getPaths().size(),
+     *         sourceTargetPaths.getSource(),
+     *         sourceTargetPaths.getTarget());
+     *
+     *         artifactoryPromoteByPath(sourceTargetPaths, false, false);
+     *         }
+     *         }
      */
-    private void promoteUploads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingID)
-            throws RepositoryDriverException, PromotionValidationException {
-        for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-            userLog.info(
-                    "Promoting {} build output from {} to {}",
-                    sourceTargetPaths.getPaths().size(),
-                    sourceTargetPaths.getSource(),
-                    sourceTargetPaths.getTarget());
-
-            artifactoryPromoteByPath(sourceTargetPaths, false, false);
-        }
-    }
 
     /**
-     * Promotes a BuildInfo to a target repository using Artifactory's Build API.
-     * This method uploads the BuildInfo metadata and then promotes it to the target repository.
+     * Promotes a BuildInfo to a target repository using Artifactory's Build API. This method uploads the BuildInfo
+     * metadata and then promotes it to the target repository.
      *
      * <p>
-     * This replaces the path-based promotion approach with BuildInfo-based promotion,
-     * which provides better traceability and atomic operations.
+     * This replaces the path-based promotion approach with BuildInfo-based promotion, which provides better
+     * traceability and atomic operations.
      * </p>
      *
      * @param targetRepo the target repository key
      * @param buildInfo the BuildInfo object containing artifacts and dependencies
-     * @param tempBuild whether this is a temporary build
      * @param promoteArtifacts true to promote artifacts (uploads), false to promote dependencies (downloads)
      * @throws PromotionValidationException if upload or promotion fails
      */
     private void promoteBuildInfo(
             RepositoryKey targetRepo,
-            org.jfrog.build.api.Build buildInfo,
-            boolean tempBuild,
+            Build buildInfo,
             boolean promoteArtifacts) throws PromotionValidationException {
 
         String buildName = buildInfo.getName();
