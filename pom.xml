@@ -107,6 +107,13 @@
         <groupId>org.jboss.pnc.artifactory-client</groupId>
         <artifactId>artifactory-java-client-services</artifactId>
         <version>2.21.3-SNAPSHOT</version>
+        <!-- Can interfere with quarkus-logging-kafka -->
+        <exclusions>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>
