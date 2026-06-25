@@ -84,19 +84,18 @@ repository-driver:
     default:
       # Note - both these targets will have the deployment prefixed so a target
       # of mvn-builds could become pnc-devel-mvn-builds
-      build-promotion-target: pnc-builds
-      temp-build-promotion-target: temp-builds
+      build-promotion-target: mvn-builds
+      temp-build-promotion-target: mvn-temp-builds
+      # This represents the components of the virtual group.
       build-group-constituents:
         temp-hosted:
-          - temp-builds
+          - mvn-temp-builds
         temp-group:
           builds-imports-public
-#          - builds-untested+shared-imports+public
         hosted: [] # deliberately left empty
         # Indy allows same name for group/hosted but Artifactory doesn't
         group:
-          - builds-imports-public-virt
-#          - builds-untested+shared-imports+public
+          - builds-imports-public
   ignored-path-patterns:
     archive:
       maven:
@@ -139,5 +138,6 @@ repository-driver:
   tracking-service:
     api-url: http://localhost:8080
   repository:
+    # Note if its virtual (group) repo it gets -virt appended.
     naming-structure: "{project}{type}{temporary}{build}"
 #    naming-structure: "{project}{temporary}{build}{type}"
