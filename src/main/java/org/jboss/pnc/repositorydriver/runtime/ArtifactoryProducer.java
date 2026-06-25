@@ -23,6 +23,7 @@ public class ArtifactoryProducer {
             @ConfigProperty(name = "repository-driver.artifactory-client.access-token") String accessToken)
             throws RepositoryDriverException {
         try {
+            // TODO: ### Remove the token from the log.
             logger.info("Creating artifactory connection with url {} and token {}", url, accessToken);
             artifactory = ArtifactoryClientBuilder.create()
                     .setAccessToken(accessToken)
