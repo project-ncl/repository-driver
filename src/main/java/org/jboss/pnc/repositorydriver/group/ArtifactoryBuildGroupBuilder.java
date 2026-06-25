@@ -85,67 +85,34 @@ public class ArtifactoryBuildGroupBuilder {
             BuildCategory buildCategory,
             boolean tempBuild) {
         // 1. global builds artifacts
-        // 1. global builds artifacts
+        // For constituent repositories, we only want project prefix, not the full naming template
+        String projectPrefix = configuration.getDeploymentType().toString();
+
         if (tempBuild) {
             for (String hostedTempConstituent : configuration.getBuildGroupConstituentsTempHosted(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(
-                        ArtifactoryUtils
-                                .createRepositoryName(
-                                        configuration.getNamingStructure(),
-                                        configuration.getDeploymentType().toString(),
-                                        buildType,
-                                        tempBuild,
-                                        hostedTempConstituent));
+                includedRepositories.add(projectPrefix + "-" + hostedTempConstituent);
             }
             for (String groupTempConstituent : configuration.getBuildGroupConstituentsTempGroup(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(
-                        ArtifactoryUtils
-                                .createRepositoryName(
-                                        configuration.getNamingStructure(),
-                                        configuration.getDeploymentType().toString(),
-                                        buildType,
-                                        tempBuild,
-                                        groupTempConstituent));
+                includedRepositories.add(projectPrefix + "-" + groupTempConstituent);
             }
         } else {
             for (String hostedConstituent : configuration.getBuildGroupConstituentsHosted(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(
-                        ArtifactoryUtils
-                                .createRepositoryName(
-                                        configuration.getNamingStructure(),
-                                        configuration.getDeploymentType().toString(),
-                                        buildType,
-                                        tempBuild,
-                                        hostedConstituent));
+                includedRepositories.add(projectPrefix + "-" + hostedConstituent);
             }
             for (String groupConstituent : configuration.getBuildGroupConstituentsGroup(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(
-                        ArtifactoryUtils
-                                .createRepositoryName(
-                                        configuration.getNamingStructure(),
-                                        configuration.getDeploymentType().toString(),
-                                        buildType,
-                                        tempBuild,
-                                        groupConstituent));
+                includedRepositories.add(projectPrefix + "-" + groupConstituent);
             }
         }
 
         // add build-type-specific constituents
         switch (buildType) {
             case GRADLE:
-                // TODO: ### Is this the only place the gradle plugin repo is handled?
-                includedRepositories.add(
-                        ArtifactoryUtils
-                                .createRepositoryName(
-                                        configuration.getNamingStructure(),
-                                        configuration.getDeploymentType().toString(),
-                                        buildType,
-                                        tempBuild,
-                                        GRADLE_PLUGINS_REPO));
+                // Gradle plugins repo is also a constituent, so just use project prefix
+                includedRepositories.add(projectPrefix + "-" + GRADLE_PLUGINS_REPO);
                 break;
 
             default:
