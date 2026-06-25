@@ -41,7 +41,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
 
@@ -770,7 +769,8 @@ public class Driver {
             String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
                     + "), with tempBuild: " + tempBuild;
             logger.info(changelog);
-            artifactory.repositories().create(1, group);
+            r = artifactory.repositories().create(1, group);
+            logger.info("### setupBuildRepos::created virtual repo: {}", r);
 
         } catch (Exception e) {
             logger.error("### Caught exception", e);
@@ -1160,10 +1160,5 @@ public class Driver {
                 throw new FailedResponseException("Response status code: " + response.statusCode());
             }
         };
-    }
-
-    @PreDestroy
-    void cleanup() {
-        artifactory.close();
     }
 }
