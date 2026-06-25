@@ -26,20 +26,6 @@ repository-driver:
   environment: DEV # Artifactory environment (e.g., DEV, PROD)
   # Build Category Configuration
   build-categories:
-    # Default category
-    default:
-      build-promotion-target: target
-      temp-build-promotion-target: temporary-target
-      build-group-constituents:
-        temp-hosted:
-          - constituent-temp-hosted
-        temp-group:
-          - constituent-temp-virt
-        hosted:
-          - constituent-hosted
-        group:
-          - constituent-virt
-
     # Standard category
     standard:
       build-group-constituents:

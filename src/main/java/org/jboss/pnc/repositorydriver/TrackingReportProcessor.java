@@ -561,6 +561,9 @@ public class TrackingReportProcessor {
      * Extracts Maven module name (GAV) from entries.
      * Tries uploads first, then downloads.
      *
+     * TODO: ### This should be replaced ; the promote request should pass the module name
+     * removing the need for this.
+     *
      * @param entries the grouped entries
      * @param trackingId fallback tracking ID
      * @return Maven GAV or fallback name
