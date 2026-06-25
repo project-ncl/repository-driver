@@ -369,9 +369,10 @@ public class Driver {
             // CLEANUP
             try {
                 logger.info(
-                        "Deleting build group {} {} and the generic http repositories...",
+                        "Deleting build group {} {} and the generic http {} repositories...",
                         buildType.getRepoType(),
-                        buildContentId);
+                        buildContentId,
+                        genericRepos);
                 deleteBuildRepos(buildType.getRepoType(), buildContentId, genericRepos);
             } catch (Throwable e) {
                 logger.error("Failed to delete build group.", e);
