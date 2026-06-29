@@ -180,7 +180,10 @@ public class BuildInfoConverter {
 
     /**
      * Determines the module type from the entries.
-     *
+     * TODO: ### Should we use
+     * https://github.com/jfrog/build-info/blob/master/build-info-api/src/main/java/org/jfrog/build/api/builder/ModuleType.java
+     * ?
+     * 
      * @param uploads upload entries
      * @param downloads download entries
      * @return module type string (maven, npm, generic, etc.)
@@ -189,8 +192,8 @@ public class BuildInfoConverter {
         // Prefer uploads for determining type
         if (uploads != null && !uploads.isEmpty()) {
             for (TrackedEntry entry : uploads) {
-                if (entry.getPackageType() != null) {
-                    return entry.getPackageType().toString().toLowerCase();
+                if (entry.getRepoId() != null && entry.getRepoId().getPackageType() != null) {
+                    return entry.getRepoId().getPackageType().toString().toLowerCase();
                 }
             }
         }
@@ -198,8 +201,8 @@ public class BuildInfoConverter {
         // Fall back to downloads
         if (downloads != null && !downloads.isEmpty()) {
             for (TrackedEntry entry : downloads) {
-                if (entry.getPackageType() != null) {
-                    return entry.getPackageType().toString().toLowerCase();
+                if (entry.getRepoId() != null && entry.getRepoId().getPackageType() != null) {
+                    return entry.getRepoId().getPackageType().toString().toLowerCase();
                 }
             }
         }
@@ -350,7 +353,7 @@ public class BuildInfoConverter {
      * @return the artifact type string compatible with Artifactory Build API
      */
     private static String getArtifactType(TrackedEntry entry) {
-        if (entry.getPackageType() == PackageType.MVN) {
+        if (entry.getRepoId().getPackageType() == PackageType.MAVEN) {
             // Use ArtifactPathInfo to extract Maven GAVTC
             ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(entry.getPath());
             if (pathInfo == null) {
