@@ -80,6 +80,21 @@
 
   <dependencyManagement>
     <dependencies>
+      <!-- 
+        manual override, because indy-promote-client-java hasn't been update for a while
+        TODO: remove when when indy-promote-client-java is upgrade or removed
+      -->
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>1.5.37</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>1.5.37</version>
+      </dependency>
+
       <dependency>
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>${quarkus.platform.artifact-id}</artifactId>
