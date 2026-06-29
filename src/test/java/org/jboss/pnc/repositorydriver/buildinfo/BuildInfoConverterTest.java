@@ -47,8 +47,13 @@ public class BuildInfoConverterTest {
     public void testConvertTrackingReportWithUploadsAndDownloads() {
         // Given
         Set<TrackedEntry> uploads = new HashSet<>();
+        RepositoryId uploadRepoId = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-repo")
+                .build();
         TrackedEntry upload1 = TrackedEntry.builder()
-                .packageType(PackageType.MVN)
+                .repoId(uploadRepoId)
                 .path("/org/example/myapp/1.0/myapp-1.0.jar")
                 .sha256("abc123")
                 .sha1("def456")
@@ -58,7 +63,7 @@ public class BuildInfoConverterTest {
         uploads.add(upload1);
 
         TrackedEntry upload2 = TrackedEntry.builder()
-                .packageType(PackageType.MVN)
+                .repoId(uploadRepoId)
                 .path("/org/example/myapp/1.0/myapp-1.0.pom")
                 .sha256("xyz123")
                 .sha1("uvw456")
@@ -68,9 +73,12 @@ public class BuildInfoConverterTest {
         uploads.add(upload2);
 
         Set<TrackedEntry> downloads = new HashSet<>();
-        RepositoryId repoId = RepositoryId.builder().project("pnc").name("central").build();
+        RepositoryId repoId = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("central")
+                .build();
         TrackedEntry download1 = TrackedEntry.builder()
-                .packageType(PackageType.MVN)
                 .path("/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar")
                 .repoId(repoId)
                 .sha256("dep123")
@@ -104,7 +112,7 @@ public class BuildInfoConverterTest {
 
         Module module = build.getModules().get(0);
         assertEquals("test-build:build-123", module.getId());
-        assertEquals("mvn", module.getType());
+        assertEquals("maven", module.getType());
 
         // Verify artifacts
         assertNotNull(module.getArtifacts());
@@ -138,8 +146,13 @@ public class BuildInfoConverterTest {
     public void testConvertTrackingReportWithOnlyUploads() {
         // Given
         Set<TrackedEntry> uploads = new HashSet<>();
-        TrackedEntry upload = TrackedEntry.builder()
+        RepositoryId uploadRepoId = RepositoryId.builder()
+                .project("pnc")
                 .packageType(PackageType.NPM)
+                .name("npm-build-repo")
+                .build();
+        TrackedEntry upload = TrackedEntry.builder()
+                .repoId(uploadRepoId)
                 .path("/my-package/1.0.0/my-package-1.0.0.tgz")
                 .sha256("npm123")
                 .build();
@@ -167,9 +180,12 @@ public class BuildInfoConverterTest {
     public void testConvertTrackingReportWithOnlyDownloads() {
         // Given
         Set<TrackedEntry> downloads = new HashSet<>();
-        RepositoryId repoId = RepositoryId.builder().project("pnc").name("maven-central").build();
+        RepositoryId repoId = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("maven-central")
+                .build();
         TrackedEntry download = TrackedEntry.builder()
-                .packageType(PackageType.MVN)
                 .path("/junit/junit/4.13.2/junit-4.13.2.jar")
                 .repoId(repoId)
                 .sha256("test123")
@@ -196,8 +212,13 @@ public class BuildInfoConverterTest {
     public void testConvertWithAdditionalProperties() {
         // Given
         Set<TrackedEntry> uploads = new HashSet<>();
-        TrackedEntry upload = TrackedEntry.builder()
+        RepositoryId uploadRepoId = RepositoryId.builder()
+                .project("pnc")
                 .packageType(PackageType.GENERIC)
+                .name("generic-build-repo")
+                .build();
+        TrackedEntry upload = TrackedEntry.builder()
+                .repoId(uploadRepoId)
                 .path("/generic/file.tar.gz")
                 .sha256("gen123")
                 .build();
