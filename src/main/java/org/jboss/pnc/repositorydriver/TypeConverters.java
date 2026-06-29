@@ -10,7 +10,7 @@ public class TypeConverters {
 
     public static RepositoryType toRepoType(PackageType packageType) {
         switch (packageType) {
-            case MVN:
+            case MAVEN:
                 return RepositoryType.MAVEN;
             case NPM:
                 return RepositoryType.NPM;
@@ -51,7 +51,7 @@ public class TypeConverters {
     public static PackageType toPackageType(RepositoryType repositoryType) {
         switch (repositoryType) {
             case MAVEN:
-                return PackageType.MVN;
+                return PackageType.MAVEN;
             case NPM:
                 return PackageType.NPM;
             case GENERIC_PROXY:
