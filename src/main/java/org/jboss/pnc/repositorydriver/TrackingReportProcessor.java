@@ -1,6 +1,5 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.jboss.pnc.api.tracker.dto.PackageType.MVN;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedEntry;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.MVN_SHARED_IMPORTS_ID;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.NPM_SHARED_IMPORTS_ID;
@@ -212,7 +211,7 @@ public class TrackingReportProcessor {
         List<RepositoryArtifact> artifacts = new ArrayList<>(uploads.size());
         for (TrackedEntry upload : uploads) {
             String path = upload.getPath();
-            PackageType packageType = upload.getPackageType();
+            PackageType packageType = upload.getRepoId().getPackageType();
 
             if (artifactFilterDatabase.accepts(upload)) {
                 String identifier = computeIdentifier(upload);
@@ -220,6 +219,7 @@ public class TrackingReportProcessor {
                 String purl = computePurl(upload, filename);
 
                 logger.info("Recording upload: {}", identifier);
+                logger.warn("### For upload {} got type {}", upload, packageType);
                 RepositoryType repoType = TypeConverters.toRepoType(packageType);
                 TargetRepository targetRepository = getUploadsTargetRepository(repoType, buildCategory, tempBuild);
 
@@ -424,14 +424,14 @@ public class TrackingReportProcessor {
         if (downloads != null) {
             for (TrackedEntry download : downloads) {
                 RepositoryId sourceRepoId = download.getRepoId();
-                PackageType packageType = download.getPackageType();
+                PackageType packageType = download.getRepoId().getPackageType();
 
                 // Apply both filters for downloads
                 if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
                     RepositoryKey target;
 
                     switch (packageType) {
-                        case MVN:
+                        case MAVEN:
                         case NPM:
                             target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
                             break;
@@ -540,7 +540,7 @@ public class TrackingReportProcessor {
         PackageType packageType = targetRepo.packageType();
 
         switch (packageType) {
-            case MVN:
+            case MAVEN:
                 // Extract GAV from first Maven artifact
                 return extractMavenModuleName(entries, trackingId);
 
@@ -644,8 +644,8 @@ public class TrackingReportProcessor {
     private String computeIdentifier(final TrackedEntry transfer) {
         String identifier = null;
 
-        switch (transfer.getPackageType()) {
-            case MVN:
+        switch (transfer.getRepoId().getPackageType()) {
+            case MAVEN:
                 ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
 
                 if (pathInfo == null) {
@@ -684,7 +684,7 @@ public class TrackingReportProcessor {
                 // do not do anything by default
                 logger.warn(
                         "Package type {} is not handled by repository session.",
-                        transfer.getPackageType());
+                        transfer.getRepoId().getPackageType());
                 break;
         }
 
@@ -709,8 +709,8 @@ public class TrackingReportProcessor {
         String purl = null;
 
         try {
-            switch (transfer.getPackageType()) {
-                case MVN:
+            switch (transfer.getRepoId().getPackageType()) {
+                case MAVEN:
 
                     ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
                     if (pathInfo == null) {
@@ -785,7 +785,7 @@ public class TrackingReportProcessor {
                     // do not do anything by default
                     logger.warn(
                             "Package type {} is not handled by repository session.",
-                            transfer.getPackageType());
+                            transfer.getRepoId().getPackageType());
                     break;
             }
 
@@ -859,7 +859,7 @@ public class TrackingReportProcessor {
     private TargetRepository getDownloadsTargetRepository(TrackedEntry download)
             throws RepositoryDriverException {
         RepositoryId repoId = download.getRepoId();
-        PackageType packageType = download.getPackageType();
+        PackageType packageType = download.getRepoId().getPackageType();
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
         String repoPath;
         String identifier;
@@ -881,7 +881,7 @@ public class TrackingReportProcessor {
                     repoPath,
                     repoId);
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
-            identifier = RepositoryIdentifier.ARTIFACTORY_HTTP;
+            identifier = RepositoryIdentifier.HTTP;
             //repoPath = getGenericTargetRepositoryPath(repoId);
             repoPath = download.getRepoId().getName() + "-" + RepositoryConstants.GENERIC_DOWNLOADS;
         } else {
@@ -928,15 +928,14 @@ public class TrackingReportProcessor {
             BuildCategory buildCategory,
             boolean tempBuild)
             throws RepositoryDriverException {
-        String project = configuration.getDeploymentType().toString();
         String target;
         String identifier;
         if (repoType == RepositoryType.MAVEN) {
             target = getBuildPromotionTarget(buildCategory, tempBuild);
-            identifier = RepositoryIdentifier.ARTIFACTORY_MAVEN;
+            identifier = RepositoryIdentifier.MAVEN;
         } else if (repoType == RepositoryType.NPM) {
             target = getBuildPromotionTarget(buildCategory, tempBuild);
-            identifier = RepositoryIdentifier.ARTIFACTORY_NPM;
+            identifier = RepositoryIdentifier.NPM;
         } else {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported for uploads by repo manager driver.");
@@ -961,7 +960,7 @@ public class TrackingReportProcessor {
         if (!promotionTargetsCache.containsKey(packageType)) {
             RepositoryId repoId = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
-                    .name(packageType == MVN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
+                    .name(packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
                     .build();
             RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType);
             promotionTargetsCache.put(packageType, repositoryKey);
