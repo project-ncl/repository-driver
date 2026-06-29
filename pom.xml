@@ -74,7 +74,7 @@
 
     <version.javadoc.plugin>3.12.0</version.javadoc.plugin>
     <version.source.plugin>3.4.0</version.source.plugin>
-    <tagSuffix />
+    <tagSuffix/>
     <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
   </properties>
 
@@ -112,13 +112,6 @@
         <groupId>com.rabbitmq</groupId>
         <artifactId>amqp-client</artifactId>
         <version>5.31.0</version>
-      </dependency>
-      <dependency>
-        <groupId>io.micrometer</groupId>
-        <artifactId>micrometer-bom</artifactId>
-        <version>1.16.6</version>
-        <type>pom</type>
-        <scope>import</scope>
       </dependency>
 
       <dependency>
@@ -429,7 +422,7 @@
             </sortPom>
           </pom>
           <java>
-            <removeUnusedImports />
+            <removeUnusedImports/>
             <importOrder>
               <file>java-import-order.txt</file>
             </importOrder>
