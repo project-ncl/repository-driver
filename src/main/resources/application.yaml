@@ -136,6 +136,10 @@ repository-driver:
   heartbeat:
     interval: 30
   tracking-service:
+    # TEMPORARY: Use internal Artifactory queries instead of external tracking service
+    # Set to true until external tracking service is deployed
+    # TODO: Remove this flag when external service is ready
+    use-internal-tracking: false
     api-url: http://localhost:8080
   repository:
     # Note if its virtual (group) repo it gets -virt appended.
