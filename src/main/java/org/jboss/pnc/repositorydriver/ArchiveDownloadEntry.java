@@ -2,7 +2,6 @@ package org.jboss.pnc.repositorydriver;
 
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
-import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 
 import lombok.AllArgsConstructor;
@@ -16,7 +15,6 @@ import lombok.ToString;
 @ToString
 public class ArchiveDownloadEntry {
     private final RepositoryId repositoryId;
-    private final PackageType packageType;
     private final String path;
     private final String md5;
     private final String sha256;
@@ -42,10 +40,10 @@ public class ArchiveDownloadEntry {
         RepositoryId newId = RepositoryId.builder()
                 .project(project)
                 .name(name)
+                .packageType(entry.getRepoId().getPackageType())
                 .build();
         return new ArchiveDownloadEntry(
                 newId,
-                entry.getPackageType(),
                 entry.getPath(),
                 entry.getMd5(),
                 entry.getSha256(),

@@ -52,7 +52,7 @@ public class ArtifactFilterDatabase implements ArtifactFilter {
         boolean result = true;
 
         String path = artifact.getPath();
-        PackageType packageType = artifact.getPackageType();
+        PackageType packageType = artifact.getRepoId().getPackageType();
         if (ignoreContent(ignoredPathPatternsData, packageType, path)) {
             result = false;
         }
@@ -62,7 +62,7 @@ public class ArtifactFilterDatabase implements ArtifactFilter {
     private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, PackageType packageType, String path) {
         PatternsList patterns;
         switch (packageType) {
-            case MVN:
+            case MAVEN:
                 patterns = ignoredPathPatterns.getMaven();
                 break;
             case NPM:
