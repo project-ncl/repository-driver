@@ -6,7 +6,9 @@ quarkus:
       classifier: jakarta
   arc:
     # to use the injected Mock instead
-    exclude-types: org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
+    exclude-types:
+      - org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
+      - org.jboss.pnc.repositorydriver.rest.InternalArtifactoryTrackingService
   oidc:
     enabled: false
   oidc-client:
