@@ -736,7 +736,7 @@ public class Driver {
 
             RepositorySettings settings = null;
             switch (packageType) {
-                case MVN: {
+                case MAVEN: {
                     // Create local and virtual repository
                     // MavenRepositorySettingsImpl implicitly sets package type maven.
                     settings = new MavenRepositorySettingsImpl();

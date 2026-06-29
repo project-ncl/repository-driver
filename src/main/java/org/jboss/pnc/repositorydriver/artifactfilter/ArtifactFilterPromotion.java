@@ -51,14 +51,14 @@ public class ArtifactFilterPromotion implements ArtifactFilter {
     @Override
     public boolean accepts(TrackedEntry artifact) {
         String path = artifact.getPath();
-        PackageType packageType = artifact.getPackageType();
+        PackageType packageType = artifact.getRepoId().getPackageType();
         return !ignoreContent(ignoredPathPatternsPromotion, packageType, path);
     }
 
     private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, PackageType packageType, String path) {
         PatternsList patterns;
         switch (packageType) {
-            case MVN:
+            case MAVEN:
                 patterns = ignoredPathPatterns.getMaven();
                 break;
             case NPM:
