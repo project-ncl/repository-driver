@@ -374,21 +374,21 @@ public class TrackingReportProcessorTest {
      */
     @Test
     public void testCreatePromotionBuildInfos_DeterminesModuleNames() throws RepositoryDriverException {
-        // given: TrackingReport with Maven (GAV), NPM (package@version), and Generic artifacts
-        Set<TrackedEntry> downloads = new HashSet<>();
+        // given: TrackingReport with Maven and NPM uploads (module name comes from uploads, not downloads)
+        Set<TrackedEntry> uploads = new HashSet<>();
 
-        // Maven download - should extract GAV
-        downloads.add(TrackingReportMocks.indyPomFromCentral);
+        // Maven upload - should extract GAV
+        uploads.add(TrackingReportMocks.indyPomFromCentral);
 
-        // NPM download - should extract package@version
-        RepositoryId npmCentralKey = RepositoryId.builder()
+        // NPM upload - should extract package@version
+        RepositoryId npmBuildKey = RepositoryId.builder()
                 .project("pnc")
                 .packageType(PackageType.NPM)
-                .name("npm-central")
+                .name("npm-build")
                 .build();
-        downloads.add(
+        uploads.add(
                 TrackedEntry.builder()
-                        .repoId(npmCentralKey)
+                        .repoId(npmBuildKey)
                         .path("/lodash/-/lodash-4.17.21.tgz")
                         .originUrl("https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz")
                         .localUrl("file:///tmp/lodash-4.17.21.tgz")
@@ -399,8 +399,8 @@ public class TrackingReportProcessorTest {
 
         TrackingReport report = TrackingReport.builder()
                 .trackingID("test-tracking-id")
-                .downloads(downloads)
-                .uploads(new HashSet<>())
+                .downloads(new HashSet<>())
+                .uploads(uploads)
                 .build();
 
         // when: createPromotionBuildInfos is called
@@ -413,7 +413,7 @@ public class TrackingReportProcessorTest {
                 BuildCategory.STANDARD,
                 genericRepos);
 
-        // then: Module names are correctly determined based on package type
+        // then: Module names are correctly determined from uploads based on package type
         for (Map.Entry<RepositoryId, org.jfrog.build.api.Build> entry : buildInfoMap.entrySet()) {
             org.jfrog.build.api.Build buildInfo = entry.getValue();
             String moduleName = buildInfo.getName();
