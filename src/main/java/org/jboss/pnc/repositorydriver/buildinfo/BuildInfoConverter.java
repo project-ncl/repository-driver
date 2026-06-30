@@ -27,6 +27,7 @@ import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
+import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
 import org.jfrog.build.api.Agent;
 import org.jfrog.build.api.Artifact;
 import org.jfrog.build.api.Build;
@@ -139,10 +140,11 @@ public class BuildInfoConverter {
         long currentTimeMillis = System.currentTimeMillis();
 
         // Set build agent information (the tool that produced the artifacts, e.g., Maven, Gradle)
-        BuildAgent buildAgent = new BuildAgent("PNC", "3.5.1"); // TODO: Get version from BuildInformationConstants
+        // TODO: ### This is wrong but the only way to get the information would be to use the buildConfigurationInformation
+        BuildAgent buildAgent = new BuildAgent("NYI", "3.5.1");
 
         // Set agent information (the CI server)
-        Agent agent = new Agent("PNC-Repository-Driver", "3.5.1");
+        Agent agent = new Agent("PNC-Repository-Driver", BuildInformationConstants.VERSION);
 
         // Set properties
         Properties properties = new Properties();
