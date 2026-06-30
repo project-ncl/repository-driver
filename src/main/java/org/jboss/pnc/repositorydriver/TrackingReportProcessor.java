@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -463,25 +464,37 @@ public class TrackingReportProcessor {
 
         // Process uploads with filtering
         Set<TrackedEntry> uploads = report.getUploads();
+        PackageType uploadsPackageType = null;
+        Set<TrackedEntry> filteredUploads = new HashSet<>();
+
         if (uploads != null) {
-            PackageType packageType = TypeConverters.toPackageType(repositoryType);
+            uploadsPackageType = TypeConverters.toPackageType(repositoryType);
 
             // Determine target for uploads
             RepositoryId target = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
-                    .packageType(packageType)
+                    .packageType(uploadsPackageType)
                     .name(getBuildPromotionTarget(buildCategory, tempBuild))
                     .build();
 
             for (TrackedEntry upload : uploads) {
                 // Apply filter for uploads
                 if (artifactFilterPromotion.accepts(upload)) {
+                    filteredUploads.add(upload);
                     // Add to grouped entries
                     GroupedEntries entries = groupedByTarget.computeIfAbsent(target, k -> new GroupedEntries());
                     entries.uploads.add(upload);
                 }
             }
         }
+        // Determine module name from uploads BEFORE creating BuildInfos
+        // This ensures all BuildInfo objects (including shared-imports) use the same module name
+        // TODO: This is a bit of hack to establish a module name - the problem is that
+        //       we don't know the actual top level for a multi-module project so this could
+        //       end up picking the wrong one. Really the RepositoryPromoteRequest needs to
+        //       pass the name in. Eventually we won't need the extra filteredUploads etc as we will have the
+        //       module name already.
+        String moduleName = determineModuleNameFromUploads(uploadsPackageType, filteredUploads, buildContentId);
 
         // Create BuildInfo for each target repository
         Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = new HashMap<>();
@@ -494,13 +507,6 @@ public class TrackingReportProcessor {
             if (entries.uploads.isEmpty() && entries.downloads.isEmpty()) {
                 continue;
             }
-
-            // Determine module name based on package type
-            // TODO: This is a bit of hack to establish a module name - the problem is that
-            //       we don't know the actual top level for a multi-module project so this could
-            //       end up picking the wrong one. Really the RepositoryPromoteRequest needs to
-            //       pass the name in.
-            String moduleName = determineModuleName(targetRepo, buildContentId, entries);
 
             // Create TrackingReport subset for this target
             TrackingReport subReport = TrackingReport.builder()
@@ -515,7 +521,7 @@ public class TrackingReportProcessor {
 
             logger.info(
                     "Created BuildInfo {} for target {} with {} artifacts and {} dependencies",
-                    moduleName,
+                    build,
                     targetRepo.getName(),
                     entries.uploads.size(),
                     entries.downloads.size());
@@ -527,49 +533,54 @@ public class TrackingReportProcessor {
     }
 
     /**
-     * Determines the module name for a BuildInfo based on package type.
-     * Reuses logic from computeIdentifier() method.
+     * Determines the module name for a BuildInfo from uploads only.
+     * This ensures consistent module naming across all BuildInfo objects (including shared-imports).
      *
-     * @param targetRepo the target repository ID
-     * @param trackingId the tracking ID
-     * @param entries the grouped entries (uploads and downloads)
+     * @param packageType the package type of the uploads
+     * @param uploads the filtered upload entries
+     * @param trackingId the tracking ID for fallback
      * @return the module name for the BuildInfo
      */
-    private String determineModuleName(RepositoryId targetRepo, String trackingId, GroupedEntries entries) {
-        PackageType packageType = targetRepo.getPackageType();
+    private String determineModuleNameFromUploads(
+            PackageType packageType,
+            Set<TrackedEntry> uploads,
+            String trackingId) {
+        if (packageType == null) {
+            // No uploads, use tracking ID
+            return trackingId;
+        }
 
         switch (packageType) {
             case MAVEN:
                 // Extract GAV from first Maven artifact
-                return extractMavenModuleName(entries, trackingId);
+                return extractMavenModuleNameFromUploads(uploads, trackingId);
 
             case NPM:
                 // Use NPM package identifier
-                return extractNpmModuleName(entries, trackingId);
+                return extractNpmModuleNameFromUploads(uploads, trackingId);
 
             case GENERIC:
                 // TODO: Improve generic module naming strategy
                 return "generic-" + trackingId;
 
             default:
-                return targetRepo.getName() + "-" + trackingId;
+                // Should never reach here with current PackageType enum values
+                throw new IllegalArgumentException("Unsupported package type: " + packageType);
         }
     }
 
     /**
-     * Extracts Maven module name (GAV) from entries.
-     * Tries uploads first, then downloads.
+     * Extracts Maven module name (GAV) from uploads only.
      *
      * TODO: ### This should be replaced ; the promote request should pass the module name
      * removing the need for this.
      *
-     * @param entries the grouped entries
+     * @param uploads the upload entries
      * @param trackingId fallback tracking ID
      * @return Maven GAV or fallback name
      */
-    private String extractMavenModuleName(GroupedEntries entries, String trackingId) {
-        // Try uploads first
-        for (TrackedEntry upload : entries.uploads) {
+    private String extractMavenModuleNameFromUploads(Set<TrackedEntry> uploads, String trackingId) {
+        for (TrackedEntry upload : uploads) {
             ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(upload.getPath());
             if (pathInfo == null) {
                 pathInfo = ArtifactPathInfo.parse(upload.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
@@ -579,45 +590,23 @@ public class TrackingReportProcessor {
             }
         }
 
-        // Try downloads
-        for (TrackedEntry download : entries.downloads) {
-            ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(download.getPath());
-            if (pathInfo == null) {
-                pathInfo = ArtifactPathInfo.parse(download.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
-            }
-            if (pathInfo != null) {
-                return pathInfo.getProjectId().toString();
-            }
-        }
-
         // Fallback
         return "maven-" + trackingId;
     }
 
     /**
-     * Extracts NPM module name from entries.
-     * Tries uploads first, then downloads.
+     * Extracts NPM module name from uploads only.
      *
-     * @param entries the grouped entries
+     * @param uploads the upload entries
      * @param trackingId fallback tracking ID
      * @return NPM package identifier or fallback name
      */
-    private String extractNpmModuleName(GroupedEntries entries, String trackingId) {
-        // Try uploads first
-        for (TrackedEntry upload : entries.uploads) {
+    private String extractNpmModuleNameFromUploads(Set<TrackedEntry> uploads, String trackingId) {
+        for (TrackedEntry upload : uploads) {
             NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(upload.getPath());
             if (npmPathInfo != null) {
                 NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
                 return packageRef.toString(); // Returns package@version
-            }
-        }
-
-        // Try downloads
-        for (TrackedEntry download : entries.downloads) {
-            NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(download.getPath());
-            if (npmPathInfo != null) {
-                NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
-                return packageRef.toString();
             }
         }
 
