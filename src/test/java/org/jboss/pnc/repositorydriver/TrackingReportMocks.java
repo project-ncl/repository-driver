@@ -10,34 +10,36 @@ import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
  */
 public class TrackingReportMocks {
 
-    // RepositoryKey replacements for old StoreKey
-    public static RepositoryKey centralKey = new RepositoryKey(
-            RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("central").build(),
-            PackageType.MAVEN
-    // not temporary
-    );
+    // RepositoryId replacements for old StoreKey
+    public static RepositoryId centralKey = RepositoryId.builder()
+            .project("pnc")
+            .packageType(PackageType.MAVEN)
+            .name("central")
+            .build();
 
-    public static RepositoryKey sharedImportsKey = new RepositoryKey(
-            RepositoryId.builder()
-                    .project("pnc")
-                    .packageType(PackageType.MAVEN)
-                    .name(RepositoryConstants.MVN_SHARED_IMPORTS_ID)
-                    .build(),
-            PackageType.MAVEN
-    // not temporary
-    );
+    public static RepositoryId sharedImportsKey = RepositoryId.builder()
+            .project("pnc")
+            .packageType(PackageType.MAVEN)
+            .name(RepositoryConstants.MVN_SHARED_IMPORTS_ID)
+            .build();
 
-    public static RepositoryKey ignoredKey = new RepositoryKey(
-            RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("ignored").build(),
-            PackageType.MAVEN);
+    public static RepositoryId ignoredKey = RepositoryId.builder()
+            .project("pnc")
+            .packageType(PackageType.MAVEN)
+            .name("ignored")
+            .build();
 
-    public static RepositoryKey toBeIgnoredKey = new RepositoryKey(
-            RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("tobeignored").build(),
-            PackageType.MAVEN);
+    public static RepositoryId toBeIgnoredKey = RepositoryId.builder()
+            .project("pnc")
+            .packageType(PackageType.MAVEN)
+            .name("tobeignored")
+            .build();
 
-    public static RepositoryKey notToBeIgnoredKey = new RepositoryKey(
-            RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("nottobeignored").build(),
-            PackageType.MAVEN);
+    public static RepositoryId notToBeIgnoredKey = RepositoryId.builder()
+            .project("pnc")
+            .packageType(PackageType.MAVEN)
+            .name("nottobeignored")
+            .build();
 
     public static String indyPom = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
     public static String noFileExtensionArtifact = "/org/jboss/shrinkwrap/shrinkwrap-api/1.2.6/shrinkwrap-api-1.2.6";
@@ -52,7 +54,7 @@ public class TrackingReportMocks {
 
     static {
         indyPomFromCentral = TrackedEntry.builder()
-                .repoId(centralKey.repositoryId())
+                .repoId(centralKey)
                 .path(TrackingReportMocks.indyPom)
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyPom)
                 .localUrl("file:///tmp" + TrackingReportMocks.indyPom)
@@ -62,14 +64,14 @@ public class TrackingReportMocks {
                 .build();
 
         indyPomSha1FromCentral = TrackedEntry.builder()
-                .repoId(centralKey.repositoryId())
+                .repoId(centralKey)
                 .path(TrackingReportMocks.indyPom + ".sha1")
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyPom + ".sha1")
                 .localUrl("file:///tmp" + TrackingReportMocks.indyPom + ".sha1")
                 .build();
 
         indyJarFromCentral = TrackedEntry.builder()
-                .repoId(centralKey.repositoryId())
+                .repoId(centralKey)
                 .path(TrackingReportMocks.indyJar)
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyJar)
                 .localUrl("file:///tmp" + TrackingReportMocks.indyJar)
@@ -79,7 +81,7 @@ public class TrackingReportMocks {
                 .build();
 
         indyJarSha1FromCentral = TrackedEntry.builder()
-                .repoId(centralKey.repositoryId())
+                .repoId(centralKey)
                 .path(TrackingReportMocks.indyJar + ".sha1")
                 .originUrl("https://repo.maven.apache.org/maven2" + TrackingReportMocks.indyJar + ".sha1")
                 .localUrl("file:///tmp" + TrackingReportMocks.indyJar + ".sha1")
