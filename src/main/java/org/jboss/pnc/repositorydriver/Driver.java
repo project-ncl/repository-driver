@@ -48,6 +48,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.context.ManagedExecutor;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.api.constants.MDCKeys;
+import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
@@ -239,13 +240,7 @@ public class Driver {
             uploadLogs(ex.getMessage(), "promote");
             throw ex;
         }
-        Set<RepositoryKey> genericRepos = new HashSet<>();
-
-        // The promotion runs asynchronously, after this request (and thus the request-scoped injected Indy client)
-        // has been disposed. It therefore needs its own client whose lifecycle it controls; the injected client's
-        // connection pool would already be shut down. Create it on the request thread so it captures the correct
-        // per-request MDC context, and close it in the terminal stage of the pipeline below.
-        final Indy promotionIndy = beanFactory.newIndyServiceAccountClient();
+        Set<RepositoryId> genericRepos = new HashSet<>();
 
         // The matching removeActivePromotion() is called exactly once, in the pipeline's terminal stage
         // (Driver#completePromotion), which always runs when the promotion settles. It is intentionally not
@@ -293,7 +288,7 @@ public class Driver {
                 try {
                     // the promotion is done only after a successfully collected downloads and uploads
                     // Use BuildInfo-based promotion instead of path-based promotion
-                    Map<RepositoryKey, org.jfrog.build.api.Build> buildInfos = trackingReportProcessor
+                    Map<RepositoryId, org.jfrog.build.api.Build> buildInfos = trackingReportProcessor
                             .createPromotionBuildInfos(
                                     report,
                                     promoteRequest.isTempBuild(),
@@ -303,8 +298,8 @@ public class Driver {
                                     genericRepos);
 
                     // Promote each BuildInfo to its target repository
-                    for (Map.Entry<RepositoryKey, org.jfrog.build.api.Build> entry : buildInfos.entrySet()) {
-                        RepositoryKey targetRepo = entry.getKey();
+                    for (Map.Entry<RepositoryId, org.jfrog.build.api.Build> entry : buildInfos.entrySet()) {
+                        RepositoryId targetRepo = entry.getKey();
                         org.jfrog.build.api.Build buildInfo = entry.getValue();
 
                         // Determine if this is artifacts or dependencies based on module content
@@ -318,7 +313,7 @@ public class Driver {
                             logger.info(
                                     "Promoting artifacts for BuildInfo {} to {}",
                                     buildInfo.getName(),
-                                    targetRepo.repositoryId().getName());
+                                    targetRepo.getName());
                             promoteBuildInfo(targetRepo, buildInfo, true);
                         }
 
@@ -327,7 +322,7 @@ public class Driver {
                             logger.info(
                                     "Promoting dependencies for BuildInfo {} to {}",
                                     buildInfo.getName(),
-                                    targetRepo.repositoryId().getName());
+                                    targetRepo.getName());
                             promoteBuildInfo(targetRepo, buildInfo, false);
                         }
                     }
@@ -927,13 +922,13 @@ public class Driver {
      * @throws PromotionValidationException if upload or promotion fails
      */
     private void promoteBuildInfo(
-            RepositoryKey targetRepo,
+            RepositoryId targetRepo,
             Build buildInfo,
             boolean promoteArtifacts) throws PromotionValidationException {
 
         String buildName = buildInfo.getName();
         String buildNumber = buildInfo.getNumber();
-        String targetRepoName = targetRepo.repositoryId().getName();
+        String targetRepoName = targetRepo.getName();
         String scope = promoteArtifacts ? "artifacts" : "dependencies";
 
         try {
@@ -1092,15 +1087,15 @@ public class Driver {
      * The cleanup shouldn't be called if the build failed to leave the group for debugging the build. All the groups
      * are deleted by PNC Cleaner (not part of this driver) after 7 days.
      *
-     * @param genericRepos a collection of generic repos containing dependencies
+     * @param genericRepos a collection of generic repository IDs containing dependencies
      */
     private void deleteBuildRepos(
             RepositoryType repositoryType,
             String buildContentId,
-            Collection<RepositoryKey> genericRepos) throws RepositoryDriverException {
-        for (RepositoryKey key : genericRepos) {
-            logger.info("Deleting remote build repository {}", key.repositoryId().getPath());
-            artifactory.repository(key.repositoryId().getPath()).delete();
+            Collection<RepositoryId> genericRepos) throws RepositoryDriverException {
+        for (RepositoryId repositoryId : genericRepos) {
+            logger.info("Deleting remote build repository {}", repositoryId.getPath());
+            artifactory.repository(repositoryId.getPath()).delete();
         }
     }
 
