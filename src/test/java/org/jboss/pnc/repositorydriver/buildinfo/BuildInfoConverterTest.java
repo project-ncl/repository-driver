@@ -105,7 +105,7 @@ public class BuildInfoConverterTest {
         assertEquals("1.0.1", build.getVersion());
         assertNotNull(build.getStarted());
         assertNotNull(build.getBuildAgent());
-        assertEquals("PNC", build.getBuildAgent().getName());
+        assertEquals("NYI", build.getBuildAgent().getName());
 
         assertNotNull(build.getModules());
         assertEquals(1, build.getModules().size());
