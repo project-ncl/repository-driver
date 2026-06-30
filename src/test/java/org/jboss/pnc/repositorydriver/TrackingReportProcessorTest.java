@@ -251,7 +251,7 @@ public class TrackingReportProcessorTest {
         // Add download from ignored source (should be filtered out)
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.ignoredKey.repositoryId())
+                        .repoId(TrackingReportMocks.ignoredKey)
                         .path("/org/example/artifact/1.0/artifact-1.0.jar")
                         .originUrl("https://example.com/artifact-1.0.jar")
                         .localUrl("file:///tmp/artifact-1.0.jar")
@@ -267,8 +267,8 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfos is called
-        Set<RepositoryKey> genericRepos = new HashSet<>();
-        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+        Set<RepositoryId> genericRepos = new HashSet<>();
+        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
                 report,
                 false,
                 "test-build-id",
@@ -381,12 +381,14 @@ public class TrackingReportProcessorTest {
         downloads.add(TrackingReportMocks.indyPomFromCentral);
 
         // NPM download - should extract package@version
-        RepositoryKey npmCentralKey = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.NPM).name("npm-central").build(),
-                PackageType.NPM);
+        RepositoryId npmCentralKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.NPM)
+                .name("npm-central")
+                .build();
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(npmCentralKey.repositoryId())
+                        .repoId(npmCentralKey)
                         .path("/lodash/-/lodash-4.17.21.tgz")
                         .originUrl("https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz")
                         .localUrl("file:///tmp/lodash-4.17.21.tgz")
@@ -402,8 +404,8 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfos is called
-        Set<RepositoryKey> genericRepos = new HashSet<>();
-        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+        Set<RepositoryId> genericRepos = new HashSet<>();
+        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
                 report,
                 false,
                 "test-build-id",
@@ -412,10 +414,10 @@ public class TrackingReportProcessorTest {
                 genericRepos);
 
         // then: Module names are correctly determined based on package type
-        for (var entry : buildInfoMap.entrySet()) {
-            var buildInfo = entry.getValue();
-            var moduleName = buildInfo.getName();
-            var packageType = entry.getKey().packageType();
+        for (Map.Entry<RepositoryId, org.jfrog.build.api.Build> entry : buildInfoMap.entrySet()) {
+            org.jfrog.build.api.Build buildInfo = entry.getValue();
+            String moduleName = buildInfo.getName();
+            PackageType packageType = entry.getKey().getPackageType();
 
             if (packageType == PackageType.MAVEN) {
                 // Maven module name should contain GAV format (groupId:artifactId:version)
@@ -441,14 +443,15 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfos is called
-        Set<RepositoryKey> genericRepos = new HashSet<>();
-        var buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
-                report,
-                false,
-                "test-build-id",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD,
-                genericRepos);
+        Set<RepositoryId> genericRepos = new HashSet<>();
+        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor
+                .createPromotionBuildInfos(
+                        report,
+                        false,
+                        "test-build-id",
+                        RepositoryType.MAVEN,
+                        BuildCategory.STANDARD,
+                        genericRepos);
 
         // then: Should return empty map
         Assertions.assertTrue(buildInfoMap.isEmpty(), "Should return empty map for empty report");
@@ -468,7 +471,7 @@ public class TrackingReportProcessorTest {
         // Additional Maven downloads from jackson-core
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.centralKey.repositoryId())
+                        .repoId(TrackingReportMocks.centralKey)
                         .path("/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.jar")
                         .originUrl(
                                 "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.jar")
@@ -479,7 +482,7 @@ public class TrackingReportProcessorTest {
                         .build());
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(TrackingReportMocks.centralKey.repositoryId())
+                        .repoId(TrackingReportMocks.centralKey)
                         .path("/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.pom")
                         .originUrl(
                                 "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.pom")
@@ -490,12 +493,14 @@ public class TrackingReportProcessorTest {
                         .build());
 
         // Generic downloads from different repositories - should go to pnc-generic-downloads
-        RepositoryKey genericRepo1 = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.GENERIC).name("generic-repo-1").build(),
-                PackageType.GENERIC);
+        RepositoryId genericRepo1 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.GENERIC)
+                .name("generic-repo-1")
+                .build();
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(genericRepo1.repositoryId())
+                        .repoId(genericRepo1)
                         .path("/files/archive1.tar.gz")
                         .originUrl("https://example.com/archive1.tar.gz")
                         .localUrl("file:///tmp/archive1.tar.gz")
@@ -504,12 +509,14 @@ public class TrackingReportProcessorTest {
                         .sha256("gen1-sha256")
                         .build());
 
-        RepositoryKey genericRepo2 = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.GENERIC).name("generic-repo-2").build(),
-                PackageType.GENERIC);
+        RepositoryId genericRepo2 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.GENERIC)
+                .name("generic-repo-2")
+                .build();
         downloads.add(
                 TrackedEntry.builder()
-                        .repoId(genericRepo2.repositoryId())
+                        .repoId(genericRepo2)
                         .path("/files/archive2.zip")
                         .originUrl("https://example.com/archive2.zip")
                         .localUrl("file:///tmp/archive2.zip")
@@ -550,8 +557,8 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfos is called
-        Set<RepositoryKey> genericRepos = new HashSet<>();
-        Map<RepositoryKey, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor
+        Set<RepositoryId> genericRepos = new HashSet<>();
+        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor
                 .createPromotionBuildInfos(
                         report,
                         false,
@@ -568,18 +575,18 @@ public class TrackingReportProcessorTest {
                         + buildInfoMap.size());
 
         // Verify Maven shared-imports BuildInfo exists with dependencies
-        RepositoryKey mvnSharedImportsKey = buildInfoMap.keySet()
+        RepositoryId mvnSharedImportsKey = buildInfoMap.keySet()
                 .stream()
-                .filter(key -> key.repositoryId().getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID))
+                .filter(key -> key.getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID))
                 .findFirst()
                 .orElse(null);
         Assertions.assertNotNull(
                 mvnSharedImportsKey,
                 "Should have Maven shared-imports repository key (pnc-mvn-imports)");
-        Assertions.assertEquals(PackageType.MAVEN, mvnSharedImportsKey.packageType());
+        Assertions.assertEquals(PackageType.MAVEN, mvnSharedImportsKey.getPackageType());
         Assertions.assertEquals(
                 "pnc",
-                mvnSharedImportsKey.repositoryId().getProject(),
+                mvnSharedImportsKey.getProject(),
                 "Project should be 'pnc' from deployment config");
 
         org.jfrog.build.api.Build mvnSharedImportsBuild = buildInfoMap.get(mvnSharedImportsKey);
@@ -593,15 +600,15 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(0, mvnModule.getArtifacts().size(), "Maven shared-imports should have no artifacts");
 
         // Verify generic-downloads BuildInfo exists with dependencies
-        RepositoryKey genericDownloadsKey = buildInfoMap.keySet()
+        RepositoryId genericDownloadsKey = buildInfoMap.keySet()
                 .stream()
-                .filter(key -> key.repositoryId().getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
+                .filter(key -> key.getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
                 .findFirst()
                 .orElse(null);
         Assertions.assertNotNull(
                 genericDownloadsKey,
                 "Should have generic-downloads repository key (pnc-generic-downloads)");
-        Assertions.assertEquals(PackageType.GENERIC, genericDownloadsKey.packageType());
+        Assertions.assertEquals(PackageType.GENERIC, genericDownloadsKey.getPackageType());
 
         org.jfrog.build.api.Build genericDownloadsBuild = buildInfoMap.get(genericDownloadsKey);
         Assertions.assertNotNull(genericDownloadsBuild, "Should have BuildInfo for generic-downloads");
@@ -614,16 +621,16 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(0, genericModule.getArtifacts().size(), "Generic downloads should have no artifacts");
 
         // Verify build promotion target BuildInfo exists with artifacts (pnc-mvn-builds)
-        RepositoryKey buildPromotionKey = buildInfoMap.keySet()
+        RepositoryId buildPromotionKey = buildInfoMap.keySet()
                 .stream()
                 .filter(
-                        key -> !key.repositoryId().getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID)
-                                && !key.repositoryId().getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
+                        key -> !key.getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID)
+                                && !key.getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
                 .findFirst()
                 .orElse(null);
         Assertions
                 .assertNotNull(buildPromotionKey, "Should have build promotion target repository key (pnc-mvn-builds)");
-        Assertions.assertEquals(PackageType.MAVEN, buildPromotionKey.packageType());
+        Assertions.assertEquals(PackageType.MAVEN, buildPromotionKey.getPackageType());
         // The build promotion target name comes from configuration.getBuildPromotionTarget(BuildCategory.STANDARD)
         // which defaults to "target" in test config, but with project prefix becomes "prod-mvn-target"
 
@@ -742,9 +749,11 @@ public class TrackingReportProcessorTest {
         Set<TrackedEntry> uploads = new HashSet<>();
 
         String buildContentId = "build-X";
-        RepositoryKey buildKey = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name(buildContentId).build(),
-                PackageType.MAVEN);
+        RepositoryId buildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name(buildContentId)
+                .build();
 
         TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         uploads.add(trackedIndyJar);
@@ -865,9 +874,7 @@ public class TrackingReportProcessorTest {
 
         String buildContentId = "ignored";
         TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
-        RepositoryKey buildKey = new RepositoryKey(
-                trackedIndyJar.getRepoId(),
-                trackedIndyJar.getRepoId().getPackageType());
+        RepositoryId buildKey = trackedIndyJar.getRepoId();
         downloads.add(trackedIndyJar);
 
         TrackingReport report = TrackingReport.builder()
@@ -877,9 +884,7 @@ public class TrackingReportProcessorTest {
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
         Assertions.assertEquals(entries.size(), 1);
-        RepositoryKey entryKey = new RepositoryKey(
-                entries.get(0).getRepositoryId(),
-                entries.get(0).getRepositoryId().getPackageType());
+        RepositoryId entryKey = entries.get(0).getRepositoryId();
         Assertions.assertEquals(entryKey, buildKey);
     }
 
@@ -937,9 +942,11 @@ public class TrackingReportProcessorTest {
         Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "build-x";
-        RepositoryKey repositoryKey = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("build-xxxxx").build(),
-                PackageType.MAVEN); // from app.yaml
+        RepositoryId repositoryKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-xxxxx")
+                .build(); // from app.yaml
         TrackedEntry shouldFilter = mavenEntry(
                 buildContentId,
                 TrackingReportMocks.indyJar,
@@ -948,9 +955,11 @@ public class TrackingReportProcessorTest {
         downloads.add(shouldFilter);
 
         String buildContentId2 = "build-y";
-        RepositoryKey repositoryKey2 = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("build-yyyyy").build(),
-                PackageType.MAVEN); // from app.yaml
+        RepositoryId repositoryKey2 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-yyyyy")
+                .build(); // from app.yaml
         TrackedEntry shouldFilter2 = mavenEntry(
                 buildContentId2,
                 TrackingReportMocks.indyJar,
@@ -959,9 +968,11 @@ public class TrackingReportProcessorTest {
         downloads.add(shouldFilter2);
 
         String buildContentId3 = "build-z";
-        RepositoryKey repositoryKey3 = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name("ignored").build(),
-                PackageType.MAVEN);
+        RepositoryId repositoryKey3 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("ignored")
+                .build();
         TrackedEntry shouldNotFilter = mavenEntry(
                 buildContentId3,
                 TrackingReportMocks.indyPom,
@@ -1071,15 +1082,17 @@ public class TrackingReportProcessorTest {
     }
 
     private static TrackedEntry mavenEntry(String name, String path, String originUrl) {
-        RepositoryKey repositoryKey = new RepositoryKey(
-                RepositoryId.builder().project("pnc").packageType(PackageType.MAVEN).name(name).build(),
-                PackageType.MAVEN);
+        RepositoryId repositoryKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name(name)
+                .build();
         return mavenEntry(name, path, originUrl, repositoryKey);
     }
 
-    private static TrackedEntry mavenEntry(String name, String path, String originUrl, RepositoryKey repositoryKey) {
+    private static TrackedEntry mavenEntry(String name, String path, String originUrl, RepositoryId repositoryKey) {
         return TrackedEntry.builder()
-                .repoId(repositoryKey.repositoryId())
+                .repoId(repositoryKey)
                 .path(path)
                 .originUrl(originUrl)
                 .md5("0bee89b07a248e27c83fc3d5951213c1")

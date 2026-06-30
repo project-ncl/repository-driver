@@ -402,22 +402,22 @@ public class TrackingReportProcessor {
      * @param buildContentId the build content ID (tracking ID)
      * @param repositoryType the repository type for uploads
      * @param buildCategory
-     * @param genericRepos collection to populate with generic repository keys
-     * @return map of target repository keys to BuildInfo objects
+     * @param genericRepos collection to populate with generic repository IDs
+     * @return map of target repository IDs to BuildInfo objects
      * @throws RepositoryDriverException if BuildInfo creation fails
      */
     @WithSpan()
-    public Map<RepositoryKey, org.jfrog.build.api.Build> createPromotionBuildInfos(
+    public Map<RepositoryId, org.jfrog.build.api.Build> createPromotionBuildInfos(
             @SpanAttribute(value = "report") TrackingReport report,
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
             @SpanAttribute(value = "buildContentId") String buildContentId,
             @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
             @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
-            @SpanAttribute(value = "genericRepos") Set<RepositoryKey> genericRepos)
+            @SpanAttribute(value = "genericRepos") Set<RepositoryId> genericRepos)
             throws RepositoryDriverException {
 
-        Map<RepositoryKey, GroupedEntries> groupedByTarget = new HashMap<>();
-        Map<PackageType, RepositoryKey> promotionTargetsCache = new HashMap<>();
+        Map<RepositoryId, GroupedEntries> groupedByTarget = new HashMap<>();
+        Map<PackageType, RepositoryId> promotionTargetsCache = new HashMap<>();
 
         // Process downloads with filtering
         Set<TrackedEntry> downloads = report.getDownloads();
@@ -428,7 +428,7 @@ public class TrackingReportProcessor {
 
                 // Apply both filters for downloads
                 if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
-                    RepositoryKey target;
+                    RepositoryId target;
 
                     switch (packageType) {
                         case MAVEN:
@@ -439,15 +439,14 @@ public class TrackingReportProcessor {
                         case GENERIC:
                             // Generic downloads go to generic-downloads target
                             // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
-                            RepositoryKey source = new RepositoryKey(sourceRepoId, packageType);
-                            genericRepos.add(source);
+                            genericRepos.add(sourceRepoId);
 
                             String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
-                            RepositoryId targetRepoId = RepositoryId.builder()
+                            target = RepositoryId.builder()
                                     .project(sourceRepoId.getProject())
+                                    .packageType(packageType)
                                     .name(hostedName)
                                     .build();
-                            target = new RepositoryKey(targetRepoId, packageType);
                             break;
 
                         default:
@@ -468,11 +467,11 @@ public class TrackingReportProcessor {
             PackageType packageType = TypeConverters.toPackageType(repositoryType);
 
             // Determine target for uploads
-            RepositoryId targetRepoId = RepositoryId.builder()
+            RepositoryId target = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
+                    .packageType(packageType)
                     .name(getBuildPromotionTarget(buildCategory, tempBuild))
                     .build();
-            RepositoryKey target = new RepositoryKey(targetRepoId, packageType);
 
             for (TrackedEntry upload : uploads) {
                 // Apply filter for uploads
@@ -485,10 +484,10 @@ public class TrackingReportProcessor {
         }
 
         // Create BuildInfo for each target repository
-        Map<RepositoryKey, org.jfrog.build.api.Build> buildInfoMap = new HashMap<>();
+        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = new HashMap<>();
 
-        for (Map.Entry<RepositoryKey, GroupedEntries> entry : groupedByTarget.entrySet()) {
-            RepositoryKey targetRepo = entry.getKey();
+        for (Map.Entry<RepositoryId, GroupedEntries> entry : groupedByTarget.entrySet()) {
+            RepositoryId targetRepo = entry.getKey();
             GroupedEntries entries = entry.getValue();
 
             // Skip if no artifacts or dependencies
@@ -517,7 +516,7 @@ public class TrackingReportProcessor {
             logger.info(
                     "Created BuildInfo {} for target {} with {} artifacts and {} dependencies",
                     moduleName,
-                    targetRepo.repositoryId().getName(),
+                    targetRepo.getName(),
                     entries.uploads.size(),
                     entries.downloads.size());
 
@@ -531,13 +530,13 @@ public class TrackingReportProcessor {
      * Determines the module name for a BuildInfo based on package type.
      * Reuses logic from computeIdentifier() method.
      *
-     * @param targetRepo the target repository key
+     * @param targetRepo the target repository ID
      * @param trackingId the tracking ID
      * @param entries the grouped entries (uploads and downloads)
      * @return the module name for the BuildInfo
      */
-    private String determineModuleName(RepositoryKey targetRepo, String trackingId, GroupedEntries entries) {
-        PackageType packageType = targetRepo.packageType();
+    private String determineModuleName(RepositoryId targetRepo, String trackingId, GroupedEntries entries) {
+        PackageType packageType = targetRepo.getPackageType();
 
         switch (packageType) {
             case MAVEN:
@@ -553,7 +552,7 @@ public class TrackingReportProcessor {
                 return "generic-" + trackingId;
 
             default:
-                return targetRepo.repositoryId().getName() + "-" + trackingId;
+                return targetRepo.getName() + "-" + trackingId;
         }
     }
 
@@ -954,16 +953,16 @@ public class TrackingReportProcessor {
                 .build();
     }
 
-    private RepositoryKey getSharedImportsPromotionTarget(
+    private RepositoryId getSharedImportsPromotionTarget(
             PackageType packageType,
-            Map<PackageType, RepositoryKey> promotionTargetsCache) {
+            Map<PackageType, RepositoryId> promotionTargetsCache) {
         if (!promotionTargetsCache.containsKey(packageType)) {
-            RepositoryId repoId = RepositoryId.builder()
+            RepositoryId repositoryId = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
+                    .packageType(packageType)
                     .name(packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
                     .build();
-            RepositoryKey repositoryKey = new RepositoryKey(repoId, packageType);
-            promotionTargetsCache.put(packageType, repositoryKey);
+            promotionTargetsCache.put(packageType, repositoryId);
         }
         return promotionTargetsCache.get(packageType);
     }
