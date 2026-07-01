@@ -21,9 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import org.jboss.pnc.api.dto.RepositoryId;
@@ -96,12 +94,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "test-build");
+        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "test-build");
 
         // Then
         assertNotNull(build);
         assertEquals("test-build", build.getName());
         assertEquals("build-123", build.getNumber());
+        assertEquals("pnc", build.getProject());
         assertEquals("1.0.1", build.getVersion());
         assertNotNull(build.getStarted());
         assertNotNull(build.getBuildAgent());
@@ -165,12 +164,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "npm-build");
+        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "npm-build");
 
         // Then
         assertNotNull(build);
         assertEquals("npm-build", build.getName());
         assertEquals("npm-build-456", build.getNumber());
+        assertEquals("pnc", build.getProject());
         Module module = build.getModules().get(0);
         assertEquals(1, module.getArtifacts().size());
         assertEquals(0, module.getDependencies().size());
@@ -199,49 +199,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "test-build");
+        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "test-build");
 
         // Then
         assertNotNull(build);
         Module module = build.getModules().get(0);
         assertEquals(0, module.getArtifacts().size());
         assertEquals(1, module.getDependencies().size());
-    }
-
-    @Test
-    public void testConvertWithAdditionalProperties() {
-        // Given
-        Set<TrackedEntry> uploads = new HashSet<>();
-        RepositoryId uploadRepoId = RepositoryId.builder()
-                .project("pnc")
-                .packageType(PackageType.GENERIC)
-                .name("generic-build-repo")
-                .build();
-        TrackedEntry upload = TrackedEntry.builder()
-                .repoId(uploadRepoId)
-                .path("/generic/file.tar.gz")
-                .sha256("gen123")
-                .build();
-        uploads.add(upload);
-
-        TrackingReport report = TrackingReport.builder()
-                .trackingID("generic-999")
-                .uploads(uploads)
-                .downloads(new HashSet<>())
-                .build();
-
-        Map<String, String> additionalProps = new HashMap<>();
-        additionalProps.put("buildUrl", "https://ci.example.com/build/123");
-        additionalProps.put("vcsRevision", "abc123def456");
-
-        // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "generic-build", additionalProps);
-
-        // Then
-        assertNotNull(build);
-        assertNotNull(build.getProperties());
-        assertEquals("https://ci.example.com/build/123", build.getProperties().getProperty("buildUrl"));
-        assertEquals("abc123def456", build.getProperties().getProperty("vcsRevision"));
     }
 
     @Test
@@ -254,7 +218,7 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "empty-build");
+        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "empty-build");
 
         // Then
         assertNotNull(build);

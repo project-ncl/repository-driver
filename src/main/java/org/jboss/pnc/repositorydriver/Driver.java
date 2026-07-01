@@ -40,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -75,6 +76,8 @@ import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
+import org.jfrog.artifactory.client.impl.util.Util;
+import org.jfrog.artifactory.client.model.PromotionMessage;
 import org.jfrog.artifactory.client.model.Repository;
 import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
@@ -312,7 +315,7 @@ public class Driver {
                             logger.info(
                                     "Promoting artifacts for BuildInfo {} to {}",
                                     buildInfo.getName(),
-                                    targetRepo.getName());
+                                    targetRepo.getPath());
                             promoteBuildInfo(targetRepo, buildInfo, true);
                         }
 
@@ -321,7 +324,7 @@ public class Driver {
                             logger.info(
                                     "Promoting dependencies for BuildInfo {} to {}",
                                     buildInfo.getName(),
-                                    targetRepo.getName());
+                                    targetRepo.getPath());
                             promoteBuildInfo(targetRepo, buildInfo, false);
                         }
                     }
@@ -909,24 +912,14 @@ public class Driver {
 
         String buildName = buildInfo.getName();
         String buildNumber = buildInfo.getNumber();
-        String targetRepoName = targetRepo.getName();
+        String targetRepoName = targetRepo.getPath();
         String scope = promoteArtifacts ? "artifacts" : "dependencies";
 
         try {
             // Step 1: Upload BuildInfo to Artifactory
+            logger.warn("### buildinfo: {}", Util.getStringFromObject(buildInfo));
             logger.info("Uploading BuildInfo {} #{} to Artifactory", buildName, buildNumber);
             artifactory.builds().uploadBuild(buildInfo);
-            userLog.info(
-                    "Uploaded BuildInfo {} #{} with {} artifacts and {} dependencies",
-                    buildName,
-                    buildNumber,
-                    buildInfo.getModules().get(0).getArtifacts() != null
-                            ? buildInfo.getModules().get(0).getArtifacts().size()
-                            : 0,
-                    buildInfo.getModules().get(0).getDependencies() != null
-                            ? buildInfo.getModules().get(0).getDependencies().size()
-                            : 0);
-
         } catch (Exception e) {
             String message = String.format(
                     "Failed to upload BuildInfo %s #%s to Artifactory",
@@ -943,7 +936,7 @@ public class Driver {
             promotionRequest.setTargetRepo(targetRepoName);
             promotionRequest.setStatus("promoted");
             promotionRequest.setComment("Promoted by PNC Repository Driver - " + scope);
-            promotionRequest.setCopy(false); // Move artifacts, don't copy them
+            promotionRequest.setCopy(true); // Move artifacts, don't copy them
 
             // Set flags for what to promote: artifacts (uploads) or dependencies (downloads)
             promotionRequest.setArtifacts(promoteArtifacts);
@@ -956,15 +949,23 @@ public class Driver {
                     buildNumber,
                     scope,
                     targetRepoName);
-            artifactory.builds().promoteBuild(buildName, buildNumber, promotionRequest);
+            var response = artifactory.builds()
+                    .promoteBuild(
+                            buildName,
+                            buildNumber,
+                            promotionRequest,
+                            configuration.getDeploymentType().toString());
 
             userLog.info(
-                    "Successfully promoted BuildInfo {} #{} ({}) to {}",
+                    "Successfully promoted BuildInfo {} #{} to {} with messages {}",
                     buildName,
                     buildNumber,
-                    scope,
-                    targetRepoName);
-
+                    targetRepoName,
+                    response.getMessages() == null ? "[]"
+                            : response.getMessages()
+                                    .stream()
+                                    .map(PromotionMessage::getMessage)
+                                    .collect(Collectors.joining(", ")));
         } catch (Exception e) {
             String message = String.format(
                     "Failed to promote BuildInfo %s #%s (%s) to repository %s",
