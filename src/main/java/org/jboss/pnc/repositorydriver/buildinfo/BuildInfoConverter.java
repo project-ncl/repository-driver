@@ -19,7 +19,6 @@ package org.jboss.pnc.repositorydriver.buildinfo;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -63,8 +62,8 @@ import org.slf4j.LoggerFactory;
  * // Convert entire TrackingReport to a single Build object
  * Build build = BuildInfoConverter.fromTrackingReport(
  *         report,
- *         "my-build",
- *         "1.0");
+ *         "project-name",
+ *         "my-build");
  *
  * // Upload to Artifactory
  * artifactory.builds().uploadBuild(build);
@@ -90,35 +89,16 @@ public class BuildInfoConverter {
     /** NCL-7238: Add this extension to parse for maven urls with no extensions */
     private static final String MAVEN_SUBSTITUTE_EXTENSION = ".empty";
 
-    /** Artifactory limit for type length is 64 characters */
-    private static final int ARTIFACT_TYPE_LENGTH_LIMIT = 64;
-
     /**
      * Converts a TrackingReport to a Build object.
      * The trackingId from the report is used as the build number.
      *
      * @param report the tracking report containing uploads, downloads, and trackingId
+     * @param projectName the project name to set on the Build
      * @param buildName the name of the build
      * @return a Build object containing both artifacts and dependencies
      */
-    public static Build fromTrackingReport(TrackingReport report, String buildName) {
-        return fromTrackingReport(report, buildName, null);
-    }
-
-    /**
-     * Converts a TrackingReport to a Build object with additional properties.
-     * The trackingId from the report is used as the build number.
-     *
-     * @param report the tracking report containing uploads, downloads, and trackingId
-     * @param buildName the name of the build
-     * @param additionalProperties optional additional properties to include in the Build
-     * @return a Build object containing both artifacts and dependencies
-     */
-    public static Build fromTrackingReport(
-            TrackingReport report,
-            String buildName,
-            Map<String, String> additionalProperties) {
-
+    public static Build fromTrackingReport(TrackingReport report, String projectName, String buildName) {
         if (report == null) {
             throw new IllegalArgumentException("TrackingReport cannot be null");
         }
@@ -148,20 +128,13 @@ public class BuildInfoConverter {
 
         // Set properties
         Properties properties = new Properties();
-        if (additionalProperties != null) {
-            properties.putAll(additionalProperties);
-        }
-
         // Create a single module containing both artifacts and dependencies
         Module module = new Module();
         module.setId(buildName + ":" + buildNumber);
 
         // Determine module type from uploads (prefer uploads over downloads for type)
         String moduleType = determineModuleType(uploads, downloads);
-        if (moduleType != null) {
-            module.setType(moduleType);
-        }
-
+        module.setType(moduleType);
         module.setArtifacts(convertToArtifacts(uploads));
         module.setDependencies(convertToDependencies(downloads));
 
@@ -177,6 +150,7 @@ public class BuildInfoConverter {
                 .agent(agent)
                 .properties(properties)
                 .modules(modules)
+                .project(projectName)
                 .build();
     }
 
@@ -185,7 +159,7 @@ public class BuildInfoConverter {
      * TODO: ### Should we use
      * https://github.com/jfrog/build-info/blob/master/build-info-api/src/main/java/org/jfrog/build/api/builder/ModuleType.java
      * ?
-     * 
+     *
      * @param uploads upload entries
      * @param downloads download entries
      * @return module type string (maven, npm, generic, etc.)
@@ -283,14 +257,6 @@ public class BuildInfoConverter {
             dependency.setSha256(entry.getSha256());
             dependency.setSha1(entry.getSha1());
             dependency.setMd5(entry.getMd5());
-
-            // Add scope if available from repository information
-            if (entry.getRepoId() != null && entry.getRepoId().getName() != null) {
-                Set<String> scopes = new java.util.HashSet<>();
-                scopes.add(entry.getRepoId().getName());
-                dependency.setScopes(scopes);
-            }
-
             dependencies.add(dependency);
         }
 
