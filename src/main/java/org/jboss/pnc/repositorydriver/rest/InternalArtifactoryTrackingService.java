@@ -35,6 +35,7 @@ import org.jboss.pnc.api.tracker.dto.TrackDownloadRequest;
 import org.jboss.pnc.api.tracker.dto.TrackUploadRequest;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
+import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Configuration;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.model.RepoPath;
@@ -93,7 +94,9 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     "Internal tracking not enabled. Set repository-driver.tracking-service.use-internal-tracking=true");
         }
 
-        logger.info("Internal tracking: Querying Artifactory for tracking report: {}", buildContentId);
+        logger.info(
+                "Internal tracking: Querying Artifactory for tracking report: {}",
+                LogSanitizer.clean(buildContentId));
 
         try {
             // Extract the build ID without "build-" prefix for property name
@@ -145,13 +148,13 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     "Internal tracking: Found {} downloads, {} uploads for build {}",
                     downloads.size(),
                     uploads.size(),
-                    buildContentId);
+                    LogSanitizer.clean(buildContentId));
 
             if (uploads.isEmpty()) {
                 String errorMsg = String.format(
                         "No uploads found with property %s. " +
                                 "Ensure artifacts are tagged with build.pnc.* property during build.",
-                        propertyName);
+                        LogSanitizer.clean(propertyName));
                 logger.error(errorMsg);
                 throw new RuntimeException(errorMsg);
             }
@@ -163,7 +166,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     .build();
 
         } catch (Exception e) {
-            logger.error("Internal tracking failed for {}: {}", buildContentId, e.getMessage(), e);
+            logger.error("Internal tracking failed for {}: {}", LogSanitizer.clean(buildContentId), e.getMessage(), e);
             throw new RuntimeException("Failed to retrieve tracking report from Artifactory", e);
         }
     }
@@ -276,17 +279,17 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
     // Minimal implementations for other interface methods
     @Override
     public void initReport(String id) {
-        logger.debug("Internal tracking: initReport no-op for {}", id);
+        logger.debug("Internal tracking: initReport no-op for {}", LogSanitizer.clean(id));
     }
 
     @Override
     public void sealReport(String id) {
-        logger.debug("Internal tracking: sealReport no-op for {}", id);
+        logger.debug("Internal tracking: sealReport no-op for {}", LogSanitizer.clean(id));
     }
 
     @Override
     public void clearReport(String id) {
-        logger.debug("Internal tracking: clearReport no-op for {}", id);
+        logger.debug("Internal tracking: clearReport no-op for {}", LogSanitizer.clean(id));
     }
 
     @Override
