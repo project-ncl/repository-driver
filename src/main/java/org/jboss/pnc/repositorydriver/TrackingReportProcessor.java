@@ -442,11 +442,10 @@ public class TrackingReportProcessor {
                             // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
                             genericRepos.add(sourceRepoId);
 
-                            String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
                             target = RepositoryId.builder()
                                     .project(sourceRepoId.getProject())
                                     .packageType(packageType)
-                                    .name(hostedName)
+                                    .name(RepositoryConstants.GENERIC_DOWNLOADS)
                                     .build();
                             break;
 
@@ -517,12 +516,12 @@ public class TrackingReportProcessor {
 
             // Convert to BuildInfo with computed module name
             org.jfrog.build.api.Build build = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
-                    .fromTrackingReport(subReport, moduleName);
+                    .fromTrackingReport(subReport, configuration.getDeploymentType().toString(), moduleName);
 
             logger.info(
                     "Created BuildInfo {} for target {} with {} artifacts and {} dependencies",
                     build,
-                    targetRepo.getName(),
+                    targetRepo.getPath(),
                     entries.uploads.size(),
                     entries.downloads.size());
 
@@ -871,7 +870,7 @@ public class TrackingReportProcessor {
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
             identifier = RepositoryIdentifier.HTTP;
             //repoPath = getGenericTargetRepositoryPath(repoId);
-            repoPath = download.getRepoId().getName() + "-" + RepositoryConstants.GENERIC_DOWNLOADS;
+            repoPath = download.getRepoId().getProject() + "-" + RepositoryConstants.GENERIC_DOWNLOADS;
         } else {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported by Indy repo manager driver.");
