@@ -71,6 +71,7 @@ repository-driver:
     archive: [ ".*-build-yyyyy", ".*-build-xxxxx" ]
 #    archive: [ "maven:.*:build-yyyyy", "maven:hosted:build-xxxxx" ]
   self-base-url: "http://localhost:8081/"
+  pnc-url: "http://localhost:8099"
   artifactory-client:
     url: "http://artifactory-host/api/"
     access-token: "TOKEN"

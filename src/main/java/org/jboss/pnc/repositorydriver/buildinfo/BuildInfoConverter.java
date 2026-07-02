@@ -19,7 +19,6 @@ package org.jboss.pnc.repositorydriver.buildinfo;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.Set;
 
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
@@ -96,9 +95,18 @@ public class BuildInfoConverter {
      * @param report the tracking report containing uploads and downloads (non-generic)
      * @param projectName the project name to set on the Build
      * @param buildName the name of the build
+     * @param buildAgentName the name of the build agent (e.g., "Maven", "Gradle")
+     * @param buildAgentVersion the version of the build agent
+     * @param startTime the build start time in ISO 8601 format
      * @return a Build object containing artifacts (from uploads) and dependencies (from downloads)
      */
-    public static Build fromTrackingReport(TrackingReport report, String projectName, String buildName) {
+    public static Build fromTrackingReport(
+            TrackingReport report,
+            String projectName,
+            String buildName,
+            String buildAgentName,
+            String buildAgentVersion,
+            String startTime) {
         if (report == null) {
             throw new IllegalArgumentException("TrackingReport cannot be null");
         }
@@ -117,19 +125,11 @@ public class BuildInfoConverter {
                 uploads != null ? uploads.size() : 0,
                 downloads != null ? downloads.size() : 0);
 
-        // TODO: ### buildstarttime is mandatory but we don't have it.
-        long currentTimeMillis = System.currentTimeMillis();
-
         // Set build agent information (the tool that produced the artifacts, e.g., Maven, Gradle)
-        // TODO: ### This is wrong but the only way to get the information would be to use the
-        // buildConfigurationInformation
-        BuildAgent buildAgent = new BuildAgent("NYI", "3.5.1");
+        BuildAgent buildAgent = new BuildAgent(buildAgentName, buildAgentVersion);
 
         // Set agent information (the CI server)
         Agent agent = new Agent("PNC-Repository-Driver", BuildInformationConstants.VERSION);
-
-        // Set properties
-        Properties properties = new Properties();
 
         // Create primary module containing both artifacts and dependencies
         Module module = new Module();
@@ -147,10 +147,9 @@ public class BuildInfoConverter {
         // Use BuildInfoBuilder for cleaner construction
         return new BuildInfoBuilder(buildName).number(buildNumber)
                 .version(BUILD_INFO_VERSION)
-                .started(Build.formatBuildStarted(currentTimeMillis))
+                .started(startTime)
                 .buildAgent(buildAgent)
                 .agent(agent)
-                .properties(properties)
                 .modules(modules)
                 .project(projectName)
                 .build();
@@ -169,30 +168,30 @@ public class BuildInfoConverter {
      * @param projectName the project name to set on the Build
      * @param buildName the base name for the build
      * @param buildNumber the build number
+     * @param buildAgentName the name of the build agent (e.g., "Maven", "Gradle")
+     * @param buildAgentVersion the version of the build agent
+     * @param startTime the build start time in ISO 8601 format
      * @return a Build containing the generic downloads as dependencies, or null if genericDownloads is empty
      */
     public static Build createGenericDownloadsBuild(
             Set<TrackedEntry> genericDownloads,
             String projectName,
             String buildName,
-            String buildNumber) {
+            String buildNumber,
+            String buildAgentName,
+            String buildAgentVersion,
+            String startTime) {
         if (genericDownloads == null || genericDownloads.isEmpty()) {
             return null;
         }
 
         logger.info("Creating generic downloads Build with {} generic downloads", genericDownloads.size());
 
-        // TODO: ### buildstarttime is mandatory but we don't have it.
-        long currentTimeMillis = System.currentTimeMillis();
-
-        // Set build agent information
-        BuildAgent buildAgent = new BuildAgent("NYI", "3.5.1");
+        // Set build agent information (the tool that produced the artifacts, e.g., Maven, Gradle)
+        BuildAgent buildAgent = new BuildAgent(buildAgentName, buildAgentVersion);
 
         // Set agent information (the CI server)
         Agent agent = new Agent("PNC-Repository-Driver", BuildInformationConstants.VERSION);
-
-        // Set properties
-        Properties properties = new Properties();
 
         // Create module for generic downloads
         Module genericModule = new Module();
@@ -208,10 +207,9 @@ public class BuildInfoConverter {
         // Build name includes "-generic-downloads" suffix to differentiate from primary Build
         return new BuildInfoBuilder(buildName + "-generic-downloads").number(buildNumber)
                 .version(BUILD_INFO_VERSION)
-                .started(Build.formatBuildStarted(currentTimeMillis))
+                .started(startTime)
                 .buildAgent(buildAgent)
                 .agent(agent)
-                .properties(properties)
                 .modules(modules)
                 .project(projectName)
                 .build();

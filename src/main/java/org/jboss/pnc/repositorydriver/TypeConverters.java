@@ -20,31 +20,6 @@ public class TypeConverters {
         }
     }
 
-    //    public static RepositoryType toRepoType(String packageType) {
-    //        switch (packageType) {
-    //            case MAVEN_PKG_KEY:
-    //                return RepositoryType.MAVEN;
-    //            case NPM_PKG_KEY:
-    //                return RepositoryType.NPM;
-    //            case GENERIC_PKG_KEY:
-    //                return RepositoryType.GENERIC_PROXY;
-    //            default:
-    //                return RepositoryType.GENERIC_PROXY;
-    //        }
-    //    }
-
-    //    public static String getIndyPackageTypeKey(RepositoryType repoType) {
-    //        switch (repoType) {
-    //            case MAVEN:
-    //                return MAVEN_PKG_KEY;
-    //            case NPM:
-    //                return NPM_PKG_KEY;
-    //            default:
-    //                throw new IllegalArgumentException(
-    //                        "Repository type " + repoType + " is not supported by this repository manager driver.");
-    //        }
-    //    }
-
     /**
      * Convert RepositoryType to PackageType
      */

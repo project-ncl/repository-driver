@@ -63,7 +63,6 @@ import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.RestAssured;
-import io.restassured.response.ResponseBodyExtractionOptions;
 
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
@@ -248,7 +247,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
     @Test
     public void testArchiveRequest() {
-        ResponseBodyExtractionOptions body = given().contentType(MediaType.APPLICATION_JSON)
+        given().contentType(MediaType.APPLICATION_JSON)
                 .headers(requestHeaders())
                 .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
                 .when()
