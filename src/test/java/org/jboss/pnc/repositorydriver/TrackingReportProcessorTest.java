@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import jakarta.inject.Inject;
@@ -17,6 +16,7 @@ import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
+import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
 import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -266,9 +266,9 @@ public class TrackingReportProcessorTest {
                 .uploads(new HashSet<>())
                 .build();
 
-        // when: createPromotionBuildInfos is called
+        // when: createPromotionBuildInfo is called
         Set<RepositoryId> genericRepos = new HashSet<>();
-        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "test-build-id",
@@ -277,10 +277,10 @@ public class TrackingReportProcessorTest {
                 genericRepos);
 
         // then: Only non-ignored downloads matching filter patterns are included
-        Assertions.assertEquals(1, buildInfoMap.size(), "Should have one BuildInfo for shared-imports");
+        Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
+        Assertions.assertTrue(promotion.hasDependenciesTarget(), "Should have dependencies target");
 
-        var entry = buildInfoMap.entrySet().iterator().next();
-        var buildInfo = entry.getValue();
+        var buildInfo = promotion.primaryBuild();
         var module = buildInfo.getModules().get(0);
 
         // Should have 2 dependencies (pom and jar from central, not the ignored one)
@@ -403,9 +403,9 @@ public class TrackingReportProcessorTest {
                 .uploads(uploads)
                 .build();
 
-        // when: createPromotionBuildInfos is called
+        // when: createPromotionBuildInfo is called
         Set<RepositoryId> genericRepos = new HashSet<>();
-        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor.createPromotionBuildInfos(
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "test-build-id",
@@ -414,18 +414,23 @@ public class TrackingReportProcessorTest {
                 genericRepos);
 
         // then: Module names are correctly determined from uploads based on package type
-        for (Map.Entry<RepositoryId, org.jfrog.build.api.Build> entry : buildInfoMap.entrySet()) {
-            org.jfrog.build.api.Build buildInfo = entry.getValue();
-            String moduleName = buildInfo.getName();
-            PackageType packageType = entry.getKey().getPackageType();
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
 
+        // Check based on uploads package type (Maven in this test)
+        // Maven module name should contain GAV format (groupId:artifactId:version)
+        Assertions.assertTrue(
+                moduleName.contains(":"),
+                "Maven module name should contain GAV format with colons: " + moduleName);
+
+        // Verify targets are set correctly
+        if (promotion.hasArtifactsTarget()) {
+            PackageType packageType = promotion.artifactsTarget().getPackageType();
             if (packageType == PackageType.MAVEN) {
-                // Maven module name should contain GAV format (groupId:artifactId:version)
                 Assertions.assertTrue(
                         moduleName.contains(":"),
                         "Maven module name should contain GAV format with colons: " + moduleName);
             } else if (packageType == PackageType.NPM) {
-                // NPM module name should contain package@version format
                 Assertions.assertTrue(
                         moduleName.contains("@") || moduleName.contains("lodash"),
                         "NPM module name should contain package name: " + moduleName);
@@ -442,19 +447,21 @@ public class TrackingReportProcessorTest {
                 .uploads(new HashSet<>())
                 .build();
 
-        // when: createPromotionBuildInfos is called
+        // when: createPromotionBuildInfo is called
         Set<RepositoryId> genericRepos = new HashSet<>();
-        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor
-                .createPromotionBuildInfos(
-                        report,
-                        false,
-                        "test-build-id",
-                        RepositoryType.MAVEN,
-                        BuildCategory.STANDARD,
-                        genericRepos);
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-build-id",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
 
-        // then: Should return empty map
-        Assertions.assertTrue(buildInfoMap.isEmpty(), "Should return empty map for empty report");
+        // then: Should have no targets for empty report
+        Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion even for empty report");
+        Assertions.assertFalse(promotion.hasArtifactsTarget(), "Should have no artifacts target for empty report");
+        Assertions
+                .assertFalse(promotion.hasDependenciesTarget(), "Should have no dependencies target for empty report");
     }
 
     @Test
@@ -556,96 +563,112 @@ public class TrackingReportProcessorTest {
                 .uploads(uploads)
                 .build();
 
-        // when: createPromotionBuildInfos is called
+        // when: createPromotionBuildInfo is called
         Set<RepositoryId> genericRepos = new HashSet<>();
-        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = trackingReportProcessor
-                .createPromotionBuildInfos(
-                        report,
-                        false,
-                        "test-build-id",
-                        RepositoryType.MAVEN,
-                        BuildCategory.STANDARD,
-                        genericRepos);
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-build-id",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD,
+                genericRepos);
 
-        // then: Should have multiple BuildInfo objects for different target repositories
+        // then: Should have two separate Build objects (primary and generic) with multiple targets
+        Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
+        Assertions.assertTrue(promotion.hasArtifactsTarget(), "Should have artifacts target");
+        Assertions.assertTrue(promotion.hasDependenciesTarget(), "Should have dependencies target");
+        Assertions.assertTrue(promotion.hasGenericDownloads(), "Should have generic downloads target");
+
+        var primaryBuild = promotion.primaryBuild();
+        Assertions.assertNotNull(primaryBuild, "Should have primary Build object");
         Assertions.assertEquals(
-                3,
-                buildInfoMap.size(),
-                "Should have exactly 3 BuildInfo objects: pnc-mvn-imports, pnc-generic-downloads, and pnc-mvn-builds (build promotion target). Got: "
-                        + buildInfoMap.size());
+                "test-build-id",
+                primaryBuild.getNumber(),
+                "Primary build should have correct tracking ID");
+        Assertions.assertEquals(
+                1,
+                primaryBuild.getModules().size(),
+                "Primary build should have 1 module (artifacts + non-generic dependencies)");
 
-        // Verify Maven shared-imports BuildInfo exists with dependencies
-        RepositoryId mvnSharedImportsKey = buildInfoMap.keySet()
-                .stream()
-                .filter(key -> key.getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID))
-                .findFirst()
-                .orElse(null);
-        Assertions.assertNotNull(
-                mvnSharedImportsKey,
-                "Should have Maven shared-imports repository key (pnc-mvn-imports)");
-        Assertions.assertEquals(PackageType.MAVEN, mvnSharedImportsKey.getPackageType());
+        var genericBuild = promotion.genericBuild();
+        Assertions.assertNotNull(genericBuild, "Should have generic Build object");
+        Assertions.assertEquals(
+                "test-build-id",
+                genericBuild.getNumber(),
+                "Generic build should have same tracking ID as primary");
+        Assertions.assertTrue(
+                genericBuild.getName().endsWith("-generic-downloads"),
+                "Generic build name should have suffix to differentiate from primary, got: " + genericBuild.getName());
+        Assertions.assertEquals(
+                1,
+                genericBuild.getModules().size(),
+                "Generic build should have 1 module (generic downloads as dependencies)");
+
+        // Verify Maven shared-imports target (dependencies target)
+        Assertions.assertEquals(
+                RepositoryConstants.MVN_SHARED_IMPORTS_ID,
+                promotion.dependenciesTarget().getName(),
+                "Should have Maven shared-imports repository (pnc-mvn-imports)");
+        Assertions.assertEquals(
+                PackageType.MAVEN,
+                promotion.dependenciesTarget().getPackageType(),
+                "Dependencies target should be Maven package type");
         Assertions.assertEquals(
                 "pnc",
-                mvnSharedImportsKey.getProject(),
+                promotion.dependenciesTarget().getProject(),
                 "Project should be 'pnc' from deployment config");
 
-        org.jfrog.build.api.Build mvnSharedImportsBuild = buildInfoMap.get(mvnSharedImportsKey);
-        Assertions.assertNotNull(mvnSharedImportsBuild, "Should have BuildInfo for Maven shared-imports");
-        Assertions.assertEquals(1, mvnSharedImportsBuild.getModules().size());
-        org.jfrog.build.api.Module mvnModule = mvnSharedImportsBuild.getModules().get(0);
+        // Verify artifacts target (build promotion target)
+        Assertions.assertNotNull(promotion.artifactsTarget(), "Should have artifacts target");
+        Assertions.assertEquals(
+                PackageType.MAVEN,
+                promotion.artifactsTarget().getPackageType(),
+                "Artifacts target should be Maven package type");
+
+        // Verify generic downloads target
+        Assertions.assertNotNull(promotion.genericDownloadsTarget(), "Should have generic downloads target");
+        Assertions.assertEquals(
+                RepositoryConstants.GENERIC_DOWNLOADS,
+                promotion.genericDownloadsTarget().getName(),
+                "Generic downloads target should be pnc-generic-downloads");
+        Assertions.assertEquals(
+                PackageType.GENERIC,
+                promotion.genericDownloadsTarget().getPackageType(),
+                "Generic downloads target should be Generic package type");
+
+        // Verify primary module (contains uploads as artifacts and Maven downloads as dependencies)
+        org.jfrog.build.api.Module primaryModule = primaryBuild.getModules().get(0);
+        Assertions.assertNotNull(primaryModule, "Should have primary module");
+        Assertions.assertNotNull(primaryModule.getArtifacts(), "Primary module should have artifacts list");
+        Assertions.assertEquals(
+                2,
+                primaryModule.getArtifacts().size(),
+                "Primary module should have 2 artifacts (jar and pom uploads)");
+        // Handle potential null dependencies (Module class may not initialize lists)
+        int primaryDepsSize = primaryModule.getDependencies() == null ? 0 : primaryModule.getDependencies().size();
         Assertions.assertEquals(
                 4,
-                mvnModule.getDependencies().size(),
-                "Maven shared-imports should have 4 dependencies (indy pom, indy jar, jackson jar, jackson pom)");
-        Assertions.assertEquals(0, mvnModule.getArtifacts().size(), "Maven shared-imports should have no artifacts");
+                primaryDepsSize,
+                "Primary module should have 4 dependencies (indy pom, indy jar, jackson jar, jackson pom)");
 
-        // Verify generic-downloads BuildInfo exists with dependencies
-        RepositoryId genericDownloadsKey = buildInfoMap.keySet()
-                .stream()
-                .filter(key -> key.getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
-                .findFirst()
-                .orElse(null);
-        Assertions.assertNotNull(
-                genericDownloadsKey,
-                "Should have generic-downloads repository key (pnc-generic-downloads)");
-        Assertions.assertEquals(PackageType.GENERIC, genericDownloadsKey.getPackageType());
-
-        org.jfrog.build.api.Build genericDownloadsBuild = buildInfoMap.get(genericDownloadsKey);
-        Assertions.assertNotNull(genericDownloadsBuild, "Should have BuildInfo for generic-downloads");
-        Assertions.assertEquals(1, genericDownloadsBuild.getModules().size());
-        org.jfrog.build.api.Module genericModule = genericDownloadsBuild.getModules().get(0);
+        // Verify generic downloads module (contains generic downloads as dependencies, not artifacts)
+        org.jfrog.build.api.Module genericModule = genericBuild.getModules().get(0);
+        Assertions.assertNotNull(genericModule, "Should have generic downloads module");
+        Assertions.assertTrue(
+                genericModule.getId().contains("generic-downloads"),
+                "Generic module ID should contain 'generic-downloads'");
+        // Generic downloads are stored as dependencies (consumed artifacts), not artifacts (produced artifacts)
+        int genericDepsSize = genericModule.getDependencies() == null ? 0 : genericModule.getDependencies().size();
         Assertions.assertEquals(
                 2,
-                genericModule.getDependencies().size(),
-                "Generic downloads should have 2 dependencies (from 2 different repos)");
-        Assertions.assertEquals(0, genericModule.getArtifacts().size(), "Generic downloads should have no artifacts");
-
-        // Verify build promotion target BuildInfo exists with artifacts (pnc-mvn-builds)
-        RepositoryId buildPromotionKey = buildInfoMap.keySet()
-                .stream()
-                .filter(
-                        key -> !key.getName().equals(RepositoryConstants.MVN_SHARED_IMPORTS_ID)
-                                && !key.getName().equals(RepositoryConstants.GENERIC_DOWNLOADS))
-                .findFirst()
-                .orElse(null);
-        Assertions
-                .assertNotNull(buildPromotionKey, "Should have build promotion target repository key (pnc-mvn-builds)");
-        Assertions.assertEquals(PackageType.MAVEN, buildPromotionKey.getPackageType());
-        // The build promotion target name comes from configuration.getBuildPromotionTarget(BuildCategory.STANDARD)
-        // which defaults to "target" in test config, but with project prefix becomes "prod-mvn-target"
-
-        org.jfrog.build.api.Build buildPromotionBuild = buildInfoMap.get(buildPromotionKey);
-        Assertions.assertNotNull(buildPromotionBuild, "Should have BuildInfo for build promotion target");
-        Assertions.assertEquals(1, buildPromotionBuild.getModules().size());
-        org.jfrog.build.api.Module buildModule = buildPromotionBuild.getModules().get(0);
-        Assertions.assertEquals(
-                2,
-                buildModule.getArtifacts().size(),
-                "Build promotion target should have 2 artifacts (jar and pom)");
+                genericDepsSize,
+                "Generic downloads module should have 2 dependencies (from 2 different repos)");
+        // Generic module should have no artifacts (downloads are dependencies, not produced artifacts)
+        int genericArtifactsSize = genericModule.getArtifacts() == null ? 0 : genericModule.getArtifacts().size();
         Assertions.assertEquals(
                 0,
-                buildModule.getDependencies().size(),
-                "Build promotion target should have no dependencies");
+                genericArtifactsSize,
+                "Generic downloads module should have no artifacts (downloads stored as dependencies)");
 
         // Verify genericRepos collection was populated with source generic repositories
         Assertions.assertEquals(
@@ -658,12 +681,6 @@ public class TrackingReportProcessorTest {
         Assertions.assertTrue(
                 genericRepos.contains(genericRepo2),
                 "Should contain generic-repo-2 in genericRepos collection");
-
-        // Verify all BuildInfo objects have correct tracking ID
-        for (org.jfrog.build.api.Build build : buildInfoMap.values()) {
-            Assertions
-                    .assertEquals("test-build-id", build.getNumber(), "All builds should have the same tracking ID");
-        }
     }
 
     /*

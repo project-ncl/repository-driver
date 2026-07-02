@@ -47,6 +47,7 @@ import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterArchive;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
+import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
 import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -372,13 +373,25 @@ public class TrackingReportProcessor {
      */
 
     /**
-     * Creates BuildInfo objects for promotion, grouped by target repository. Each BuildInfo contains both filtered
-     * artifacts (uploads) and dependencies (downloads).
+     * Creates TWO BuildInfo objects for promotion: primary Build and generic downloads Build.
      *
      * <p>
-     * This method replaces the separate collectDownloadsPromotions and collectUploadsPromotions methods by creating
-     * unified BuildInfo objects that can be promoted using Artifactory's Build API.
+     * This method creates TWO separate Build objects because Artifactory cannot differentiate between modules during
+     * promotion:
      * </p>
+     * <ul>
+     * <li>Primary Build: Contains artifacts (uploads) and dependencies (Maven/NPM downloads)</li>
+     * <li>Generic Build: Contains generic downloads as dependencies (may be null if no generic downloads)</li>
+     * </ul>
+     *
+     * <p>
+     * Each Build is uploaded and promoted separately:
+     * </p>
+     * <ul>
+     * <li>Primary Build → artifacts target (e.g., pnc-mvn-builds) and dependencies target (e.g.,
+     * pnc-mvn-imports)</li>
+     * <li>Generic Build → generic downloads target (e.g., pnc-generic-downloads)</li>
+     * </ul>
      *
      * <p>
      * Filtering logic:
@@ -388,27 +401,17 @@ public class TrackingReportProcessor {
      * <li>Uploads: filtered by artifactFilterPromotion.accepts()</li>
      * </ul>
      *
-     * <p>
-     * Grouping strategy:
-     * </p>
-     * <ul>
-     * <li>Maven downloads → maven-shared-imports target</li>
-     * <li>NPM downloads → npm-shared-imports target</li>
-     * <li>Generic downloads → generic-downloads target (paths already transformed by Artifactory plugin)</li>
-     * <li>Maven/NPM uploads → build promotion target (temp or permanent)</li>
-     * </ul>
-     *
      * @param report the tracking report containing uploads and downloads
      * @param tempBuild whether this is a temporary build
      * @param buildContentId the build content ID (tracking ID)
      * @param repositoryType the repository type for uploads
-     * @param buildCategory
+     * @param buildCategory the build category
      * @param genericRepos collection to populate with generic repository IDs
-     * @return map of target repository IDs to BuildInfo objects
+     * @return BuildInfoPromotion containing both Builds and their target repositories
      * @throws RepositoryDriverException if BuildInfo creation fails
      */
     @WithSpan()
-    public Map<RepositoryId, org.jfrog.build.api.Build> createPromotionBuildInfos(
+    public BuildInfoPromotion createPromotionBuildInfo(
             @SpanAttribute(value = "report") TrackingReport report,
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
             @SpanAttribute(value = "buildContentId") String buildContentId,
@@ -417,60 +420,23 @@ public class TrackingReportProcessor {
             @SpanAttribute(value = "genericRepos") Set<RepositoryId> genericRepos)
             throws RepositoryDriverException {
 
-        Map<RepositoryId, GroupedEntries> groupedByTarget = new HashMap<>();
+        Set<TrackedEntry> filteredUploads = new HashSet<>();
+        Set<TrackedEntry> filteredDownloads = new HashSet<>();
+        Set<TrackedEntry> filteredGenericDownloads = new HashSet<>();
+        RepositoryId artifactsTarget = null;
+        RepositoryId dependenciesTarget = null;
+        RepositoryId genericDownloadsTarget = null;
         Map<PackageType, RepositoryId> promotionTargetsCache = new HashMap<>();
 
-        // Process downloads with filtering
-        Set<TrackedEntry> downloads = report.getDownloads();
-        if (downloads != null) {
-            for (TrackedEntry download : downloads) {
-                RepositoryId sourceRepoId = download.getRepoId();
-                PackageType packageType = download.getRepoId().getPackageType();
-
-                // Apply both filters for downloads
-                if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
-                    RepositoryId target;
-
-                    switch (packageType) {
-                        case MAVEN:
-                        case NPM:
-                            target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
-                            break;
-
-                        case GENERIC:
-                            // Generic downloads go to generic-downloads target
-                            // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
-                            genericRepos.add(sourceRepoId);
-
-                            target = RepositoryId.builder()
-                                    .project(sourceRepoId.getProject())
-                                    .packageType(packageType)
-                                    .name(RepositoryConstants.GENERIC_DOWNLOADS)
-                                    .build();
-                            break;
-
-                        default:
-                            // Skip other package types
-                            continue;
-                    }
-
-                    // Add to grouped entries
-                    GroupedEntries entries = groupedByTarget.computeIfAbsent(target, k -> new GroupedEntries());
-                    entries.downloads.add(download);
-                }
-            }
-        }
-
-        // Process uploads with filtering
+        // Process uploads with filtering and determine artifacts target
         Set<TrackedEntry> uploads = report.getUploads();
         PackageType uploadsPackageType = null;
-        Set<TrackedEntry> filteredUploads = new HashSet<>();
 
-        if (uploads != null) {
+        if (uploads != null && !uploads.isEmpty()) {
             uploadsPackageType = TypeConverters.toPackageType(repositoryType);
 
             // Determine target for uploads
-            RepositoryId target = RepositoryId.builder()
+            artifactsTarget = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
                     .packageType(uploadsPackageType)
                     .name(getBuildPromotionTarget(buildCategory, tempBuild))
@@ -480,55 +446,105 @@ public class TrackingReportProcessor {
                 // Apply filter for uploads
                 if (artifactFilterPromotion.accepts(upload)) {
                     filteredUploads.add(upload);
-                    // Add to grouped entries
-                    GroupedEntries entries = groupedByTarget.computeIfAbsent(target, k -> new GroupedEntries());
-                    entries.uploads.add(upload);
                 }
             }
         }
-        // Determine module name from uploads BEFORE creating BuildInfos
-        // This ensures all BuildInfo objects (including shared-imports) use the same module name
+
+        // Process downloads with filtering and determine dependencies target
+        Set<TrackedEntry> downloads = report.getDownloads();
+        if (downloads != null) {
+            for (TrackedEntry download : downloads) {
+                RepositoryId sourceRepoId = download.getRepoId();
+                PackageType packageType = download.getRepoId().getPackageType();
+
+                // Apply both filters for downloads
+                if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
+
+                    switch (packageType) {
+                        case MAVEN:
+                        case NPM:
+                            // Determine dependencies target (prefer first Maven/NPM found)
+                            if (dependenciesTarget == null) {
+                                dependenciesTarget = getSharedImportsPromotionTarget(
+                                        packageType,
+                                        promotionTargetsCache);
+                            }
+                            filteredDownloads.add(download);
+                            break;
+
+                        case GENERIC:
+                            // Generic downloads will be added as a separate module
+                            // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
+                            filteredGenericDownloads.add(download);
+
+                            // Set generic downloads target
+                            if (genericDownloadsTarget == null) {
+                                genericDownloadsTarget = RepositoryId.builder()
+                                        .project(sourceRepoId.getProject())
+                                        .packageType(packageType)
+                                        .name(RepositoryConstants.GENERIC_DOWNLOADS)
+                                        .build();
+                            }
+                            break;
+
+                        default:
+                            // Skip other package types
+                            break;
+                    }
+                }
+            }
+        }
+
+        // Determine module name from uploads
         // TODO: This is a bit of hack to establish a module name - the problem is that
         //       we don't know the actual top level for a multi-module project so this could
         //       end up picking the wrong one. Really the RepositoryPromoteRequest needs to
-        //       pass the name in. Eventually we won't need the extra filteredUploads etc as we will have the
-        //       module name already.
+        //       pass the name in.
         String moduleName = determineModuleNameFromUploads(uploadsPackageType, filteredUploads, buildContentId);
 
-        // Create BuildInfo for each target repository
-        Map<RepositoryId, org.jfrog.build.api.Build> buildInfoMap = new HashMap<>();
+        // Create primary TrackingReport with filtered uploads and non-generic downloads
+        TrackingReport primaryReport = TrackingReport.builder()
+                .uploads(filteredUploads)
+                .downloads(filteredDownloads)
+                .trackingID(buildContentId)
+                .build();
 
-        for (Map.Entry<RepositoryId, GroupedEntries> entry : groupedByTarget.entrySet()) {
-            RepositoryId targetRepo = entry.getKey();
-            GroupedEntries entries = entry.getValue();
+        // Create primary Build object containing artifacts and non-generic dependencies
+        org.jfrog.build.api.Build primaryBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
+                .fromTrackingReport(primaryReport, configuration.getDeploymentType().toString(), moduleName);
 
-            // Skip if no artifacts or dependencies
-            if (entries.uploads.isEmpty() && entries.downloads.isEmpty()) {
-                continue;
+        // Create generic downloads Build (if there are generic downloads)
+        org.jfrog.build.api.Build genericBuild = null;
+        if (!filteredGenericDownloads.isEmpty()) {
+            // Populate genericRepos collection with source repository IDs
+            for (TrackedEntry entry : filteredGenericDownloads) {
+                genericRepos.add(entry.getRepoId());
             }
 
-            // Create TrackingReport subset for this target
-            TrackingReport subReport = TrackingReport.builder()
-                    .uploads(entries.uploads)
-                    .downloads(entries.downloads)
-                    .trackingID(buildContentId)
-                    .build();
-
-            // Convert to BuildInfo with computed module name
-            org.jfrog.build.api.Build build = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
-                    .fromTrackingReport(subReport, configuration.getDeploymentType().toString(), moduleName);
-
-            logger.info(
-                    "Created BuildInfo {} for target {} with {} artifacts and {} dependencies",
-                    build,
-                    targetRepo.getPath(),
-                    entries.uploads.size(),
-                    entries.downloads.size());
-
-            buildInfoMap.put(targetRepo, build);
+            genericBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter.createGenericDownloadsBuild(
+                    filteredGenericDownloads,
+                    configuration.getDeploymentType().toString(),
+                    moduleName,
+                    buildContentId);
         }
 
-        return buildInfoMap;
+        logger.info(
+                "Created BuildInfo {} with {} artifacts, {} dependencies, and {} generic downloads. "
+                        + "Artifacts target: {}, Dependencies target: {}, Generic downloads target: {}",
+                moduleName,
+                filteredUploads.size(),
+                filteredDownloads.size(),
+                filteredGenericDownloads.size(),
+                artifactsTarget != null ? artifactsTarget.getPath() : "none",
+                dependenciesTarget != null ? dependenciesTarget.getPath() : "none",
+                genericDownloadsTarget != null ? genericDownloadsTarget.getPath() : "none");
+
+        return new BuildInfoPromotion(
+                primaryBuild,
+                artifactsTarget,
+                dependenciesTarget,
+                genericBuild,
+                genericDownloadsTarget);
     }
 
     /**
