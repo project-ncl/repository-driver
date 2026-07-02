@@ -67,6 +67,7 @@ import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.bifrost.upload.BifrostUploadException;
 import org.jboss.pnc.bifrost.upload.LogMetadata;
 import org.jboss.pnc.bifrost.upload.TagOption;
+import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.common.log.MDCUtils;
 import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
@@ -237,7 +238,6 @@ public class Driver {
         BuildCategory buildCategory = promoteRequest.getBuildCategory();
         TrackingReport report;
         try {
-            logger.warn("### Retrieving tracking report");
             report = retrieveTrackingReport(buildContentId);
         } catch (RepositoryDriverException ex) {
             userLog.error(ex.getMessage());
@@ -494,7 +494,6 @@ public class Driver {
     @WithSpan()
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
-        // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
             TrackingReport report = retrieveTrackingReport(request.getBuildContentId());
             doArchive(request, report);
@@ -823,115 +822,6 @@ public class Driver {
     }
 
     /**
-     * Promotes by path downloads captured in given map. The key in the map is promotion target store key. The value is
-     * another map, where key is promotion source store key and value is list of paths to be promoted.
-     *
-     * @throws RepositoryDriverException in case of an unexpected error during promotion
-     * @throws PromotionValidationException when the promotion process results in an error due to validation failure
-     *         private void promoteDownloads(PromotionPaths promotionPaths, boolean tempBuild, String
-     *         promotionTrackingId)
-     *         throws RepositoryDriverException, PromotionValidationException {
-     *         // Promote all build dependencies NOT ALREADY CAPTURED to the hosted repository holding store for the
-     *         shared
-     *         // imports
-     *         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-     *         // set read-only only the generic http proxy hosted repos, not shared-imports
-     *         boolean readonly = !tempBuild && GENERIC.equals(sourceTargetPaths.getTarget().packageType());
-     *
-     *         userLog.info(
-     *         "Promoting {} dependencies from {} to {}",
-     *         sourceTargetPaths.getPaths().size(),
-     *         sourceTargetPaths.getSource(),
-     *         sourceTargetPaths.getTarget());
-     *
-     *         artifactoryPromoteByPath(sourceTargetPaths, false, readonly);
-     *         }
-     *         }
-     *
-     *         // TODO: ### Do need the readonly markers?
-     *         private void artifactoryPromoteByPath(SourceTargetPaths sourceTargetPaths, boolean b, boolean readonly) {
-     *         // TODO: ### For now assuming RepositoryKey::repositoryId is the repository name
-     *         // TODO: Handling temp and virtual flags
-     *
-     *         // Convert PackageType enum to string for ArtifactoryUtils
-     *         String sourcePackageTypeStr = sourceTargetPaths.getSource().packageType().name().toLowerCase();
-     *         String targetPackageTypeStr = sourceTargetPaths.getTarget().packageType().name().toLowerCase();
-     *
-     *         // String sourceRepository = ArtifactoryUtils.createRepositoryName(
-     *         // configuration.getNamingStructure(),
-     *         // configuration.getDeploymentType().toString(),
-     *         // ArtifactoryUtils.parsePackageType(sourcePackageTypeStr),
-     *         // false,
-     *         // false,
-     *         // sourceTargetPaths.getSource().getRepositoryId().getName());
-     *         // String targetRepository = ArtifactoryUtils.createRepositoryName(
-     *         // configuration.getNamingStructure(),
-     *         // configuration.getDeploymentType().toString(),
-     *         // ArtifactoryUtils.parsePackageType(targetPackageTypeStr),
-     *         // false,
-     *         // false,
-     *         // sourceTargetPaths.getTarget().getRepositoryId().getName());
-     *         logger.info(
-     *         "### Looking for source ID {} and package type {} source repository {} target repository {}",
-     *         sourceTargetPaths.getSource().repositoryId(),
-     *         sourceTargetPaths.getSource().packageType(),
-     *         sourceTargetPaths.getSource().repositoryId(),
-     *         sourceTargetPaths.getTarget().repositoryId());
-     *         RepositoryHandle handle = artifactory.repository(sourceTargetPaths.getSource().repositoryId().getName());
-     *         logger.warn("### Got handle {}", handle.getClass().getName());
-     *         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
-     *         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
-     *         if (!handle.exists()) {
-     *         throw new RuntimeException(
-     *         "Unable to find source repository " + sourceTargetPaths.getSource().repositoryId().getName());
-     *         }
-     *         if (!artifactory.repository(sourceTargetPaths.getTarget().repositoryId().getName()).exists()) {
-     *         throw new RuntimeException(
-     *         "Unable to find target repository " + sourceTargetPaths.getTarget().repositoryId().getName());
-     *         }
-     *
-     *         List<String> copied = new ArrayList<>();
-     *         for (String path : sourceTargetPaths.getPaths()) {
-     *         try {
-     *         // Where should we promote to?
-     *         handle.folder(path).copy(sourceTargetPaths.getTarget().repositoryId().getName(), path);
-     *         copied.add(path);
-     *         } catch (CopyMoveException e) {
-     *         logger.error("Caught exception promoting {}", path, e);
-     *         logger.warn("Copied {} so far; removing from promotion", copied);
-     *         // TODO: ### Should we remove what we have copied so far?
-     *         RepositoryHandle cleanup = artifactory
-     *         .repository(sourceTargetPaths.getTarget().repositoryId().getName());
-     *         copied.forEach(cleanup::delete);
-     *         }
-     *         }
-     *         // TODO: Cleanup and set repositories to readonly. While changing maven repositories
-     *         // not to handle release or snapshot deploymentType might work not sure about npm or generic repos
-     *         }
-     */
-
-    /**
-     * Promote the build output to the consolidated build repo (using path promotion, where the build repo contents are
-     * added to the repo's contents) and marks the build output as readonly.
-     *
-     * @throws RepositoryDriverException when the repository client API throws an exception due to something unexpected
-     *         in transport
-     * @throws PromotionValidationException when the promotion process results in an error due to validation failure
-     *         private void promoteUploads(PromotionPaths promotionPaths, boolean tempBuild, String promotionTrackingID)
-     *         throws RepositoryDriverException, PromotionValidationException {
-     *         for (SourceTargetPaths sourceTargetPaths : promotionPaths.getSourceTargetsPaths()) {
-     *         userLog.info(
-     *         "Promoting {} build output from {} to {}",
-     *         sourceTargetPaths.getPaths().size(),
-     *         sourceTargetPaths.getSource(),
-     *         sourceTargetPaths.getTarget());
-     *
-     *         artifactoryPromoteByPath(sourceTargetPaths, false, false);
-     *         }
-     *         }
-     */
-
-    /**
      * Promotes a BuildInfo to a target repository (artifacts or dependencies).
      * Assumes BuildInfo has already been uploaded to Artifactory.
      *
@@ -1009,87 +899,6 @@ public class Driver {
     }
 
     /**
-     * Sets readonly flag on a hosted repo after promotion. If it fails, it rolls back the promotion and throws
-     * RepositoryManagerException.
-     *
-     * @param key the hosted repo key to be set readonly
-     * @param promoter promote client module used for potential rollback
-     * @param result the promotion result used for potential rollback
-     * @throws IndyClientException in case the repo data cannot be loaded
-     * @throws RepositoryDriverException in case the repo update fails
-     *         private void setHostedReadOnly(StoreKey key, IndyPromoteClientModule promoter, PathsPromoteResult result)
-     *         throws IndyClientException, RepositoryDriverException {
-     *         HostedRepository hosted = indy.stores().load(key, HostedRepository.class);
-     *         hosted.setReadonly(true);
-     *         try {
-     *         indy.stores().update(hosted, "Setting readonly after successful build and promotion.");
-     *         } catch (IndyClientException ex) {
-     *         try {
-     *         promoter.rollbackPathPromote(result);
-     *         } catch (IndyClientException ex2) {
-     *         logger.error(
-     *         "Failed to set readonly flag on repo: {}. Reason given was: {}.",
-     *         key,
-     *         ex.getMessage(),
-     *         ex);
-     *         throw new RepositoryDriverException(
-     *         "Subsequently also failed to rollback the promotion of paths from %s to %s. Reason "
-     *         + "given was: %s",
-     *         ex2,
-     *         result.getRequest().getSource(),
-     *         result.getRequest().getTarget(),
-     *         ex2.getMessage());
-     *         }
-     *         throw new RepositoryDriverException(
-     *         "Failed to set readonly flag on repo: %s. Reason given was: %s",
-     *         ex,
-     *         key,
-     *         ex.getMessage());
-     *         }
-     *         }
-     */
-
-    /**
-     * Computes error message from a failed promotion result. It means either error must not be empty or validations
-     * need to contain at least 1 validation error.
-     *
-     * @param result the promotion result
-     * @return the error message
-     *         private String getValidationError(AbstractPromoteResult<?> result) {
-     *         StringBuilder sb = new StringBuilder();
-     *         String errorMsg = result.getError();
-     *         ValidationResult validations = result.getValidations();
-     *         if (errorMsg != null) {
-     *         sb.append(errorMsg);
-     *         if (validations != null) {
-     *         sb.append("\n");
-     *         }
-     *         }
-     *         if ((validations != null) && (validations.getRuleSet() != null)) {
-     *         sb.append("One or more validation rules failed in rule-set ")
-     *         .append(validations.getRuleSet())
-     *         .append(":\n");
-     *
-     *         if (validations.getValidatorErrors().isEmpty()) {
-     *         sb.append("(no validation errors received)");
-     *         } else {
-     *         validations.getValidatorErrors()
-     *         .forEach(
-     *         (rule, error) -> sb.append("- ")
-     *         .append(rule)
-     *         .append(":\n")
-     *         .append(error)
-     *         .append("\n\n"));
-     *         }
-     *         }
-     *         if (sb.isEmpty()) {
-     *         sb.append("(no error message received)");
-     *         }
-     *         return sb.toString();
-     *         }
-     */
-
-    /**
      * Cleans up the repo group and used generic-http remote repos and groups from Indy. The generic-http remote repos
      * are needed for promotion.
      *
@@ -1164,7 +973,7 @@ public class Driver {
     private TrackingReport retrieveTrackingReport(String buildContentId) throws RepositoryDriverException {
         TrackingReport report;
         try {
-            userLog.info("Getting tracking report for build: {}", buildContentId);
+            userLog.info("Getting tracking report for build: {}", LogSanitizer.clean(buildContentId));
             report = trackingServiceClient.getReport(buildContentId);
         } catch (Exception e) {
             throw new RepositoryDriverException(
