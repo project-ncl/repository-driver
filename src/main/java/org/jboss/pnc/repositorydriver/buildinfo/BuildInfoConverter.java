@@ -90,13 +90,13 @@ public class BuildInfoConverter {
     private static final String MAVEN_SUBSTITUTE_EXTENSION = ".empty";
 
     /**
-     * Converts a TrackingReport to a Build object.
+     * Converts a TrackingReport to a Build object (primary Build).
      * The trackingId from the report is used as the build number.
      *
-     * @param report the tracking report containing uploads, downloads, and trackingId
+     * @param report the tracking report containing uploads and downloads (non-generic)
      * @param projectName the project name to set on the Build
      * @param buildName the name of the build
-     * @return a Build object containing both artifacts and dependencies
+     * @return a Build object containing artifacts (from uploads) and dependencies (from downloads)
      */
     public static Build fromTrackingReport(TrackingReport report, String projectName, String buildName) {
         if (report == null) {
@@ -117,10 +117,12 @@ public class BuildInfoConverter {
                 uploads != null ? uploads.size() : 0,
                 downloads != null ? downloads.size() : 0);
 
+        // TODO: ### buildstarttime is mandatory but we don't have it.
         long currentTimeMillis = System.currentTimeMillis();
 
         // Set build agent information (the tool that produced the artifacts, e.g., Maven, Gradle)
-        // TODO: ### This is wrong but the only way to get the information would be to use the buildConfigurationInformation
+        // TODO: ### This is wrong but the only way to get the information would be to use the
+        // buildConfigurationInformation
         BuildAgent buildAgent = new BuildAgent("NYI", "3.5.1");
 
         // Set agent information (the CI server)
@@ -128,7 +130,8 @@ public class BuildInfoConverter {
 
         // Set properties
         Properties properties = new Properties();
-        // Create a single module containing both artifacts and dependencies
+
+        // Create primary module containing both artifacts and dependencies
         Module module = new Module();
         module.setId(buildName + ":" + buildNumber);
 
@@ -145,7 +148,67 @@ public class BuildInfoConverter {
         return new BuildInfoBuilder(buildName).number(buildNumber)
                 .version(BUILD_INFO_VERSION)
                 .started(Build.formatBuildStarted(currentTimeMillis))
-                .startedMillis(currentTimeMillis)
+                .buildAgent(buildAgent)
+                .agent(agent)
+                .properties(properties)
+                .modules(modules)
+                .project(projectName)
+                .build();
+    }
+
+    /**
+     * Creates a separate Build for generic downloads. Generic downloads are stored as dependencies (not artifacts)
+     * because they are consumed artifacts, semantically similar to Maven/NPM dependencies.
+     *
+     * <p>
+     * This Build is uploaded and promoted separately from the primary Build to allow independent promotion to the
+     * generic-downloads repository.
+     * </p>
+     *
+     * @param genericDownloads the set of generic download entries
+     * @param projectName the project name to set on the Build
+     * @param buildName the base name for the build
+     * @param buildNumber the build number
+     * @return a Build containing the generic downloads as dependencies, or null if genericDownloads is empty
+     */
+    public static Build createGenericDownloadsBuild(
+            Set<TrackedEntry> genericDownloads,
+            String projectName,
+            String buildName,
+            String buildNumber) {
+        if (genericDownloads == null || genericDownloads.isEmpty()) {
+            return null;
+        }
+
+        logger.info("Creating generic downloads Build with {} generic downloads", genericDownloads.size());
+
+        // TODO: ### buildstarttime is mandatory but we don't have it.
+        long currentTimeMillis = System.currentTimeMillis();
+
+        // Set build agent information
+        BuildAgent buildAgent = new BuildAgent("NYI", "3.5.1");
+
+        // Set agent information (the CI server)
+        Agent agent = new Agent("PNC-Repository-Driver", BuildInformationConstants.VERSION);
+
+        // Set properties
+        Properties properties = new Properties();
+
+        // Create module for generic downloads
+        Module genericModule = new Module();
+        genericModule.setId(buildName + "-generic-downloads:" + buildNumber);
+        genericModule.setType("generic");
+        // Store generic downloads as DEPENDENCIES (not artifacts) - they are consumed artifacts
+        genericModule.setDependencies(convertToDependencies(genericDownloads));
+
+        List<Module> modules = new ArrayList<>();
+        modules.add(genericModule);
+
+        // Use BuildInfoBuilder for cleaner construction
+        // Build name includes "-generic-downloads" suffix to differentiate from primary Build
+        return new BuildInfoBuilder(buildName + "-generic-downloads").number(buildNumber)
+                .version(BUILD_INFO_VERSION)
+                .started(Build.formatBuildStarted(currentTimeMillis))
                 .buildAgent(buildAgent)
                 .agent(agent)
                 .properties(properties)
