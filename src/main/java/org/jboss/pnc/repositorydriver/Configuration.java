@@ -47,6 +47,9 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
 
+    @ConfigProperty(name = "repository-driver.pnc-url")
+    String pncUrl;
+
     @ConfigProperty(name = "repository-driver.artifactory-client.url")
     String artifactoryUrl;
 

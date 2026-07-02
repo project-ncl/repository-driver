@@ -110,21 +110,6 @@ public class ArtifactoryUtils {
     }
 
     /**
-     * Extract hostname from URL
-     *
-     * @param originUrl The origin URL
-     * @return Hostname only portion
-     */
-    public static String extractHostnameFromUrl(String originUrl) {
-        try {
-            java.net.URL url = new java.net.URL(originUrl);
-            return url.getHost();
-        } catch (java.net.MalformedURLException e) {
-            throw new IllegalArgumentException("Unable to parse url " + originUrl, e);
-        }
-    }
-
-    /**
      * Generate MD5 hash of a string and return it as a hex string.
      * Used to create unique, shortened identifiers from URLs.
      *
