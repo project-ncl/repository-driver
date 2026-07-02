@@ -93,7 +93,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "test-build");
+        Build build = BuildInfoConverter.fromTrackingReport(
+                report,
+                "pnc",
+                "test-build",
+                "Maven",
+                "3.8.1",
+                org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
 
         // Then
         assertNotNull(build);
@@ -103,7 +109,8 @@ public class BuildInfoConverterTest {
         assertEquals("1.0.1", build.getVersion());
         assertNotNull(build.getStarted());
         assertNotNull(build.getBuildAgent());
-        assertEquals("NYI", build.getBuildAgent().getName());
+        assertEquals("Maven", build.getBuildAgent().getName());
+        assertEquals("3.8.1", build.getBuildAgent().getVersion());
 
         assertNotNull(build.getModules());
         assertEquals(1, build.getModules().size());
@@ -161,7 +168,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "npm-build");
+        Build build = BuildInfoConverter.fromTrackingReport(
+                report,
+                "pnc",
+                "npm-build",
+                "NPM",
+                "8.19.2",
+                org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
 
         // Then
         assertNotNull(build);
@@ -196,7 +209,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "test-build");
+        Build build = BuildInfoConverter.fromTrackingReport(
+                report,
+                "pnc",
+                "test-build",
+                "Maven",
+                "3.8.1",
+                org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
 
         // Then
         assertNotNull(build);
@@ -215,7 +234,13 @@ public class BuildInfoConverterTest {
                 .build();
 
         // When
-        Build build = BuildInfoConverter.fromTrackingReport(report, "pnc", "empty-build");
+        Build build = BuildInfoConverter.fromTrackingReport(
+                report,
+                "pnc",
+                "empty-build",
+                "Maven",
+                "3.8.1",
+                org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
 
         // Then
         assertNotNull(build);

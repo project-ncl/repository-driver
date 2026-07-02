@@ -162,6 +162,7 @@ public class ArtifactoryBuildGroupBuilder {
                                     .builders()
                                     .remoteRepositoryBuilder()
                                     .projectKey(configuration.getDeploymentType().toString())
+                                    .listRemoteFolderItems(true)
                                     .environments(Collections.singletonList(configuration.getEnvironment()))
                                     .archiveBrowsingEnabled(true)
                                     .description("Remote repository for " + artifactRepository.url)
@@ -216,9 +217,6 @@ public class ArtifactoryBuildGroupBuilder {
     }
 
     public VirtualRepository build() {
-
-        logger.info("### ArtifactoryBuildGroupBuilder::build::{}", includedRepositories);
-
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
