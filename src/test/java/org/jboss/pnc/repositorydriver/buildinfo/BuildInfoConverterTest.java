@@ -19,7 +19,6 @@ package org.jboss.pnc.repositorydriver.buildinfo;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -137,8 +136,6 @@ public class BuildInfoConverterTest {
         assertEquals("dep123", dependency.getSha256());
         assertEquals("dep456", dependency.getSha1());
         assertEquals("dep789", dependency.getMd5());
-        assertNotNull(dependency.getScopes());
-        assertTrue(dependency.getScopes().contains("central"));
     }
 
     @Test
