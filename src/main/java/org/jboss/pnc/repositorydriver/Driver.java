@@ -67,12 +67,14 @@ import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.bifrost.upload.BifrostUploadException;
 import org.jboss.pnc.bifrost.upload.LogMetadata;
 import org.jboss.pnc.bifrost.upload.TagOption;
+import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.common.log.MDCUtils;
 import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
 import org.jboss.pnc.repositorydriver.group.ArtifactoryBuildGroupBuilder;
+import org.jboss.pnc.repositorydriver.rest.PNCClient;
 import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
@@ -146,6 +148,10 @@ public class Driver {
     @Inject
     @RestClient
     TrackingServiceClient trackingServiceClient;
+
+    @Inject
+    @RestClient
+    PNCClient pncClient;
 
     @WithSpan()
     public RepositoryCreateResponse create(
@@ -237,7 +243,6 @@ public class Driver {
         BuildCategory buildCategory = promoteRequest.getBuildCategory();
         TrackingReport report;
         try {
-            logger.warn("### Retrieving tracking report");
             report = retrieveTrackingReport(buildContentId);
         } catch (RepositoryDriverException ex) {
             userLog.error(ex.getMessage());
@@ -494,7 +499,6 @@ public class Driver {
     @WithSpan()
     public void archive(@SpanAttribute(value = "archiveRequest") ArchiveRequest request)
             throws RepositoryDriverException {
-        // TODO: ### Eventually evaluate whether we need the service
         if (configuration.archiveServiceEnabled) {
             TrackingReport report = retrieveTrackingReport(request.getBuildContentId());
             doArchive(request, report);
@@ -962,7 +966,7 @@ public class Driver {
             promotionRequest.setTargetRepo(targetRepoName);
             promotionRequest.setStatus("promoted");
             promotionRequest.setComment("Promoted by PNC Repository Driver - " + scope);
-            promotionRequest.setCopy(true);
+            promotionRequest.setCopy(false); // Move the files
             promotionRequest.setFailFast(true);
 
             // Set flags for what to promote: artifacts (uploads) or dependencies (downloads)
@@ -1164,7 +1168,7 @@ public class Driver {
     private TrackingReport retrieveTrackingReport(String buildContentId) throws RepositoryDriverException {
         TrackingReport report;
         try {
-            userLog.info("Getting tracking report for build: {}", buildContentId);
+            userLog.info("Getting tracking report for build: {}", LogSanitizer.clean(buildContentId));
             report = trackingServiceClient.getReport(buildContentId);
         } catch (Exception e) {
             throw new RepositoryDriverException(

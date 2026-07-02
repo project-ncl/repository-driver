@@ -1,5 +1,6 @@
 package org.jboss.pnc.repositorydriver;
 
+import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedEntry;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.MVN_SHARED_IMPORTS_ID;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.NPM_SHARED_IMPORTS_ID;
@@ -31,6 +32,7 @@ import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.api.constants.RepositoryIdentifier;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.ArtifactQuality;
@@ -42,6 +44,7 @@ import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.common.Strings;
+import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilter;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterArchive;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
@@ -49,6 +52,7 @@ import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
 import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
 import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
+import org.jboss.pnc.repositorydriver.rest.PNCClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,8 +90,9 @@ public class TrackingReportProcessor {
     @Inject
     Configuration configuration;
 
-    //    @Inject
-    //    IndyContentClientModule indyContentModule;
+    @Inject
+    @RestClient
+    PNCClient pncClient;
 
     private PatternsList ignoredRepoPatterns;
 
@@ -115,9 +120,6 @@ public class TrackingReportProcessor {
                 String path = download.getPath();
                 RepositoryId repoId = download.getRepoId();
                 String identifier = computeIdentifier(download);
-
-                logger.info("Recording download: {}", identifier);
-
                 String originUrl = download.getOriginUrl();
                 if (originUrl == null) {
                     // this is from a hosted repository, either shared-imports or a build, or something like that.
@@ -221,7 +223,6 @@ public class TrackingReportProcessor {
                 String purl = computePurl(upload, filename);
 
                 logger.info("Recording upload: {}", identifier);
-                logger.warn("### For upload {} got type {}", upload, packageType);
                 RepositoryType repoType = TypeConverters.toRepoType(packageType);
                 TargetRepository targetRepository = getUploadsTargetRepository(repoType, buildCategory, tempBuild);
 
@@ -244,69 +245,6 @@ public class TrackingReportProcessor {
         }
         return artifacts;
     }
-
-    /*
-     * @WithSpan()
-     * public PromotionPaths collectDownloadsPromotions(
-     *
-     * @SpanAttribute(value = "report") TrackingReport report,
-     *
-     * @SpanAttribute(value = "genericRepos") Collection<RepositoryKey> genericRepos) {
-     * PromotionPaths promotionPaths = new PromotionPaths();
-     * Set<TrackedEntry> downloads = report.getDownloads();
-     * if (downloads == null) {
-     * return promotionPaths;
-     * }
-     * Map<PackageType, RepositoryKey> promotionTargetsCache = new HashMap<>();
-     * for (TrackedEntry download : downloads) {
-     * String path = download.getPath();
-     * RepositoryId sourceRepoId = download.getRepoId();
-     * PackageType packageType = download.getPackageType();
-     * logger.warn(
-     * "### collectDownloadsPromotions::source {} ignoreDependencySource(source) {} download {} artifactFilterPromotion.accepts(download) {}"
-     * ,
-     * sourceRepoId,
-     * ignoreDependencySource(sourceRepoId),
-     * download,
-     * artifactFilterPromotion.accepts(download));
-     * if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
-     * RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, false);
-     * RepositoryKey target;
-     * // this has not been captured, so promote it.
-     * switch (packageType) {
-     * case MVN:
-     * case NPM:
-     * target = getSharedImportsPromotionTarget(packageType, promotionTargetsCache);
-     * promotionPaths.add(source, target, path);
-     * break;
-     *
-     * case GENERIC:
-     * genericRepos.add(source);
-     * path = source.repositoryId().getName() + "/"
-     * + ArtifactoryUtils.extractHostnameFromUrl(download.getOriginUrl()) + path;
-     * String hostedName = RepositoryConstants.GENERIC_DOWNLOADS;
-     * logger.info(
-     * "Translating source repository name {} to {} with path {}",
-     * source.repositoryId().getName(),
-     * hostedName,
-     * path);
-     * RepositoryId targetRepoId = RepositoryId.builder()
-     * .project(sourceRepoId.getProject())
-     * .name(hostedName)
-     * .build();
-     * target = new RepositoryKey(targetRepoId, packageType, false);
-     * promotionPaths.add(source, target, path);
-     * break;
-     *
-     * default:
-     * // do not promote anything else anywhere
-     * break;
-     * }
-     * }
-     * }
-     * return promotionPaths;
-     * }
-     */
 
     @WithSpan()
     public List<ArchiveDownloadEntry> collectArchivalArtifacts(
@@ -331,46 +269,6 @@ public class TrackingReportProcessor {
         deps.sort(Comparator.comparing(ArchiveDownloadEntry::getRepositoryId));
         return deps;
     }
-
-    /*
-     * @WithSpan()
-     * public PromotionPaths collectUploadsPromotions(
-     *
-     * @SpanAttribute(value = "report") TrackingReport report,
-     *
-     * @SpanAttribute(value = "tempBuild") boolean tempBuild,
-     *
-     * @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
-     *
-     * @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
-     *
-     * @SpanAttribute(value = "buildContentId") String buildContentId) {
-     * PromotionPaths promotionPaths = new PromotionPaths();
-     * Set<TrackedEntry> uploads = report.getUploads();
-     * if (uploads == null) {
-     * return promotionPaths;
-     * }
-     * for (TrackedEntry upload : uploads) {
-     * String path = upload.getPath();
-     * if (artifactFilterPromotion.accepts(upload)) {
-     * PackageType packageType = TypeConverters.toPackageType(repositoryType);
-     * // TODO: ### Project value for RepositoryId - using deployment type as project identifier
-     * RepositoryId sourceRepoId = RepositoryId.builder()
-     * .project(configuration.getDeploymentType().toString())
-     * .name(buildContentId)
-     * .build();
-     * RepositoryId targetRepoId = RepositoryId.builder()
-     * .project(configuration.getDeploymentType().toString())
-     * .name(getBuildPromotionTarget(buildCategory, tempBuild))
-     * .build();
-     * RepositoryKey source = new RepositoryKey(sourceRepoId, packageType, tempBuild);
-     * RepositoryKey target = new RepositoryKey(targetRepoId, packageType, tempBuild);
-     * promotionPaths.add(source, target, path);
-     * }
-     * }
-     * return promotionPaths;
-     * }
-     */
 
     /**
      * Creates TWO BuildInfo objects for promotion: primary Build and generic downloads Build.
@@ -427,6 +325,37 @@ public class TrackingReportProcessor {
         RepositoryId dependenciesTarget = null;
         RepositoryId genericDownloadsTarget = null;
         Map<PackageType, RepositoryId> promotionTargetsCache = new HashMap<>();
+
+        // Use repository type as agent name (e.g., "MAVEN", "NPM")
+        String buildAgentName = repositoryType.name();
+        String buildAgentVersion = null;
+        String startTime = null;
+
+        // Fetch build information from PNC to get build agent details and start time
+        if (isNotEmpty(configuration.getPncUrl())) {
+            String build = buildContentId.replace("build-", "");
+            logger.debug("Fetching build information from PNC for build {}", build);
+            Build pncBuild = pncClient.getSpecific(build);
+
+            if (pncBuild != null) {
+                // Extract start time
+                if (pncBuild.getStartTime() != null) {
+                    startTime = pncBuild.getStartTime().toString();
+                }
+
+                // Extract build agent name and version from environment attributes
+                if (pncBuild.getEnvironment() != null && pncBuild.getEnvironment().getAttributes() != null) {
+                    buildAgentVersion = pncBuild.getEnvironment().getAttributes().get(buildAgentName);
+                }
+
+                logger.debug(
+                        "Build info for {}: startTime={}, buildAgent={}:{}",
+                        build,
+                        startTime,
+                        buildAgentName,
+                        buildAgentVersion);
+            }
+        }
 
         // Process uploads with filtering and determine artifacts target
         Set<TrackedEntry> uploads = report.getUploads();
@@ -511,7 +440,13 @@ public class TrackingReportProcessor {
 
         // Create primary Build object containing artifacts and non-generic dependencies
         org.jfrog.build.api.Build primaryBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
-                .fromTrackingReport(primaryReport, configuration.getDeploymentType().toString(), moduleName);
+                .fromTrackingReport(
+                        primaryReport,
+                        configuration.getDeploymentType().toString(),
+                        moduleName,
+                        buildAgentName,
+                        buildAgentVersion,
+                        startTime);
 
         // Create generic downloads Build (if there are generic downloads)
         org.jfrog.build.api.Build genericBuild = null;
@@ -525,7 +460,10 @@ public class TrackingReportProcessor {
                     filteredGenericDownloads,
                     configuration.getDeploymentType().toString(),
                     moduleName,
-                    buildContentId);
+                    buildContentId,
+                    buildAgentName,
+                    buildAgentVersion,
+                    startTime);
         }
 
         logger.info(
@@ -627,14 +565,6 @@ public class TrackingReportProcessor {
 
         // Fallback
         return "npm-" + trackingId;
-    }
-
-    /**
-     * Helper class to group uploads and downloads for a target repository.
-     */
-    private static class GroupedEntries {
-        Set<TrackedEntry> uploads = new java.util.HashSet<>();
-        Set<TrackedEntry> downloads = new java.util.HashSet<>();
     }
 
     /**

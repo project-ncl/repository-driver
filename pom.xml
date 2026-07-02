@@ -72,7 +72,7 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.37.0</quarkus.platform.version>
     <atlas.version>1.2.2</atlas.version>
-    <wiremock.version>3.0.1</wiremock.version>
+    <wiremock.version>3.0.3</wiremock.version>
     <version.com.github.package-url>1.5.0</version.com.github.package-url>
 
     <surefire-plugin.version>3.5.6</surefire-plugin.version>
@@ -206,6 +206,11 @@
       <version>2.4.4</version>
     </dependency>
     <dependency>
+      <groupId>org.jboss.pnc</groupId>
+      <artifactId>dto</artifactId>
+      <version>3.5.3</version>
+    </dependency>
+    <dependency>
       <groupId>org.jboss.pnc.metrics</groupId>
       <artifactId>pncmetrics</artifactId>
       <version>1.1.12</version>
@@ -281,8 +286,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.github.tomakehurst</groupId>
-      <artifactId>wiremock-jre8</artifactId>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock</artifactId>
       <version>${wiremock.version}</version>
       <scope>test</scope>
     </dependency>
