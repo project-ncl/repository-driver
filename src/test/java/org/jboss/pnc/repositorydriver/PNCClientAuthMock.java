@@ -2,7 +2,7 @@ package org.jboss.pnc.repositorydriver;
 
 import java.io.IOException;
 
-import javax.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.ApplicationScoped;
 
 import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 

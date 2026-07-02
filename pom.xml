@@ -18,6 +18,14 @@
   -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.jboss</groupId>
+    <artifactId>jboss-parent</artifactId>
+    <version>53</version>
+    <relativePath/>
+  </parent>
+
   <groupId>org.jboss.pnc</groupId>
   <artifactId>repository-driver</artifactId>
   <version>3.5.2-SNAPSHOT</version>
@@ -56,45 +64,24 @@
 
   <properties>
     <maven.compiler.parameters>true</maven.compiler.parameters>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+    <jdk.min.version>17</jdk.min.version>
+
     <quarkus-logging-kafka.version>3.0.5</quarkus-logging-kafka.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.37.0</quarkus.platform.version>
     <atlas.version>1.2.2</atlas.version>
-    <compiler-plugin.version>3.15.0</compiler-plugin.version>
-    <surefire-plugin.version>3.5.6</surefire-plugin.version>
-    <indy.version>3.4.5</indy.version>
-    <wiremock.version>3.0.1</wiremock.version>
-    <!-- Package URL -->
+    <wiremock.version>3.0.3</wiremock.version>
     <version.com.github.package-url>1.5.0</version.com.github.package-url>
 
-    <version.javadoc.plugin>3.12.0</version.javadoc.plugin>
-    <version.source.plugin>3.4.0</version.source.plugin>
-    <tagSuffix/>
+    <surefire-plugin.version>3.5.6</surefire-plugin.version>
+
     <quarkus.package.jar.type>uber-jar</quarkus.package.jar.type>
   </properties>
 
   <dependencyManagement>
     <dependencies>
-      <!-- 
-        manual override, because indy-promote-client-java hasn't been update for a while
-        TODO: remove when when indy-promote-client-java is upgrade or removed
-      -->
-      <dependency>
-        <groupId>ch.qos.logback</groupId>
-        <artifactId>logback-classic</artifactId>
-        <version>1.5.37</version>
-      </dependency>
-      <dependency>
-        <groupId>ch.qos.logback</groupId>
-        <artifactId>logback-core</artifactId>
-        <version>1.5.37</version>
-      </dependency>
-
       <dependency>
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>${quarkus.platform.artifact-id}</artifactId>
@@ -104,19 +91,16 @@
       </dependency>
 
       <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-folo-client-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-promote-client-java</artifactId>
-        <version>${indy.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.commonjava.indy</groupId>
-        <artifactId>indy-client-core-java</artifactId>
-        <version>${indy.version}</version>
+        <groupId>org.jboss.pnc.artifactory-client</groupId>
+        <artifactId>artifactory-java-client-services</artifactId>
+        <version>2.21.3-SNAPSHOT</version>
+        <!-- Can interfere with quarkus-logging-kafka -->
+        <exclusions>
+          <exclusion>
+            <groupId>org.slf4j</groupId>
+            <artifactId>log4j-over-slf4j</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
     </dependencies>
   </dependencyManagement>
@@ -138,14 +122,10 @@
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest-jackson</artifactId>
     </dependency>
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-mutiny</artifactId> -->
-    <!-- </dependency> -->
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-resteasy-mutiny</artifactId> -->
-    <!-- </dependency> -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-rest-client-jackson</artifactId>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-arc</artifactId>
@@ -175,72 +155,60 @@
       <artifactId>quarkus-micrometer-opentelemetry</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-folo-client-java</artifactId>
+      <groupId>org.jboss.pnc.artifactory-client</groupId>
+      <artifactId>artifactory-java-client-services</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-client-core-java</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>ch.qos.logback</groupId>
-          <artifactId>logback-core</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>log4j-over-slf4j</artifactId>
-        </exclusion>
-        <!-- this dep brakes tests which are not able to start up properly, timing out on "starting server: Undertow - 2.1.0.Final" -->
-        <exclusion>
-          <groupId>io.undertow</groupId>
-          <artifactId>undertow-servlet</artifactId>
-        </exclusion>
-      </exclusions>
+      <groupId>org.jfrog.buildinfo</groupId>
+      <artifactId>build-info-extractor</artifactId>
+      <version>2.43.9</version>
     </dependency>
-    <dependency>
-      <groupId>org.commonjava.indy</groupId>
-      <artifactId>indy-promote-client-java</artifactId>
-      <exclusions>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-compiler</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.scala-lang</groupId>
-          <artifactId>scala-reflect</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>joda-time</groupId>
-          <artifactId>joda-time</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
+
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-identities</artifactId>
       <version>${atlas.version}</version>
+      <!-- Avoid multiple SLF4J providers -->
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.commonjava.atlas</groupId>
       <artifactId>atlas-npm-identities</artifactId>
       <version>${atlas.version}</version>
+      <!-- Avoid multiple SLF4J providers -->
+      <exclusions>
+        <exclusion>
+          <groupId>ch.qos.logback</groupId>
+          <artifactId>logback-classic</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.jboss.pnc</groupId>
       <artifactId>pnc-api</artifactId>
-      <version>3.5.1</version>
+      <version>3.6.0-SNAPSHOT</version>
       <classifier>jakarta</classifier>
     </dependency>
     <dependency>
       <groupId>org.jboss.pnc</groupId>
       <artifactId>pnc-common</artifactId>
-      <version>3.5.1</version>
+      <version>3.5.2-SNAPSHOT</version>
       <classifier>jakarta</classifier>
     </dependency>
     <dependency>
       <groupId>net.jodah</groupId>
       <artifactId>failsafe</artifactId>
       <version>2.4.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.jboss.pnc</groupId>
+      <artifactId>dto</artifactId>
+      <version>3.5.3</version>
     </dependency>
     <dependency>
       <groupId>org.jboss.pnc.metrics</groupId>
@@ -284,7 +252,12 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5</artifactId>
+      <artifactId>quarkus-junit</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit-internal</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -294,7 +267,7 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5-mockito</artifactId>
+      <artifactId>quarkus-junit-mockito</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -313,8 +286,8 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>com.github.tomakehurst</groupId>
-      <artifactId>wiremock-jre8</artifactId>
+      <groupId>org.wiremock</groupId>
+      <artifactId>wiremock</artifactId>
       <version>${wiremock.version}</version>
       <scope>test</scope>
     </dependency>
@@ -328,28 +301,9 @@
       <snapshots>
         <enabled>true</enabled>
       </snapshots>
-      <id>jboss-snapshots</id>
-      <url>https://repository.jboss.org/nexus/content/repositories/snapshots</url>
-    </repository>
-    <repository>
-      <releases>
-        <enabled>false</enabled>
-      </releases>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
       <id>central-portal-snapshots</id>
       <name>Central Portal Snapshots</name>
       <url>https://central.sonatype.com/repository/maven-snapshots/</url>
-    </repository>
-
-    <repository>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <id>central</id>
-      <name>Central Repository</name>
-      <url>https://repo.maven.apache.org/maven2</url>
     </repository>
   </repositories>
 
@@ -376,13 +330,20 @@
         </executions>
       </plugin>
       <plugin>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>${compiler-plugin.version}</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>properties</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>${surefire-plugin.version}</version>
         <configuration>
+          <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
           <systemPropertyVariables>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
@@ -430,27 +391,6 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-release-plugin</artifactId>
-        <configuration>
-          <tagNameFormat>@{project.version}${tagSuffix}</tagNameFormat>
-          <autoVersionSubmodules>true</autoVersionSubmodules>
-          <useReleaseProfile>false</useReleaseProfile>
-          <releaseProfiles>release</releaseProfiles>
-          <goals>deploy</goals>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.sonatype.central</groupId>
-        <artifactId>central-publishing-maven-plugin</artifactId>
-        <version>0.11.0</version>
-        <extensions>true</extensions>
-        <configuration>
-          <!-- as defined in your settings.xml -->
-          <publishingServerId>central-publisher</publishingServerId>
-        </configuration>
-      </plugin>
-      <plugin>
         <groupId>io.github.git-commit-id</groupId>
         <artifactId>git-commit-id-maven-plugin</artifactId>
         <version>10.0.0</version>
@@ -488,89 +428,4 @@
       </plugin>
     </plugins>
   </build>
-  <profiles>
-    <profile>
-      <id>native</id>
-      <activation>
-        <property>
-          <name>native</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <version>${surefire-plugin.version}</version>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>integration-test</goal>
-                  <goal>verify</goal>
-                </goals>
-                <configuration>
-                  <systemPropertyVariables>
-                    <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
-                    <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
-                    <maven.home>${maven.home}</maven.home>
-                  </systemPropertyVariables>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-    <profile>
-      <id>release</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-source-plugin</artifactId>
-            <version>${version.source.plugin}</version>
-            <executions>
-              <execution>
-                <id>attach-sources</id>
-                <goals>
-                  <goal>jar-no-fork</goal>
-                </goals>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-javadoc-plugin</artifactId>
-            <version>${version.javadoc.plugin}</version>
-            <executions>
-              <execution>
-                <id>attach-javadocs</id>
-                <goals>
-                  <goal>jar</goal>
-                </goals>
-                <configuration>
-                  <detectOfflineLinks>false</detectOfflineLinks>
-                  <quiet>true</quiet>
-                  <doclint>none</doclint>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-          <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-gpg-plugin</artifactId>
-            <version>3.2.8</version>
-            <executions>
-              <execution>
-                <id>sign-artifacts</id>
-                <goals>
-                  <goal>sign</goal>
-                </goals>
-                <phase>verify</phase>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>

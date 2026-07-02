@@ -38,14 +38,32 @@ public class Configuration {
     private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
             .unwrap(SmallRyeConfig.class);
 
+    @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
+    DeploymentType deploymentType;
+
+    @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
+    String environment;
+
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
+
+    @ConfigProperty(name = "repository-driver.pnc-url")
+    String pncUrl;
+
+    @ConfigProperty(name = "repository-driver.artifactory-client.url")
+    String artifactoryUrl;
+
+    @ConfigProperty(name = "repository-driver.artifactory-client.access-token")
+    String accessToken;
 
     @ConfigProperty(name = "repository-driver.indy-client.api-url")
     String indyUrl;
 
     @ConfigProperty(name = "repository-driver.archive-service.api-url")
     String archiveServiceEndpoint;
+
+    @ConfigProperty(name = "repository-driver.archive-service.enabled", defaultValue = "true")
+    boolean archiveServiceEnabled;
 
     @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
     Integer indyClientRequestTimeout;
@@ -138,7 +156,7 @@ public class Configuration {
 
     /**
      * get the config value for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -166,7 +184,7 @@ public class Configuration {
 
     /**
      * get the config value list for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -215,4 +233,16 @@ public class Configuration {
     public Optional<List<String>> getBuildGroupConstituentsGroup(BuildCategory buildCategory) {
         return getConfigListString(buildCategory, "build-group-constituents.group");
     }
+
+    @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
+    boolean bifrostUploaderEnabled;
+
+    @ConfigProperty(name = "repository-driver.repository.naming-structure")
+    String namingStructure;
+
+    // TEMPORARY: Use internal Artifactory queries instead of external tracking service
+    // Set to true until external tracking service is deployed
+    // TODO: Remove this flag when external service is ready
+    @ConfigProperty(name = "repository-driver.tracking-service.use-internal-tracking", defaultValue = "false")
+    boolean useInternalTracking;
 }

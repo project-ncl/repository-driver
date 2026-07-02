@@ -15,18 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jboss.pnc.repositorydriver.artifactfilter;
+package org.jboss.pnc.repositorydriver.constants;
 
-import org.jboss.pnc.api.tracker.dto.TrackedEntry;
+/**
+ * Constants used by the maven repository driver.
+ */
+public class RepositoryConstants {
 
-public interface ArtifactFilter {
+    /** Name of hosted repository used to store artifacts from external sources. */
+    public static final String MVN_SHARED_IMPORTS_ID = "mvn-imports";
 
-    /**
-     * Checks if the artifact should be accepted or not.
-     *
-     * @param artifact the audited artifact
-     * @return true if the artifact should be accepted, false otherwise
-     */
-    boolean accepts(TrackedEntry artifact);
+    /** Name of hosted repository used to store NPM artifacts from external sources. */
+    public static final String NPM_SHARED_IMPORTS_ID = "npm-imports";
 
+    public static final String GENERIC_DOWNLOADS = "generic-downloads";
+
+    /** Store key of gradle-plugins remote repository. */
+    public static final String GRADLE_PLUGINS_REPO = "gradle-plugins";
 }

@@ -1,0 +1,96 @@
+quarkus:
+  index-dependency:
+    tracking-service:
+      group-id: org.jboss.pnc
+      artifact-id: pnc-api
+      classifier: jakarta
+  arc:
+    # to use the injected Mock instead
+    exclude-types:
+      - org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
+      - org.jboss.pnc.repositorydriver.rest.InternalArtifactoryTrackingService
+  oidc:
+    enabled: false
+  oidc-client:
+    enabled: false
+  http:
+    auth:
+      basic: false
+  security:
+    ldap:
+      enabled: false
+  log:
+    console:
+      json:
+        enabled: false
+repository-driver:
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  environment: DEV # Artifactory environment (e.g., DEV, PROD)
+  # Build Category Configuration
+  build-categories:
+    # Standard category
+    standard:
+      build-group-constituents:
+        temp-hosted:
+          - temp-central
+        temp-group: []
+        hosted:
+          - central
+
+    # Service category
+    service:
+      build-promotion-target: service-builds
+      temp-build-promotion-target: temporary-service-builds
+      build-group-constituents:
+        temp-hosted:
+          - central
+        temp-group: []
+        hosted:
+          - central
+        group: []
+  ignored-path-patterns:
+    archive:
+      maven: [ ".*/maven-metadata\\.xml(\\..+)?$" ]
+    promotion:
+      maven: [ ".*/maven-metadata\\.xml$", ".*\\.sha1$" ]
+      npm:
+      generic:
+    result:
+      maven:
+      npm:
+      generic:
+  indy-sidecar:
+    enabled: false
+    url: http://sidecar:8093/
+  http-client:
+    connect-timeout: 1
+    request-timeout: 3
+  ignored-repo-patterns:
+    promotion: [ "pnc-ignored", "pnc-tobeigno.+" ]
+#    promotion: [ "maven:.*:ignored", "maven:.+:tobeigno.+" ]
+    archive: [ ".*-build-yyyyy", ".*-build-xxxxx" ]
+#    archive: [ "maven:.*:build-yyyyy", "maven:hosted:build-xxxxx" ]
+  self-base-url: "http://localhost:8081/"
+  pnc-url: "http://localhost:8099"
+  artifactory-client:
+    url: "http://artifactory-host/api/"
+    access-token: "TOKEN"
+  indy-client:
+    api-url: "http://indy-host/api/"
+  archive-service:
+    enabled: true
+    api-url: "http://archive-service/archive/"
+  bifrost-uploader:
+    api-url: "http://bifrost-host/"
+  heartbeat:
+    interval: 1
+  tracking-service:
+    api-url: http://localhost:8080
+  repository:
+    naming-structure: "{project}{type}{temporary}{build}"
+
+"%dev":
+  quarkus:
+    log:
+      console:
+        json: false
