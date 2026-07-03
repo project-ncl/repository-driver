@@ -24,6 +24,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import org.jboss.pnc.api.dto.RepositoryId;
+import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
@@ -97,6 +98,7 @@ public class BuildInfoConverterTest {
                 report,
                 "pnc",
                 "test-build",
+                RepositoryType.MAVEN,
                 "Maven",
                 "3.8.1",
                 org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
@@ -172,6 +174,7 @@ public class BuildInfoConverterTest {
                 report,
                 "pnc",
                 "npm-build",
+                RepositoryType.NPM,
                 "NPM",
                 "8.19.2",
                 org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
@@ -213,6 +216,7 @@ public class BuildInfoConverterTest {
                 report,
                 "pnc",
                 "test-build",
+                RepositoryType.MAVEN,
                 "Maven",
                 "3.8.1",
                 org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
@@ -238,6 +242,7 @@ public class BuildInfoConverterTest {
                 report,
                 "pnc",
                 "empty-build",
+                RepositoryType.MAVEN,
                 "Maven",
                 "3.8.1",
                 org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));

@@ -444,6 +444,7 @@ public class TrackingReportProcessor {
                         primaryReport,
                         configuration.getDeploymentType().toString(),
                         moduleName,
+                        repositoryType,
                         buildAgentName,
                         buildAgentVersion,
                         startTime);
