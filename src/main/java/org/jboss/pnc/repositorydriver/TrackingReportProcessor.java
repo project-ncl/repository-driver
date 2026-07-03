@@ -304,7 +304,6 @@ public class TrackingReportProcessor {
      * @param buildContentId the build content ID (tracking ID)
      * @param repositoryType the repository type for uploads
      * @param buildCategory the build category
-     * @param genericRepos collection to populate with generic repository IDs
      * @return BuildInfoPromotion containing both Builds and their target repositories
      * @throws RepositoryDriverException if BuildInfo creation fails
      */
@@ -314,8 +313,7 @@ public class TrackingReportProcessor {
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
             @SpanAttribute(value = "buildContentId") String buildContentId,
             @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
-            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
-            @SpanAttribute(value = "genericRepos") Set<RepositoryId> genericRepos)
+            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory)
             throws RepositoryDriverException {
 
         Set<TrackedEntry> filteredUploads = new HashSet<>();
@@ -452,11 +450,6 @@ public class TrackingReportProcessor {
         // Create generic downloads Build (if there are generic downloads)
         org.jfrog.build.api.Build genericBuild = null;
         if (!filteredGenericDownloads.isEmpty()) {
-            // Populate genericRepos collection with source repository IDs
-            for (TrackedEntry entry : filteredGenericDownloads) {
-                genericRepos.add(entry.getRepoId());
-            }
-
             genericBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter.createGenericDownloadsBuild(
                     filteredGenericDownloads,
                     configuration.getDeploymentType().toString(),

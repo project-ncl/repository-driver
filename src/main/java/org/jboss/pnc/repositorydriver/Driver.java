@@ -21,7 +21,9 @@ import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpClient.Version.HTTP_2;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.REPO_UI_POSITION;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.http.HttpRequest;
@@ -30,10 +32,8 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -79,6 +79,7 @@ import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.impl.util.Util;
 import org.jfrog.artifactory.client.model.PromotionMessage;
 import org.jfrog.artifactory.client.model.Repository;
+import org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl;
 import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
@@ -242,8 +243,6 @@ public class Driver {
             uploadLogs(ex.getMessage(), "promote");
             throw ex;
         }
-        Set<RepositoryId> genericRepos = new HashSet<>();
-
         logger.warn("### About to run async with uploads size {}", report.getUploads().size());
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
@@ -294,8 +293,7 @@ public class Driver {
                             promoteRequest.isTempBuild(),
                             buildContentId,
                             buildType.getRepoType(),
-                            buildCategory,
-                            genericRepos);
+                            buildCategory);
 
                     // Upload and promote primary Build
                     org.jfrog.build.api.Build primaryBuild = promotion.primaryBuild();
@@ -739,88 +737,79 @@ public class Driver {
             boolean tempBuild,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
 
-        try {
-            // Was using try/resources but now switched to injected artifactory for tests
-            // (Artifactory artifactory = createArtifactoryClient()) {
-            logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
-            // Check repositories exist and delete if they do
-            RepositoryHandle hostedRepository = artifactory.repository(hostedName);
-            RepositoryHandle virtualRepository = artifactory.repository(virtualName);
-            // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
-            // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
-            if (hostedRepository.exists()) {
-                hostedRepository.delete();
-            }
-            if (virtualRepository.exists()) {
-                virtualRepository.delete();
-            }
-
-            RepositorySettings settings = null;
-            switch (packageType) {
-                case MAVEN: {
-                    // Create local and virtual repository
-                    // MavenRepositorySettingsImpl implicitly sets package type maven.
-                    settings = new MavenRepositorySettingsImpl();
-                    // TODO: Should we disable this? It verifies that the value set for
-                    //       groupId:artifactId:version in the POM is consistent with the deployed path.
-                    ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
-                    ((MavenRepositorySettingsImpl) settings).setHandleReleases(true);
-                    ((MavenRepositorySettingsImpl) settings).setHandleSnapshots(false);
-                    // Don't alter repository references in the poms.
-                    ((MavenRepositorySettingsImpl) settings).setPomRepositoryReferencesCleanupPolicy(
-                            PomCleanupPolicy.nothing);
-                    // Don't need this as we are disabling snapshots
-                    // ((MavenRepositorySettingsImpl) settings).setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
-                    break;
-                }
-                case NPM: {
-                    settings = new NpmRepositorySettingsImpl();
-                }
-                // TODO: Will we need to support other types here?
-            }
-
-            var repository = artifactory.repositories()
-                    .builders()
-                    .localRepositoryBuilder()
-                    .archiveBrowsingEnabled(true)
-                    .projectKey(configuration.getDeploymentType().toString())
-                    .environments(Collections.singletonList(configuration.getEnvironment()))
-                    .description("PNC Build repository for " + hostedName)
-                    .repositorySettings(settings)
-                    .key(hostedName)
-                    .build();
-            // TODO: What is the position. Undocumented in the REST API. Comes through as "?pos="
-            String r = artifactory.repositories().create(1, repository);
-
-            logger.info(
-                    "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
-                    r,
-                    extraDependencyRepositories);
-
-            Repository group = ArtifactoryBuildGroupBuilder
-                    .builder(configuration, artifactory, settings, virtualName)
-                    .withDescription(
-                            String.format(
-                                    "Aggregation group for PNC %s build #%s",
-                                    tempBuild ? "temporary " : "",
-                                    buildContentId))
-                    // build-local artifacts
-                    .addConstituent(hostedName)
-                    // Global-level repos, for captured/shared artifacts and access to the outside world
-                    .addGlobalConstituents(buildType, buildCategory, tempBuild)
-                    // build-specific repos
-                    .addExtraConstituents(extraDependencyRepositories)
-                    .build();
-            String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
-                    + "), with tempBuild: " + tempBuild;
-            logger.info(changelog);
-            r = artifactory.repositories().create(1, group);
-            logger.info("### setupBuildRepos::created virtual repo: {}", r);
-
-        } catch (Exception e) {
-            logger.error("### Caught exception", e);
-            throw new RepositoryDriverException("Error setting up build repositories", e);
+        // Was using try/resources but now switched to injected artifactory for tests
+        // (Artifactory artifactory = createArtifactoryClient()) {
+        logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
+        // Check repositories exist and delete if they do
+        RepositoryHandle hostedRepository = artifactory.repository(hostedName);
+        RepositoryHandle virtualRepository = artifactory.repository(virtualName);
+        // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
+        // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
+        if (hostedRepository.exists()) {
+            hostedRepository.delete();
         }
+        if (virtualRepository.exists()) {
+            virtualRepository.delete();
+        }
+
+        RepositorySettings settings = switch (packageType) {
+            case MAVEN -> {
+                // Create local and virtual repository
+                // MavenRepositorySettingsImpl implicitly sets package type maven.
+                MavenRepositorySettingsImpl mavenSettings = new MavenRepositorySettingsImpl();
+                // TODO: Should we disable this? It verifies that the value set for
+                //       groupId:artifactId:version in the POM is consistent with the deployed path.
+                mavenSettings.setSuppressPomConsistencyChecks(true);
+                mavenSettings.setHandleReleases(true);
+                mavenSettings.setHandleSnapshots(false);
+                // Don't alter repository references in the poms.
+                mavenSettings.setPomRepositoryReferencesCleanupPolicy(PomCleanupPolicy.nothing);
+                // Don't need this as we are disabling snapshots
+                // mavenSettings.setSnapshotVersionBehavior(SnapshotVersionBehaviorImpl.unique);
+                yield mavenSettings;
+            }
+            case NPM -> new NpmRepositorySettingsImpl();
+            default -> throw new RepositoryDriverException(
+                    "Unsupported package type: %s. Only MAVEN and NPM are supported.",
+                    packageType);
+        };
+
+        var repository = artifactory.repositories()
+                .builders()
+                .localRepositoryBuilder()
+                .archiveBrowsingEnabled(true)
+                .projectKey(configuration.getDeploymentType().toString())
+                .environments(Collections.singletonList(configuration.getEnvironment()))
+                .description("PNC Build repository for " + hostedName)
+                .repositorySettings(settings)
+                .key(hostedName)
+                .build();
+        String r = artifactory.repositories().create(REPO_UI_POSITION, repository);
+
+        logger.info(
+                "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
+                r,
+                extraDependencyRepositories);
+
+        Repository group = ArtifactoryBuildGroupBuilder
+                .builder(configuration, artifactory, settings, virtualName)
+                .withDescription(
+                        String.format(
+                                "Aggregation group for PNC %s build #%s",
+                                tempBuild ? "temporary " : "",
+                                buildContentId))
+                // build-local artifacts
+                .addConstituent(hostedName)
+                // Global-level repos, for captured/shared artifacts and access to the outside world
+                .addGlobalConstituents(buildType, buildCategory, tempBuild)
+                // build-specific repos
+                .addExtraConstituents(extraDependencyRepositories)
+                .build();
+        String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
+                + "), with tempBuild: " + tempBuild;
+        logger.info(changelog);
+        r = artifactory.repositories().create(REPO_UI_POSITION, group);
+        logger.info("### setupBuildRepos::created virtual repo: {}", r);
     }
 
     /**
@@ -849,7 +838,7 @@ public class Driver {
 
         try {
             // Create BuildPromotionRequest using concrete implementation
-            org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl promotionRequest = new org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl();
+            BuildPromotionRequestImpl promotionRequest = new BuildPromotionRequestImpl();
 
             promotionRequest.setTargetRepo(targetRepoName);
             promotionRequest.setStatus("promoted");
@@ -885,7 +874,7 @@ public class Driver {
                                     .stream()
                                     .map(PromotionMessage::getMessage)
                                     .collect(Collectors.joining(", ")));
-        } catch (Exception e) {
+        } catch (IOException e) {
             String message = String.format(
                     "Failed to promote BuildInfo %s #%s (%s) to repository %s",
                     buildName,
