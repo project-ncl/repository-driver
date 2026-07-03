@@ -1,5 +1,6 @@
 package org.jboss.pnc.repositorydriver;
 
+import org.jboss.pnc.api.constants.RepositoryIdentifier;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jfrog.build.api.builder.ModuleType;
@@ -55,6 +56,22 @@ public class TypeConverters {
             case MAVEN -> ModuleType.MAVEN;
             case NPM -> ModuleType.NPM;
             case GENERIC_PROXY -> ModuleType.GENERIC;
+            default -> throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
+        };
+    }
+
+    /**
+     * Convert RepositoryType to RepositoryIdentifier constant.
+     * Used for setting the identifier field in TargetRepository.
+     *
+     * @param repositoryType the repository type to convert
+     * @return the corresponding RepositoryIdentifier constant
+     */
+    public static String toRepositoryIdentifier(RepositoryType repositoryType) {
+        return switch (repositoryType) {
+            case MAVEN -> RepositoryIdentifier.MAVEN;
+            case NPM -> RepositoryIdentifier.NPM;
+            case GENERIC_PROXY -> RepositoryIdentifier.HTTP;
             default -> throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
         };
     }
