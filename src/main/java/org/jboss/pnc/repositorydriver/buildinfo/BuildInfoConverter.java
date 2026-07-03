@@ -22,9 +22,11 @@ import java.util.List;
 import java.util.Set;
 
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
+import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
+import org.jboss.pnc.repositorydriver.TypeConverters;
 import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
 import org.jfrog.build.api.Agent;
 import org.jfrog.build.api.Artifact;
@@ -33,6 +35,7 @@ import org.jfrog.build.api.BuildAgent;
 import org.jfrog.build.api.Dependency;
 import org.jfrog.build.api.Module;
 import org.jfrog.build.api.builder.BuildInfoBuilder;
+import org.jfrog.build.api.builder.ModuleType;
 import org.jfrog.build.extractor.BuildInfoExtractorUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,6 +98,7 @@ public class BuildInfoConverter {
      * @param report the tracking report containing uploads and downloads (non-generic)
      * @param projectName the project name to set on the Build
      * @param buildName the name of the build
+     * @param repositoryType the repository type to determine module type
      * @param buildAgentName the name of the build agent (e.g., "Maven", "Gradle")
      * @param buildAgentVersion the version of the build agent
      * @param startTime the build start time in ISO 8601 format
@@ -104,6 +108,7 @@ public class BuildInfoConverter {
             TrackingReport report,
             String projectName,
             String buildName,
+            RepositoryType repositoryType,
             String buildAgentName,
             String buildAgentVersion,
             String startTime) {
@@ -135,9 +140,9 @@ public class BuildInfoConverter {
         Module module = new Module();
         module.setId(buildName + ":" + buildNumber);
 
-        // Determine module type from uploads (prefer uploads over downloads for type)
-        String moduleType = determineModuleType(uploads, downloads);
-        module.setType(moduleType);
+        // Use official JFrog ModuleType from RepositoryType
+        ModuleType moduleType = TypeConverters.toModuleType(repositoryType);
+        module.setType(moduleType.name().toLowerCase());
         module.setArtifacts(convertToArtifacts(uploads));
         module.setDependencies(convertToDependencies(downloads));
 
@@ -196,7 +201,7 @@ public class BuildInfoConverter {
         // Create module for generic downloads
         Module genericModule = new Module();
         genericModule.setId(buildName + "-generic-downloads:" + buildNumber);
-        genericModule.setType("generic");
+        genericModule.setType(ModuleType.GENERIC.name().toLowerCase());
         // Store generic downloads as DEPENDENCIES (not artifacts) - they are consumed artifacts
         genericModule.setDependencies(convertToDependencies(genericDownloads));
 
@@ -213,38 +218,6 @@ public class BuildInfoConverter {
                 .modules(modules)
                 .project(projectName)
                 .build();
-    }
-
-    /**
-     * Determines the module type from the entries.
-     * TODO: ### Should we use
-     * https://github.com/jfrog/build-info/blob/master/build-info-api/src/main/java/org/jfrog/build/api/builder/ModuleType.java
-     * ?
-     *
-     * @param uploads upload entries
-     * @param downloads download entries
-     * @return module type string (maven, npm, generic, etc.)
-     */
-    private static String determineModuleType(Set<TrackedEntry> uploads, Set<TrackedEntry> downloads) {
-        // Prefer uploads for determining type
-        if (uploads != null && !uploads.isEmpty()) {
-            for (TrackedEntry entry : uploads) {
-                if (entry.getRepoId() != null && entry.getRepoId().getPackageType() != null) {
-                    return entry.getRepoId().getPackageType().toString().toLowerCase();
-                }
-            }
-        }
-
-        // Fall back to downloads
-        if (downloads != null && !downloads.isEmpty()) {
-            for (TrackedEntry entry : downloads) {
-                if (entry.getRepoId() != null && entry.getRepoId().getPackageType() != null) {
-                    return entry.getRepoId().getPackageType().toString().toLowerCase();
-                }
-            }
-        }
-
-        return "generic";
     }
 
     /**
