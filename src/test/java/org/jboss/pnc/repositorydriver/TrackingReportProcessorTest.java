@@ -267,14 +267,12 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfo is called
-        Set<RepositoryId> genericRepos = new HashSet<>();
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "test-build-id",
                 RepositoryType.MAVEN,
-                BuildCategory.STANDARD,
-                genericRepos);
+                BuildCategory.STANDARD);
 
         // then: Only non-ignored downloads matching filter patterns are included
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
@@ -404,14 +402,12 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfo is called
-        Set<RepositoryId> genericRepos = new HashSet<>();
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "test-build-id",
                 RepositoryType.MAVEN,
-                BuildCategory.STANDARD,
-                genericRepos);
+                BuildCategory.STANDARD);
 
         // then: Module names are correctly determined from uploads based on package type
         org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
@@ -448,14 +444,12 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfo is called
-        Set<RepositoryId> genericRepos = new HashSet<>();
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "test-build-id",
                 RepositoryType.MAVEN,
-                BuildCategory.STANDARD,
-                genericRepos);
+                BuildCategory.STANDARD);
 
         // then: Should have no targets for empty report
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion even for empty report");
@@ -564,14 +558,12 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when: createPromotionBuildInfo is called
-        Set<RepositoryId> genericRepos = new HashSet<>();
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "test-build-id",
                 RepositoryType.MAVEN,
-                BuildCategory.STANDARD,
-                genericRepos);
+                BuildCategory.STANDARD);
 
         // then: Should have two separate Build objects (primary and generic) with multiple targets
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
@@ -670,17 +662,6 @@ public class TrackingReportProcessorTest {
                 genericArtifactsSize,
                 "Generic downloads module should have no artifacts (downloads stored as dependencies)");
 
-        // Verify genericRepos collection was populated with source generic repositories
-        Assertions.assertEquals(
-                2,
-                genericRepos.size(),
-                "Should have 2 generic source repositories in genericRepos collection");
-        Assertions.assertTrue(
-                genericRepos.contains(genericRepo1),
-                "Should contain generic-repo-1 in genericRepos collection");
-        Assertions.assertTrue(
-                genericRepos.contains(genericRepo2),
-                "Should contain generic-repo-2 in genericRepos collection");
     }
 
     /*
