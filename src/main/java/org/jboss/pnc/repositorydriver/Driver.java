@@ -758,7 +758,6 @@ public class Driver {
                     // Create local and virtual repository
                     // MavenRepositorySettingsImpl implicitly sets package type maven.
                     settings = new MavenRepositorySettingsImpl();
-                    // https://jfrog.com/help/r/jfrog-artifactory-documentation/additional-settings-for-maven/gradle/ivy/sbt-local-repositories
                     // TODO: Should we disable this? It verifies that the value set for
                     //       groupId:artifactId:version in the POM is consistent with the deployed path.
                     ((MavenRepositorySettingsImpl) settings).setSuppressPomConsistencyChecks(true);
