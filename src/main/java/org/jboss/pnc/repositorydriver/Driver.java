@@ -29,7 +29,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -53,7 +52,6 @@ import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
-import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.enums.ResultStatus;
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
@@ -411,12 +409,17 @@ public class Driver {
         })).thenRunAsync(Context.current().wrap(() -> {
             // CLEANUP
             try {
+                String virtualRepoName = ArtifactoryUtils.createRepositoryName(
+                        configuration.getNamingStructure(),
+                        configuration.getDeploymentType().toString(),
+                        buildType,
+                        promoteRequest.isTempBuild(),
+                        promoteRequest.getBuildContentId() + "-virt");
                 logger.info(
-                        "Deleting build group {} {} and the generic http {} repositories...",
-                        buildType.getRepoType(),
-                        buildContentId,
-                        genericRepos);
-                deleteBuildRepos(buildType.getRepoType(), buildContentId, genericRepos);
+                        "Deleting virtual repository {}",
+                        virtualRepoName);
+                String message = artifactory.repository(virtualRepoName).delete();
+                logger.debug("Deletion message: {}", message);
             } catch (Throwable e) {
                 logger.error("Failed to delete build group.", e);
             }
@@ -895,25 +898,6 @@ public class Driver {
 
         // TODO: Cleanup and set repositories to readonly. While changing maven repositories
         //     not to handle release or snapshot deploymentType might work not sure about npm or generic repos
-    }
-
-    /**
-     * Cleans up the repo group and used generic-http remote repos and groups from Indy. The generic-http remote repos
-     * are needed for promotion.
-     *
-     * The cleanup shouldn't be called if the build failed to leave the group for debugging the build. All the groups
-     * are deleted by PNC Cleaner (not part of this driver) after 7 days.
-     *
-     * @param genericRepos a collection of generic repository IDs containing dependencies
-     */
-    private void deleteBuildRepos(
-            RepositoryType repositoryType,
-            String buildContentId,
-            Collection<RepositoryId> genericRepos) throws RepositoryDriverException {
-        for (RepositoryId repositoryId : genericRepos) {
-            logger.info("Deleting remote build repository {}", repositoryId.getPath());
-            artifactory.repository(repositoryId.getPath()).delete();
-        }
     }
 
     private Runnable heartBeatSender(Request heartBeat) {
