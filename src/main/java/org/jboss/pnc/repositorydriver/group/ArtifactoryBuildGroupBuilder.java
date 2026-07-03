@@ -1,6 +1,7 @@
 package org.jboss.pnc.repositorydriver.group;
 
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.GRADLE_PLUGINS_REPO;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.REPO_UI_POSITION;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -171,7 +172,7 @@ public class ArtifactoryBuildGroupBuilder {
                                     .key(artifactRepository.id)
                                     .build();
 
-                            artifactory.repositories().create(1, r);
+                            artifactory.repositories().create(REPO_UI_POSITION, r);
                         }
                     }
                     includedRepositories.add(artifactRepository.id);
