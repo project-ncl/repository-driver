@@ -33,7 +33,6 @@ import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
-import org.jboss.pnc.api.constants.RepositoryIdentifier;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.ArtifactQuality;
 import org.jboss.pnc.api.enums.BuildCategory;
@@ -256,10 +255,6 @@ public class TrackingReportProcessor {
 
         List<ArchiveDownloadEntry> deps = new ArrayList<>(downloads.size());
         for (TrackedEntry download : downloads) {
-            logger.warn(
-                    "### collectArchivalArtifacts::accepts {} is {}",
-                    download,
-                    artifactFilterArchive.accepts(download));
             if (artifactFilterArchive.accepts(download)) {
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
                 ArchiveDownloadEntry entry = fromTrackedEntry(download, targetRepository);
@@ -789,15 +784,11 @@ public class TrackingReportProcessor {
         PackageType packageType = download.getRepoId().getPackageType();
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
         String repoPath;
-        String identifier;
-        // identifier is used in the PNC DB. Previously it was e.g. indy-mvn, indy-npm.
-        // Currently we convert to artifactory-http / npm / mvn
-        // TODO: Should it be artifactory-mvn or artifactory-maven ??
+        String identifier = TypeConverters.toRepositoryIdentifier(repoType);
+
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
-            identifier = "artifactory-" + TypeConverters.toRepositoryTypeString(repoType);
             if (ignoreDependencySource(repoId)) {
                 repoPath = repoId.getPath();
-                //repoPath = getTargetRepositoryPath(download, indyContentModule);
             } else {
                 repoPath = download.getRepoId().getProject() + "-" + TypeConverters.toRepositoryTypeString(repoType)
                         + "-imports";
@@ -808,8 +799,6 @@ public class TrackingReportProcessor {
                     repoPath,
                     repoId);
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
-            identifier = RepositoryIdentifier.HTTP;
-            //repoPath = getGenericTargetRepositoryPath(repoId);
             repoPath = download.getRepoId().getProject() + "-" + RepositoryConstants.GENERIC_DOWNLOADS;
         } else {
             throw new RepositoryDriverException(
@@ -817,11 +806,6 @@ public class TrackingReportProcessor {
         }
 
         logger.info("### getDownloadsTargetRepository::repoId {} repoType {} repoPath {} ", repoId, repoType, repoPath);
-
-        // TODO: ### Do we need this??
-        //        if (!repoPath.endsWith("/")) {
-        //            repoPath += '/';
-        //        }
 
         return TargetRepository.builder()
                 .identifier(identifier)
@@ -855,23 +839,14 @@ public class TrackingReportProcessor {
             BuildCategory buildCategory,
             boolean tempBuild)
             throws RepositoryDriverException {
-        String target;
-        String identifier;
-        if (repoType == RepositoryType.MAVEN) {
-            target = getBuildPromotionTarget(buildCategory, tempBuild);
-            identifier = RepositoryIdentifier.MAVEN;
-        } else if (repoType == RepositoryType.NPM) {
-            target = getBuildPromotionTarget(buildCategory, tempBuild);
-            identifier = RepositoryIdentifier.NPM;
-        } else {
+        if (repoType != RepositoryType.MAVEN && repoType != RepositoryType.NPM) {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported for uploads by repo manager driver.");
         }
 
+        String target = getBuildPromotionTarget(buildCategory, tempBuild);
+        String identifier = TypeConverters.toRepositoryIdentifier(repoType);
         String repoPath = configuration.getDeploymentType() + "-" + target;
-        if (!repoPath.endsWith("/")) {
-            repoPath += '/';
-        }
 
         return TargetRepository.builder()
                 .identifier(identifier)
