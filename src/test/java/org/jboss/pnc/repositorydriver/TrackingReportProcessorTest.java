@@ -435,6 +435,196 @@ public class TrackingReportProcessorTest {
     }
 
     @Test
+    public void testCreatePromotionBuildInfo_UsesBrewBuildNameFromPNCBuild() throws RepositoryDriverException {
+        // given: TrackingReport with uploads, but PNC Build has BREW_BUILD_NAME
+        Set<TrackedEntry> uploads = new HashSet<>();
+        uploads.add(TrackingReportMocks.indyPomFromCentral);
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called (PNCClientMock provides BREW_BUILD_NAME)
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-id", // This will trigger PNCClientMock to return Build with BREW_BUILD_NAME
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD);
+
+        // then: Module name comes from PNC Build attributes (BREW_BUILD_NAME:BREW_BUILD_VERSION)
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        // PNCClientMock returns BREW_BUILD_NAME="com.example:test-artifact" and BREW_BUILD_VERSION="1.0.0"
+        Assertions.assertEquals(
+                "com.example:test-artifact:1.0.0",
+                moduleName,
+                "Module name should come from PNC Build BREW_BUILD_NAME and BREW_BUILD_VERSION");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_FallsBackToUploadsWhenNoBrewBuildName() throws RepositoryDriverException {
+        // given: TrackingReport with uploads, PNC Build without BREW_BUILD_NAME
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Add a Maven upload with clear GAV
+        RepositoryId buildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-test")
+                .build();
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(buildKey)
+                        .path("/org/example/mylib/2.0.0/mylib-2.0.0.jar")
+                        .localUrl("file:///tmp/mylib-2.0.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called with build ID that has no BREW_BUILD_NAME
+        // Note: PNCClientMock only provides BREW_BUILD_NAME for buildId "test-id"
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "build-without-brew-name",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD);
+
+        // then: Module name falls back to identifier from uploads
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        Assertions.assertTrue(
+                moduleName.contains("org.example:mylib"),
+                "Module name should fall back to upload identifier when BREW_BUILD_NAME not available: " + moduleName);
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_FallsBackToDownloadsWhenNoUploads() throws RepositoryDriverException {
+        // given: TrackingReport with only downloads (no uploads)
+        Set<TrackedEntry> downloads = new HashSet<>();
+
+        RepositoryId downloadKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-X")
+                .build();
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(downloadKey)
+                        .path("/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar")
+                        .originUrl(
+                                "https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar")
+                        .localUrl("file:///tmp/commons-lang3-3.12.0.jar")
+                        .md5("download-md5")
+                        .sha1("download-sha1")
+                        .sha256("download-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
+
+        // when: createPromotionBuildInfo is called with no uploads
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "build-without-brew-name",
+                RepositoryType.MAVEN,
+                BuildCategory.STANDARD);
+
+        // then: Module name falls back to identifier from downloads
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        Assertions.assertTrue(
+                moduleName.contains("org.apache.commons:commons-lang3"),
+                "Module name should fall back to download identifier when no uploads: " + moduleName);
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_ThrowsExceptionWhenNoModuleNameAvailable() {
+        // given: TrackingReport with no uploads and no valid downloads
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(new HashSet<>())
+                .build();
+
+        // when/then: createPromotionBuildInfo throws exception
+        RepositoryDriverException exception = Assertions.assertThrows(
+                RepositoryDriverException.class,
+                () -> trackingReportProcessor.createPromotionBuildInfo(
+                        report,
+                        false,
+                        "build-without-brew-name",
+                        RepositoryType.MAVEN,
+                        BuildCategory.STANDARD),
+                "Should throw exception when module name cannot be determined");
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unable to determine module name"),
+                "Exception message should indicate module name determination failure: " + exception.getMessage());
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_NPMModuleNameFromBrewBuild() throws RepositoryDriverException {
+        // given: NPM build with BREW_BUILD_NAME in PNC Build
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        RepositoryId npmBuildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.NPM)
+                .name("npm-build")
+                .build();
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(npmBuildKey)
+                        .path("/lodash/-/lodash-4.17.21.tgz")
+                        .localUrl("file:///tmp/lodash-4.17.21.tgz")
+                        .md5("npm-md5")
+                        .sha1("npm-sha1")
+                        .sha256("npm-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called for NPM build
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-id", // PNCClientMock provides BREW_BUILD_NAME
+                RepositoryType.NPM,
+                BuildCategory.STANDARD);
+
+        // then: Module name comes from PNC Build attributes
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        Assertions.assertEquals(
+                "com.example:test-artifact:1.0.0",
+                moduleName,
+                "NPM module name should also come from PNC Build BREW_BUILD_NAME");
+    }
+
+    @Test
     public void testCreatePromotionBuildInfos_HandlesEmptyReport() throws RepositoryDriverException {
         // given: Empty TrackingReport
         TrackingReport report = TrackingReport.builder()
