@@ -324,7 +324,13 @@ public class TrackingReportProcessor {
         String buildAgentVersion = null;
         String startTime = null;
 
-        // Fetch build information from PNC to get build agent details and start time
+        // Determine module name with cascading fallback:
+        // 1. Use BREW_BUILD_NAME + BREW_BUILD_VERSION from PNC Build attributes (most reliable)
+        // 2. Extract from first upload artifact
+        // 3. Extract from first download artifact
+        String moduleName = null;
+
+        // Fetch build information from PNC to get build agent details, start time, and module name
         if (isNotEmpty(configuration.getPncUrl())) {
             String build = buildContentId.replace("build-", "");
             logger.debug("Fetching build information from PNC for build {}", build);
@@ -341,16 +347,31 @@ public class TrackingReportProcessor {
                     buildAgentVersion = pncBuild.getEnvironment().getAttributes().get(buildAgentName);
                 }
 
+                // Extract module name from build attributes
+                // Combine BREW_BUILD_NAME (groupId:artifactId) with BREW_BUILD_VERSION to form full GAV
+                if (pncBuild.getAttributes() != null) {
+                    String brewBuildName = pncBuild.getAttributes().get("BREW_BUILD_NAME");
+                    String brewBuildVersion = pncBuild.getAttributes().get("BREW_BUILD_VERSION");
+
+                    if (brewBuildName != null && brewBuildVersion != null) {
+                        // Combine to form full GAV: groupId:artifactId:version
+                        moduleName = brewBuildName + ":" + brewBuildVersion;
+                        logger.debug("Extracted module name from PNC Build: {}", moduleName);
+                    }
+                }
+
                 logger.debug(
-                        "Build info for {}: startTime={}, buildAgent={}:{}",
+                        "Build info for {}: startTime={}, buildAgent={}:{}, moduleName={}",
                         build,
                         startTime,
                         buildAgentName,
-                        buildAgentVersion);
+                        buildAgentVersion,
+                        moduleName);
             }
         }
 
         // Process uploads with filtering and determine artifacts target
+        // Also extract module name as fallback if PNC Build info is unavailable
         Set<TrackedEntry> uploads = report.getUploads();
         PackageType uploadsPackageType = null;
 
@@ -368,12 +389,19 @@ public class TrackingReportProcessor {
                 // Apply filter for uploads
                 if (artifactFilterPromotion.accepts(upload)) {
                     filteredUploads.add(upload);
+
+                    // Extract module name from first upload as fallback (if not already set)
+                    if (moduleName == null) {
+                        moduleName = computeIdentifier(upload);
+                    }
                 }
             }
         }
 
         // Process downloads with filtering and determine dependencies target
+        // Also extract module name as fallback if not found in uploads
         Set<TrackedEntry> downloads = report.getDownloads();
+
         if (downloads != null) {
             for (TrackedEntry download : downloads) {
                 RepositoryId sourceRepoId = download.getRepoId();
@@ -392,6 +420,11 @@ public class TrackingReportProcessor {
                                         promotionTargetsCache);
                             }
                             filteredDownloads.add(download);
+
+                            // Extract module name from first download as fallback (if not already set)
+                            if (moduleName == null) {
+                                moduleName = computeIdentifier(download);
+                            }
                             break;
 
                         case GENERIC:
@@ -417,12 +450,13 @@ public class TrackingReportProcessor {
             }
         }
 
-        // Determine module name from uploads
-        // TODO: This is a bit of hack to establish a module name - the problem is that
-        //       we don't know the actual top level for a multi-module project so this could
-        //       end up picking the wrong one. Really the RepositoryPromoteRequest needs to
-        //       pass the name in.
-        String moduleName = determineModuleNameFromUploads(uploadsPackageType, filteredUploads, buildContentId);
+        // Validate that we have a module name
+        if (moduleName == null) {
+            throw new RepositoryDriverException(
+                    "Unable to determine module name for build %s. "
+                            + "No BREW_BUILD_NAME in PNC Build attributes, and no valid artifacts in uploads or downloads.",
+                    buildContentId);
+        }
 
         // Create primary TrackingReport with filtered uploads and non-generic downloads
         TrackingReport primaryReport = TrackingReport.builder()
@@ -472,88 +506,6 @@ public class TrackingReportProcessor {
                 dependenciesTarget,
                 genericBuild,
                 genericDownloadsTarget);
-    }
-
-    /**
-     * Determines the module name for a BuildInfo from uploads only.
-     * This ensures consistent module naming across all BuildInfo objects (including shared-imports).
-     *
-     * @param packageType the package type of the uploads
-     * @param uploads the filtered upload entries
-     * @param trackingId the tracking ID for fallback
-     * @return the module name for the BuildInfo
-     */
-    private String determineModuleNameFromUploads(
-            PackageType packageType,
-            Set<TrackedEntry> uploads,
-            String trackingId) {
-        if (packageType == null) {
-            // No uploads, use tracking ID
-            return trackingId;
-        }
-
-        switch (packageType) {
-            case MAVEN:
-                // Extract GAV from first Maven artifact
-                return extractMavenModuleNameFromUploads(uploads, trackingId);
-
-            case NPM:
-                // Use NPM package identifier
-                return extractNpmModuleNameFromUploads(uploads, trackingId);
-
-            case GENERIC:
-                // TODO: Improve generic module naming strategy
-                return "generic-" + trackingId;
-
-            default:
-                // Should never reach here with current PackageType enum values
-                throw new IllegalArgumentException("Unsupported package type: " + packageType);
-        }
-    }
-
-    /**
-     * Extracts Maven module name (GAV) from uploads only.
-     *
-     * TODO: ### This should be replaced ; the promote request should pass the module name
-     * removing the need for this.
-     *
-     * @param uploads the upload entries
-     * @param trackingId fallback tracking ID
-     * @return Maven GAV or fallback name
-     */
-    private String extractMavenModuleNameFromUploads(Set<TrackedEntry> uploads, String trackingId) {
-        for (TrackedEntry upload : uploads) {
-            ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(upload.getPath());
-            if (pathInfo == null) {
-                pathInfo = ArtifactPathInfo.parse(upload.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
-            }
-            if (pathInfo != null) {
-                return pathInfo.getProjectId().toString(); // Returns groupId:artifactId:version
-            }
-        }
-
-        // Fallback
-        return "maven-" + trackingId;
-    }
-
-    /**
-     * Extracts NPM module name from uploads only.
-     *
-     * @param uploads the upload entries
-     * @param trackingId fallback tracking ID
-     * @return NPM package identifier or fallback name
-     */
-    private String extractNpmModuleNameFromUploads(Set<TrackedEntry> uploads, String trackingId) {
-        for (TrackedEntry upload : uploads) {
-            NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(upload.getPath());
-            if (npmPathInfo != null) {
-                NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
-                return packageRef.toString(); // Returns package@version
-            }
-        }
-
-        // Fallback
-        return "npm-" + trackingId;
     }
 
     /**

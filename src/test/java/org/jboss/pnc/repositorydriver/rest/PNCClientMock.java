@@ -35,20 +35,31 @@ public class PNCClientMock implements PNCClient {
         logger.info("Mock: Getting build for id: {}", id);
 
         // Create mock environment with attributes
-        Map<String, String> attributes = new HashMap<>();
-        attributes.put("MAVEN", "3.6.3");
-        attributes.put("NPM", "8.19.2");
-        attributes.put("GENERIC", "1.0");
+        Map<String, String> envAttributes = new HashMap<>();
+        envAttributes.put("MAVEN", "3.6.3");
+        envAttributes.put("NPM", "8.19.2");
+        envAttributes.put("GENERIC", "1.0");
 
         Environment environment = Environment.builder()
-                .attributes(attributes)
+                .attributes(envAttributes)
                 .build();
+
+        // Create mock build attributes - only include BREW_BUILD_NAME for specific test IDs
+        Map<String, String> buildAttributes = new HashMap<>();
+        if ("test-id".equals(id)) {
+            // Only provide BREW_BUILD_NAME for "test-id" to test primary extraction path
+            buildAttributes.put("BREW_BUILD_NAME", "com.example:test-artifact");
+            buildAttributes.put("BREW_BUILD_VERSION", "1.0.0");
+        }
+        // For other IDs (like "build-without-brew-name"), don't include BREW_BUILD_NAME
+        // to test fallback paths
 
         // Return a mock Build object with required fields
         return Build.builder()
                 .id(id)
                 .startTime(Instant.now())
                 .environment(environment)
+                .attributes(buildAttributes)
                 .buildConfigRevision(
                         BuildConfigurationRevision.builder()
                                 .id("1")
