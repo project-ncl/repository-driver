@@ -27,6 +27,21 @@ A single `TrackingReport` is converted to a single `Build` object containing:
 
 This design aligns with Artifactory's `uploadBuild` API which accepts a single Build object. The Build can then be promoted using Artifactory's `promoteBuild` API, where you can specify whether to promote artifacts, dependencies, or both via the `BuildPromotionRequest`.
 
+### Module Name Determination
+
+The module name (build name) is determined using a cascading fallback strategy:
+
+1. **Primary**: Extract from PNC Build attributes (`BREW_BUILD_NAME` + `BREW_BUILD_VERSION`)
+   - Example: `com.example:my-artifact:1.0.0`
+2. **Fallback 1**: Use identifier from first upload entry (via `computeIdentifier()`)
+   - Maven: `groupId:artifactId:type:version`
+   - NPM: `package@version`
+   - Generic: URL-based identifier
+3. **Fallback 2**: Use identifier from first download entry (via `computeIdentifier()`)
+4. **Validation**: Throws `RepositoryDriverException` if no module name can be determined
+
+This approach ensures accurate module naming for multi-module projects by using authoritative PNC Build metadata when available.
+
 ## Usage
 
 ### Basic Usage
