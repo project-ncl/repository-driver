@@ -163,7 +163,7 @@ public class ArtifactoryBuildGroupBuilder {
                                     .builders()
                                     .remoteRepositoryBuilder()
                                     .projectKey(configuration.getDeploymentType().toString())
-                                    .listRemoteFolderItems(true)
+                                    .listRemoteFolderItems(false)
                                     .environments(Collections.singletonList(configuration.getEnvironment()))
                                     .archiveBrowsingEnabled(true)
                                     .description("Remote repository for " + artifactRepository.url)
