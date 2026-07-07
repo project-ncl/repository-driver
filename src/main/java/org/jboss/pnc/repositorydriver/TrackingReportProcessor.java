@@ -43,6 +43,7 @@ import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.common.Strings;
+import org.jboss.pnc.common.version.VersionParser;
 import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilter;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterArchive;
@@ -73,6 +74,8 @@ public class TrackingReportProcessor {
 
     /** NCL-7238: Add this extension to parse for maven urls with no extensions */
     public final static String MAVEN_SUBSTITUTE_EXTENSION = ".empty";
+
+    private final VersionParser versionParser = new VersionParser("ibm", "redhat", "temporary-redhat", "temporary-ibm");
 
     @Inject
     ArtifactFilterArchive artifactFilterArchive;
@@ -355,7 +358,7 @@ public class TrackingReportProcessor {
 
                     if (brewBuildName != null && brewBuildVersion != null) {
                         // Combine to form full GAV: groupId:artifactId:version
-                        moduleName = brewBuildName + ":" + brewBuildVersion;
+                        moduleName = brewBuildName + ":" + versionParser.parse(brewBuildVersion).unsuffixedVersion();
                         logger.debug("Extracted module name from PNC Build: {}", moduleName);
                     }
                 }
