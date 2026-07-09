@@ -134,14 +134,14 @@ public class BuildInfoConverterTest {
         assertEquals("abc123", artifact1.getSha256());
         assertEquals("def456", artifact1.getSha1());
         assertEquals("ghi789", artifact1.getMd5());
-        assertEquals("/org/example/myapp/1.0/myapp-1.0.jar", artifact1.getRemotePath());
+        assertEquals("org/example/myapp/1.0/myapp-1.0.jar", artifact1.getRemotePath());
 
         // Verify dependencies
         assertNotNull(module.getDependencies());
         assertEquals(1, module.getDependencies().size());
         Dependency dependency = module.getDependencies().get(0);
         assertEquals("jar", dependency.getType());
-        assertEquals("/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar", dependency.getId());
+        assertEquals("org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar", dependency.getId());
         assertEquals("dep123", dependency.getSha256());
         assertEquals("dep456", dependency.getSha1());
         assertEquals("dep789", dependency.getMd5());
