@@ -92,20 +92,52 @@ public class ArtifactoryBuildGroupBuilder {
         if (tempBuild) {
             for (String hostedTempConstituent : configuration.getBuildGroupConstituentsTempHosted(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(projectPrefix + "-" + hostedTempConstituent);
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
+                                        configuration.getDeploymentType().toString(),
+                                        buildType,
+                                        false,
+                                        hostedTempConstituent));
+                //                includedRepositories.add(projectPrefix + "-" + hostedTempConstituent);
             }
             for (String groupTempConstituent : configuration.getBuildGroupConstituentsTempGroup(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(projectPrefix + "-" + groupTempConstituent);
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
+                                        configuration.getDeploymentType().toString(),
+                                        buildType,
+                                        false,
+                                        groupTempConstituent));
+                //includedRepositories.add(projectPrefix + "-" + groupTempConstituent);
             }
         } else {
             for (String hostedConstituent : configuration.getBuildGroupConstituentsHosted(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(projectPrefix + "-" + hostedConstituent);
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
+                                        configuration.getDeploymentType().toString(),
+                                        buildType,
+                                        false,
+                                        hostedConstituent));
+                //includedRepositories.add(projectPrefix + "-" + hostedConstituent);
             }
             for (String groupConstituent : configuration.getBuildGroupConstituentsGroup(buildCategory)
                     .orElse(List.of())) {
-                includedRepositories.add(projectPrefix + "-" + groupConstituent);
+                includedRepositories.add(
+                        ArtifactoryUtils
+                                .createRepositoryName(
+                                        configuration.getNamingStructure(),
+                                        configuration.getDeploymentType().toString(),
+                                        buildType,
+                                        false,
+                                        groupConstituent));
+                //includedRepositories.add(projectPrefix + "-" + groupConstituent);
             }
         }
 
