@@ -42,8 +42,8 @@ public class ConfigurationTest {
     void testBuildCategoryTempBuildPromotionTarget() {
 
         // standard doesn't define the temp build, should fall back to default from main config
-        assertEquals("mvn-temp-builds", configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD));
-        assertEquals("mvn-builds", configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
+        assertEquals("temp-builds", configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD));
+        assertEquals("builds", configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
 
         // service does define the promotion values, should use them
         assertEquals("temporary-service-builds", configuration.getTempBuildPromotionTarget(BuildCategory.SERVICE));

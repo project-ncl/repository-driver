@@ -118,14 +118,13 @@ public class ArtifactoryBuildGroupBuilderTest {
         // standard.build-group-constituents.group: not defined, falls back to default from main config
         // Constituent repos use simple project-prefix naming: pnc-<constituent-name>
         var repos = result.getRepositories();
-        System.out.println("### Non-temp repositories: " + repos);
 
         // Expected: pnc-central (hosted) + pnc-builds-imports-public (group from main config default)
         assertEquals(2, repos.size(), "Should have 2 constituents for non-temp build");
-        assertTrue(repos.contains("pnc-central"), "Should contain pnc-central");
+        assertTrue(repos.contains("pnc-mvn-central"), "Should contain pnc-mvn-central");
         assertTrue(
-                repos.contains("pnc-builds-imports-public"),
-                "Should contain pnc-builds-imports-public");
+                repos.contains("pnc-mvn-builds-imports-public"),
+                "Should contain pnc-mvn-builds-imports-public");
     }
 
     @Test
@@ -150,11 +149,10 @@ public class ArtifactoryBuildGroupBuilderTest {
         // standard.build-group-constituents.temp-group: [] (empty)
         // Constituent repos use simple project-prefix naming: pnc-<constituent-name>
         var repos = result.getRepositories();
-        System.out.println("### Temp repositories: " + repos);
 
         // Expected: pnc-temp-central (temp-hosted only, temp-group is empty)
         assertEquals(1, repos.size(), "Should have 1 constituent for temp build");
-        assertTrue(repos.contains("pnc-temp-central"), "Should contain pnc-temp-central");
+        assertTrue(repos.contains("pnc-mvn-temp-central"), "Should contain pnc-mvn-temp-central");
     }
 
     @Test
@@ -182,13 +180,13 @@ public class ArtifactoryBuildGroupBuilderTest {
         // standard.hosted: [central], standard.group: falls back to main config default
         // Constituent repos use simple project-prefix naming: pnc-<constituent-name>
         assertEquals(3, repos.size(), "Should have 3 constituents for Gradle build");
-        assertTrue(repos.contains("pnc-central"), "Should contain pnc-central");
+        assertTrue(repos.contains("pnc-mvn-central"), "Should contain pnc-mvn-central");
         assertTrue(
                 repos.contains("pnc-gradle-plugins"),
                 "Should contain pnc-gradle-plugins repository for Gradle builds");
         assertTrue(
-                repos.contains("pnc-builds-imports-public"),
-                "Should contain pnc-builds-imports-public");
+                repos.contains("pnc-mvn-builds-imports-public"),
+                "Should contain pnc-mvn-builds-imports-public");
     }
 
     @Test
@@ -216,7 +214,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         // standard.temp-hosted: [temp-central], standard.temp-group: [] (empty)
         // Constituent repos use simple project-prefix naming: pnc-<constituent-name>
         assertEquals(2, repos.size(), "Should have 2 constituents for Gradle temp build");
-        assertTrue(repos.contains("pnc-temp-central"), "Should contain pnc-temp-central");
+        assertTrue(repos.contains("pnc-mvn-temp-central"), "Should contain pnc-mvn-temp-central");
         assertTrue(
                 repos.contains("pnc-gradle-plugins"),
                 "Should contain pnc-gradle-plugins repository for Gradle temp builds");
