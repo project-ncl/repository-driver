@@ -87,12 +87,12 @@ repository-driver:
     default:
       # Note - both these targets will have the deployment prefixed so a target
       # of mvn-builds could become pnc-devel-mvn-builds
-      build-promotion-target: mvn-builds
-      temp-build-promotion-target: mvn-temp-builds
+      build-promotion-target: builds
+      temp-build-promotion-target: temp-builds
       # This represents the components of the virtual group.
       build-group-constituents:
         temp-hosted:
-          - mvn-temp-builds
+          - temp-builds
         temp-group:
           builds-imports-public
         hosted: [] # deliberately left empty
@@ -149,4 +149,3 @@ repository-driver:
   repository:
     # Note if its virtual (group) repo it gets -virt appended.
     naming-structure: "{project}{type}{temporary}{build}"
-#    naming-structure: "{project}{temporary}{build}{type}"
