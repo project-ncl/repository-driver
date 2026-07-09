@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.lang3.StringUtils;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.tracker.dto.PackageType;
@@ -245,10 +246,8 @@ public class BuildInfoConverter {
             artifact.setSha1(entry.getSha1());
             artifact.setMd5(entry.getMd5());
             artifact.setOriginalDeploymentRepo(entry.getRepoId().getPath());
-
             // Use setRemotePath for the path (will be serialized as "path" in JSON)
-            artifact.setRemotePath(entry.getPath());
-
+            artifact.setRemotePath(StringUtils.stripStart(entry.getPath(), "/"));
             artifacts.add(artifact);
         }
 
@@ -276,7 +275,7 @@ public class BuildInfoConverter {
             dependency.setType(getArtifactType(entry));
 
             // Use path as ID for dependencies
-            dependency.setId(entry.getPath());
+            dependency.setId(StringUtils.stripStart(entry.getPath(), "/"));
             dependency.setSha256(entry.getSha256());
             dependency.setSha1(entry.getSha1());
             dependency.setMd5(entry.getMd5());
