@@ -146,6 +146,3 @@ repository-driver:
     # TODO: Remove this flag when external service is ready
     use-internal-tracking: false
     api-url: http://localhost:8080
-  repository:
-    # Note if its virtual (group) repo it gets -virt appended.
-    naming-structure: "{project}{type}{temporary}{build}"

@@ -338,6 +338,7 @@ public class TrackingReportProcessor {
             String build = buildContentId.replace("build-", "");
             logger.debug("Fetching build information from PNC for build {}", build);
             Build pncBuild = pncClient.getSpecific(build);
+            logger.debug("### Fetched build information {}", pncBuild);
 
             if (pncBuild != null) {
                 // Extract start time
@@ -352,6 +353,7 @@ public class TrackingReportProcessor {
 
                 // Extract module name from build attributes
                 // Combine BREW_BUILD_NAME (groupId:artifactId) with BREW_BUILD_VERSION to form full GAV
+                logger.warn("### Got attributes {}", pncBuild.getAttributes());
                 if (pncBuild.getAttributes() != null) {
                     String brewBuildName = pncBuild.getAttributes().get("BREW_BUILD_NAME");
                     String brewBuildVersion = pncBuild.getAttributes().get("BREW_BUILD_VERSION");

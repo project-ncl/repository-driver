@@ -242,7 +242,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
         }
     }
 
-    String getOriginUrl(String repoKey, String path, String fallbackUrl) {
+    private String getOriginUrl(String repoKey, String path, String fallbackUrl) {
         try {
             var properties = artifactory.repository(repoKey)
                     .file(path)
@@ -266,7 +266,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
         return fallbackUrl;
     }
 
-    PackageType detectPackageType(String repoKey) {
+    private PackageType detectPackageType(String repoKey) {
         if (repoKey.contains("-maven-") || repoKey.contains("-mvn")) {
             return PackageType.MAVEN;
         } else if (repoKey.contains("-npm-") || repoKey.contains("-npmjs") || repoKey.contains("-yarnpkg")) {
