@@ -52,6 +52,7 @@ import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
+import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.enums.ResultStatus;
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
@@ -186,9 +187,24 @@ public class Driver {
             trackingServiceClient.clearReport(buildId);
             trackingServiceClient.initReport(buildId);
 
-            // TODO: This assumes artifactoryUrl always has a '/' at the end.
-            deployUrl = configuration.artifactoryUrl + hostedRepoName;
-            downloadsUrl = configuration.artifactoryUrl + virtualRepoName;
+            // Ensure artifactoryUrl ends with '/' for proper URL construction
+            String aUrl = configuration.artifactoryUrl;
+            if (!aUrl.endsWith("/")) {
+                aUrl += "/";
+            }
+            // Maven endpoint is different to NPM
+            if (buildType.getRepoType() == RepositoryType.NPM) {
+                aUrl += "api/npm/";
+            }
+            downloadsUrl = aUrl + virtualRepoName;
+            // This looks strange but the problem with NPM is we can't have separate download and deploy
+            // URLs in the .npmrc file unlike Maven. So we use the virtual repo (which has a default deployment
+            // repository configured) and return the virtual repo URL.
+            if (buildType.getRepoType() == RepositoryType.NPM) {
+                deployUrl = downloadsUrl;
+            } else {
+                deployUrl = aUrl + hostedRepoName;
+            }
 
             // TODO: With Artifactory will we need the sidecar translation?
             if (configuration.isSidecarEnabled()) {
@@ -243,8 +259,6 @@ public class Driver {
             uploadLogs(ex.getMessage(), "promote");
             throw ex;
         }
-        Set<RepositoryId> genericRepos = new HashSet<>();
-
         logger.warn("### About to run async with uploads size {}", report.getUploads().size());
         // The matching removeActivePromotion() is called exactly once, in the pipeline's terminal stage
         // (Driver#completePromotion), which always runs when the promotion settles. It is intentionally not
@@ -426,15 +440,7 @@ public class Driver {
                 logger.error("Failed to delete build group.", e);
             }
         })).handle(Context.current().wrapFunction((nul, throwable) -> {
-            try {
-                completePromotion(throwable, buildConfigurationId, buildContentId, promotionIndy);
-            } finally {
-                // The promotion pipeline is done; close the client it owned so its connection-eviction thread does
-                // not leak. Nothing that runs after this stage uses the Indy client (notifyInvoker uses httpClient).
-                if (promotionIndy != null) {
-                    promotionIndy.close();
-                }
-            }
+            completePromotion(throwable, buildConfigurationId, buildContentId);
             return null;
         }));
     }
@@ -442,8 +448,7 @@ public class Driver {
     private void completePromotion(
             Throwable throwable,
             String buildConfigurationId,
-            String buildContentId,
-            Indy promotionIndy) {
+            String buildContentId) {
         try {
             if (throwable != null) {
                 logger.error("Unhanded promotion exception.", throwable);
@@ -476,7 +481,7 @@ public class Driver {
 
                         // put the span into the current Context
                         try (Scope scope = span.makeCurrent()) {
-                            archive(archiveRequest, promotionIndy);
+                            archive(archiveRequest);
                         } finally {
                             span.end(); // closing the scope does not end the span, this has to be done manually
                         }
@@ -758,10 +763,6 @@ public class Driver {
             PackageType packageType,
             boolean tempBuild,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
-
-        // Was using try/resources but now switched to injected artifactory for tests
-        // (Artifactory artifactory = createArtifactoryClient()) {
-        logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
         // Check repositories exist and delete if they do
         RepositoryHandle hostedRepository = artifactory.repository(hostedName);
         RepositoryHandle virtualRepository = artifactory.repository(virtualName);
@@ -818,10 +819,10 @@ public class Driver {
                 .withDescription(
                         String.format(
                                 "Aggregation group for PNC %s build #%s",
-                                tempBuild ? "temporary " : "",
+                                tempBuild ? "temporary" : "",
                                 buildContentId))
                 // build-local artifacts
-                .addConstituent(hostedName)
+                .addLocal(hostedName)
                 // Global-level repos, for captured/shared artifacts and access to the outside world
                 .addGlobalConstituents(buildType, buildCategory, tempBuild)
                 // build-specific repos
