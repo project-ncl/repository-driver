@@ -86,8 +86,6 @@ repository-driver:
     interval: 1
   tracking-service:
     api-url: http://localhost:8080
-  repository:
-    naming-structure: "{project}{type}{temporary}{build}"
 
 "%dev":
   quarkus:

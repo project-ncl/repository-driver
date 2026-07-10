@@ -159,17 +159,17 @@ public class Driver {
 
             // Calculate repository names once
             String hostedRepoName = ArtifactoryUtils.createRepositoryName(
-                    configuration.getNamingStructure(),
                     configuration.getDeploymentType().toString(),
                     buildType,
-                    repositoryCreateRequest.isTempBuild(),
-                    buildId);
+                    buildId,
+                    repositoryCreateRequest.isTempBuild() ? ArtifactoryUtils.RepositoryType.LOCAL_TEMP
+                            : ArtifactoryUtils.RepositoryType.LOCAL);
             String virtualRepoName = ArtifactoryUtils.createRepositoryName(
-                    configuration.getNamingStructure(),
                     configuration.getDeploymentType().toString(),
                     buildType,
-                    repositoryCreateRequest.isTempBuild(),
-                    buildId + "-virt");
+                    buildId,
+                    repositoryCreateRequest.isTempBuild() ? ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP
+                            : ArtifactoryUtils.RepositoryType.VIRTUAL);
 
             setupBuildRepos(
                     hostedRepoName,
@@ -454,11 +454,11 @@ public class Driver {
             // CLEANUP
             try {
                 String virtualRepoName = ArtifactoryUtils.createRepositoryName(
-                        configuration.getNamingStructure(),
                         configuration.getDeploymentType().toString(),
                         buildType,
-                        promoteRequest.isTempBuild(),
-                        promoteRequest.getBuildContentId() + "-virt");
+                        promoteRequest.getBuildContentId(),
+                        promoteRequest.isTempBuild() ? ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP
+                                : ArtifactoryUtils.RepositoryType.VIRTUAL);
                 logger.info(
                         "Deleting virtual repository {}",
                         virtualRepoName);
