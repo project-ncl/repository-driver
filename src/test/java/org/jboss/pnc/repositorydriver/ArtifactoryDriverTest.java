@@ -135,7 +135,7 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
     @AfterAll
     public static void afterClass() {
-        //        callbackServer.stop();
+        callbackServer.stop();
     }
 
     @Test

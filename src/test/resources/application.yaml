@@ -11,6 +11,8 @@ quarkus:
       - org.jboss.pnc.repositorydriver.rest.InternalArtifactoryTrackingService
   oidc:
     enabled: false
+  otel:
+    enabled: false
   oidc-client:
     enabled: false
   http:
