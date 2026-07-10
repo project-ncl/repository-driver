@@ -237,9 +237,6 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
     boolean bifrostUploaderEnabled;
 
-    @ConfigProperty(name = "repository-driver.repository.naming-structure")
-    String namingStructure;
-
     // TEMPORARY: Use internal Artifactory queries instead of external tracking service
     // Set to true until external tracking service is deployed
     // TODO: Remove this flag when external service is ready
