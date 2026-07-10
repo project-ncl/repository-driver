@@ -81,7 +81,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         settings.setHandleReleases(true);
         settings.setHandleSnapshots(false);
         var result = ArtifactoryBuildGroupBuilder.builder(configuration, artifactory, settings, "pnc-virtual-ID")
-                .addConstituent("TEST")
+                .addLocal("TEST")
                 .addGlobalConstituents(BuildType.MVN, BuildCategory.STANDARD, false)
                 .addExtraConstituents(
                         Collections.singletonList("https://repo1.maven.org/maven2/"))
