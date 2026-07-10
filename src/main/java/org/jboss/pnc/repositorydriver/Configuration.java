@@ -23,6 +23,7 @@ import java.util.Optional;
 
 import jakarta.enterprise.context.Dependent;
 
+import org.commonjava.indy.model.core.StoreType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.api.enums.BuildCategory;
 
@@ -35,6 +36,10 @@ import lombok.Setter;
 @Setter
 @Dependent
 public class Configuration {
+
+    public record BuildGroupConstituent(StoreType storeType, String name) {
+    }
+
     private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
             .unwrap(SmallRyeConfig.class);
 
@@ -138,7 +143,7 @@ public class Configuration {
 
     /**
      * get the config value for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -166,12 +171,14 @@ public class Configuration {
 
     /**
      * get the config value list for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
      */
-    private Optional<List<String>> getConfigListString(BuildCategory buildCategory, String leafConfig) {
+    private Optional<List<BuildGroupConstituent>> getConfigListBuildGroupConstituent(
+            BuildCategory buildCategory,
+            String leafConfig) {
 
         if (buildCategory == null) {
             // fallback if buildCategory is null
@@ -183,12 +190,28 @@ public class Configuration {
 
         ConfigValue configValue = CONFIG_READ.getConfigValue(buildCategoryConfig);
 
+        Optional<List<String>> constituents;
         if (configValue.getValue() == null) {
             // if the raw value is null, assume that that config was never specified
             // get the default value instead
-            return CONFIG_READ.getOptionalValues(defaultBuildCategoryConfig, String.class);
+            constituents = CONFIG_READ.getOptionalValues(defaultBuildCategoryConfig, String.class);
         } else {
-            return CONFIG_READ.getOptionalValues(buildCategoryConfig, String.class);
+            constituents = CONFIG_READ.getOptionalValues(buildCategoryConfig, String.class);
+        }
+
+        if (constituents.isEmpty()) {
+            return Optional.empty();
+        } else {
+            return Optional.of(constituents.get().stream().map(value -> {
+                // the constituent is in format <storeType>:<name>
+                String[] storeTypeAndName = value.split(":");
+                if (storeTypeAndName.length != 2) {
+                    throw new RuntimeException(
+                            "Constituent " + value + " format is wrong. It should be <storeType>:<name>");
+                }
+                return new BuildGroupConstituent(StoreType.valueOf(storeTypeAndName[0]), storeTypeAndName[1]);
+            }).toList());
+
         }
     }
 
@@ -200,19 +223,11 @@ public class Configuration {
         return getConfigString(buildCategory, "temp-build-promotion-target");
     }
 
-    public Optional<List<String>> getBuildGroupConstituentsTempHosted(BuildCategory buildCategory) {
-        return getConfigListString(buildCategory, "build-group-constituents.temp-hosted");
+    public Optional<List<BuildGroupConstituent>> getBuildGroupConstituentsTemp(BuildCategory buildCategory) {
+        return getConfigListBuildGroupConstituent(buildCategory, "build-group-constituents.temp");
     }
 
-    public Optional<List<String>> getBuildGroupConstituentsTempGroup(BuildCategory buildCategory) {
-        return getConfigListString(buildCategory, "build-group-constituents.temp-group");
-    }
-
-    public Optional<List<String>> getBuildGroupConstituentsHosted(BuildCategory buildCategory) {
-        return getConfigListString(buildCategory, "build-group-constituents.hosted");
-    }
-
-    public Optional<List<String>> getBuildGroupConstituentsGroup(BuildCategory buildCategory) {
-        return getConfigListString(buildCategory, "build-group-constituents.group");
+    public Optional<List<BuildGroupConstituent>> getBuildGroupConstituents(BuildCategory buildCategory) {
+        return getConfigListBuildGroupConstituent(buildCategory, "build-group-constituents.permanent");
     }
 }

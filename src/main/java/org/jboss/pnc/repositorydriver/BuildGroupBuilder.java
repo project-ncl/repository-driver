@@ -85,22 +85,14 @@ public class BuildGroupBuilder {
             boolean tempBuild) {
         // 1. global builds artifacts
         if (tempBuild) {
-            for (String hostedTempConstituent : configuration.getBuildGroupConstituentsTempHosted(buildCategory)
+            for (Configuration.BuildGroupConstituent temp : configuration.getBuildGroupConstituentsTemp(buildCategory)
                     .orElse(List.of())) {
-                buildGroup.addConstituent(new StoreKey(packageType, StoreType.hosted, hostedTempConstituent));
-            }
-            for (String groupTempConstituent : configuration.getBuildGroupConstituentsTempGroup(buildCategory)
-                    .orElse(List.of())) {
-                buildGroup.addConstituent(new StoreKey(packageType, StoreType.group, groupTempConstituent));
+                buildGroup.addConstituent(new StoreKey(packageType, temp.storeType(), temp.name()));
             }
         } else {
-            for (String hostedConstituent : configuration.getBuildGroupConstituentsHosted(buildCategory)
+            for (Configuration.BuildGroupConstituent permanent : configuration.getBuildGroupConstituents(buildCategory)
                     .orElse(List.of())) {
-                buildGroup.addConstituent(new StoreKey(packageType, StoreType.hosted, hostedConstituent));
-            }
-            for (String groupConstituent : configuration.getBuildGroupConstituentsGroup(buildCategory)
-                    .orElse(List.of())) {
-                buildGroup.addConstituent(new StoreKey(packageType, StoreType.group, groupConstituent));
+                buildGroup.addConstituent(new StoreKey(packageType, permanent.storeType(), permanent.name()));
             }
         }
 

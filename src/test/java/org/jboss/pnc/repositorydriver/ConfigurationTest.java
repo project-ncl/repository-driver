@@ -24,6 +24,7 @@ import java.util.Optional;
 
 import jakarta.inject.Inject;
 
+import org.commonjava.indy.model.core.StoreType;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,17 +54,13 @@ public class ConfigurationTest {
     @Test
     void testBuildGroupConstituents() {
         // defined in standard as empty list
-        assertEquals(Optional.empty(), configuration.getBuildGroupConstituentsTempGroup(BuildCategory.STANDARD));
-
-        // defined as 'temp-central' in standard
         assertEquals(
-                Optional.of(List.of("temp-central")),
-                configuration.getBuildGroupConstituentsTempHosted(BuildCategory.STANDARD));
+                Optional.of(List.of(new Configuration.BuildGroupConstituent(StoreType.hosted, "temp-central"))),
+                configuration.getBuildGroupConstituentsTemp(BuildCategory.STANDARD));
 
-        // not defined in 'central'; should use default
         assertEquals(
-                Optional.of(List.of("constituent-group")),
-                configuration.getBuildGroupConstituentsGroup(BuildCategory.STANDARD));
+                Optional.of(List.of(new Configuration.BuildGroupConstituent(StoreType.group, "central"))),
+                configuration.getBuildGroupConstituents(BuildCategory.STANDARD));
     }
 
 }

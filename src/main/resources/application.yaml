@@ -74,13 +74,11 @@ repository-driver:
       build-promotion-target: pnc-builds
       temp-build-promotion-target: temporary-builds
       build-group-constituents:
-        temp-hosted:
-          - temporary-builds
-        temp-group:
-          - builds-untested+shared-imports+public
-        hosted: [] # deliberately left empty
-        group:
-          - builds-untested+shared-imports+public
+        temp:
+          - hosted:temporary-builds
+          - group:builds-untested+shared-imports+public
+        permanent:
+          - group:builds-untested+shared-imports+public
 
   ignored-path-patterns:
     archive:
@@ -148,35 +146,30 @@ repository-driver:
         build-promotion-target: target
         temp-build-promotion-target: temporary-target
         build-group-constituents:
-          temp-hosted:
-            - constituent-temp-hosted
-          temp-group:
-            - constituent-temp-group
-          hosted:
-            - consituent-hosted
-          group:
-            - constituent-group
+          temp:
+            - hosted:constituent-temp-hosted
+            - group:constituent-temp-group
+          permanent:
+            - hosted:consituent-hosted
+            - group:constituent-group
 
       # Standard category
       standard:
         build-group-constituents:
-          temp-hosted:
-            - temp-central
-          temp-group: []
-          hosted:
-            - central
+          temp:
+            - hosted:temp-central
+          permanent:
+            - group:central
 
       # Service category
       service:
         build-promotion-target: service-builds
         temp-build-promotion-target: temporary-service-builds
         build-group-constituents:
-          temp-hosted:
-            - central
-          temp-group: []
-          hosted:
-            - central
-          group: []
+          temp:
+            - hosted:temp-central
+          permanent:
+            - hosted:central
     ignored-path-patterns:
       archive:
         maven: [".*/maven-metadata\\.xml(\\..+)?$"]
