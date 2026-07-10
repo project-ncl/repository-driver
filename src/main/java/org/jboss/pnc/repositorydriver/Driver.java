@@ -310,6 +310,37 @@ public class Driver {
                             buildType.getRepoType(),
                             buildCategory);
 
+                    // Some basic verification
+                    if (uploadedArtifacts
+                            .size() != promotion.primaryBuild().getModules().get(0).getArtifacts().size()) {
+                        logger.warn(
+                                "### collectUploadedArtifacts size is different to createPromotionBuildInfo {} : {} ",
+                                uploadedArtifacts.size(),
+                                promotion.primaryBuild().getModules().get(0).getArtifacts().size());
+                        // TODO: ### This should never happen ... what should we do here?
+
+                    }
+
+                    if (promotion.primaryBuild().getModules() != null &&
+                            promotion.primaryBuild().getModules().get(0).getArtifacts() != null &&
+                            promotion.primaryBuild().getModules().get(0).getArtifacts().size() > 0) {
+                        // In artifactory the build-info recording only works for uploads if the build name
+                        // and build number are set on the artifacts.
+                        artifactory
+                                .repository(
+                                        promotion.primaryBuild()
+                                                .getModules()
+                                                .get(0)
+                                                .getArtifacts()
+                                                .get(0)
+                                                .getOriginalDeploymentRepo())
+                                .folder(".")
+                                .properties()
+                                .addProperty("build.name", promotion.primaryBuild().getName())
+                                .addProperty("build.number", promotion.primaryBuild().getNumber())
+                                .doSet(true);
+                    }
+
                     // Upload and promote primary Build
                     org.jfrog.build.api.Build primaryBuild = promotion.primaryBuild();
                     try {
