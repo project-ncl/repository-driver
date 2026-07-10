@@ -52,6 +52,7 @@ import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
+import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.enums.ResultStatus;
 import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
@@ -186,9 +187,24 @@ public class Driver {
             trackingServiceClient.clearReport(buildId);
             trackingServiceClient.initReport(buildId);
 
-            // TODO: This assumes artifactoryUrl always has a '/' at the end.
-            deployUrl = configuration.artifactoryUrl + hostedRepoName;
-            downloadsUrl = configuration.artifactoryUrl + virtualRepoName;
+            // Ensure artifactoryUrl ends with '/' for proper URL construction
+            String aUrl = configuration.artifactoryUrl;
+            if (!aUrl.endsWith("/")) {
+                aUrl += "/";
+            }
+            // Maven endpoint is different to NPM
+            if (buildType.getRepoType() == RepositoryType.NPM) {
+                aUrl += "api/npm/";
+            }
+            downloadsUrl = aUrl + virtualRepoName;
+            // This looks strange but the problem with NPM is we can't have separate download and deploy
+            // URLs in the .npmrc file unlike Maven. So we use the virtual repo (which has a default deployment
+            // repository configured) and return the virtual repo URL.
+            if (buildType.getRepoType() == RepositoryType.NPM) {
+                deployUrl = downloadsUrl;
+            } else {
+                deployUrl = aUrl + hostedRepoName;
+            }
 
             // TODO: With Artifactory will we need the sidecar translation?
             if (configuration.isSidecarEnabled()) {
@@ -243,7 +259,6 @@ public class Driver {
             uploadLogs(ex.getMessage(), "promote");
             throw ex;
         }
-        logger.warn("### About to run async with uploads size {}", report.getUploads().size());
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
         // schedule promotion
@@ -736,10 +751,6 @@ public class Driver {
             PackageType packageType,
             boolean tempBuild,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
-
-        // Was using try/resources but now switched to injected artifactory for tests
-        // (Artifactory artifactory = createArtifactoryClient()) {
-        logger.info("### setupBuildRepos::hostedName: {}, virtualName: {}", hostedName, virtualName);
         // Check repositories exist and delete if they do
         RepositoryHandle hostedRepository = artifactory.repository(hostedName);
         RepositoryHandle virtualRepository = artifactory.repository(virtualName);
@@ -796,10 +807,10 @@ public class Driver {
                 .withDescription(
                         String.format(
                                 "Aggregation group for PNC %s build #%s",
-                                tempBuild ? "temporary " : "",
+                                tempBuild ? "temporary" : "",
                                 buildContentId))
                 // build-local artifacts
-                .addConstituent(hostedName)
+                .addLocal(hostedName)
                 // Global-level repos, for captured/shared artifacts and access to the outside world
                 .addGlobalConstituents(buildType, buildCategory, tempBuild)
                 // build-specific repos

@@ -39,6 +39,7 @@ public class ArtifactoryBuildGroupBuilder {
     private RepositorySettings settings;
     private String name;
     private String description;
+    private String deploymentRepository;
     private final List<String> includedRepositories = new ArrayList<>();
 
     // use #builder
@@ -64,8 +65,9 @@ public class ArtifactoryBuildGroupBuilder {
         return this;
     }
 
-    public ArtifactoryBuildGroupBuilder addConstituent(String hostKey) {
+    public ArtifactoryBuildGroupBuilder addLocal(String hostKey) {
         includedRepositories.add(hostKey);
+        deploymentRepository = hostKey;
         return this;
     }
 
@@ -256,6 +258,7 @@ public class ArtifactoryBuildGroupBuilder {
                 .artifactoryRequestsCanRetrieveRemoteArtifacts(true)
                 .projectKey(configuration.getDeploymentType().toString())
                 .environments(Collections.singletonList(configuration.getEnvironment()))
+                .defaultDeploymentRepo(deploymentRepository)
                 .repositorySettings(settings)
                 .description(description)
                 .repositories(includedRepositories)
