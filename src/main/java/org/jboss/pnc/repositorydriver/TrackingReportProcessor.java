@@ -338,7 +338,6 @@ public class TrackingReportProcessor {
             String build = buildContentId.replace("build-", "");
             logger.debug("Fetching build information from PNC for build {}", build);
             Build pncBuild = pncClient.getSpecific(build);
-            logger.debug("### Fetched build information {}", pncBuild);
 
             if (pncBuild != null) {
                 // Extract start time
@@ -381,13 +380,14 @@ public class TrackingReportProcessor {
         PackageType uploadsPackageType = null;
 
         if (uploads != null && !uploads.isEmpty()) {
+
             uploadsPackageType = TypeConverters.toPackageType(repositoryType);
 
             // Determine target for uploads
             artifactsTarget = RepositoryId.builder()
                     .project(configuration.getDeploymentType().toString())
                     .packageType(uploadsPackageType)
-                    .name(getBuildPromotionTarget(buildCategory, tempBuild))
+                    .name(getBuildPromotionTarget(uploadsPackageType, buildCategory, tempBuild))
                     .build();
 
             for (TrackedEntry upload : uploads) {
@@ -801,7 +801,7 @@ public class TrackingReportProcessor {
                     "Repository type " + repoType + " is not supported for uploads by repo manager driver.");
         }
 
-        String target = getBuildPromotionTarget(buildCategory, tempBuild);
+        String target = getBuildPromotionTarget(TypeConverters.toPackageType(repoType), buildCategory, tempBuild);
         String identifier = TypeConverters.toRepositoryIdentifier(repoType);
         String repoPath = configuration.getDeploymentType() + "-" + target;
 
@@ -827,9 +827,10 @@ public class TrackingReportProcessor {
         return promotionTargetsCache.get(packageType);
     }
 
-    private String getBuildPromotionTarget(BuildCategory buildCategory, boolean tempBuild) {
-        return tempBuild ? configuration.getTempBuildPromotionTarget(buildCategory)
+    private String getBuildPromotionTarget(PackageType packageType, BuildCategory buildCategory, boolean tempBuild) {
+        String target = tempBuild ? configuration.getTempBuildPromotionTarget(buildCategory)
                 : configuration.getBuildPromotionTarget(buildCategory);
+        return packageType.getCode() + "-" + target;
     }
 
     /**
