@@ -621,7 +621,7 @@ public class TrackingReportProcessorTest {
         Assertions.assertNotNull(promotion.dependenciesTarget(), "Dependencies target should be set");
 
         Assertions.assertEquals(
-                configuration.getBuildPromotionTarget(BuildCategory.STANDARD),
+                "mvn-" + configuration.getBuildPromotionTarget(BuildCategory.STANDARD),
                 promotion.artifactsTarget().getName());
         Assertions.assertEquals(RepositoryConstants.MVN_SHARED_IMPORTS_ID, promotion.dependenciesTarget().getName());
 
