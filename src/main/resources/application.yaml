@@ -10,9 +10,6 @@ quarkus:
     tracking-service:
       url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
       scope: jakarta.inject.Singleton
-    pnc-orch:
-      url: ${repository-driver.pnc-url}
-      scope: jakarta.inject.Singleton
   otel:
     enabled: true
     traces:
@@ -114,8 +111,6 @@ repository-driver:
     promotion:
     archive:
   self-base-url:
-  # Hardcoded for now ; eventually we will remove this and make it Optional.
-  pnc-url: "https://orch-devel-pnc.limited-use.ibm.com/pnc-rest/v2/"
   artifactory-client:
     url:
     access-token:
