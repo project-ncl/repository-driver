@@ -404,7 +404,6 @@ public class TrackingReportProcessor {
         }
 
         // Process downloads with filtering and determine dependencies target
-        // Also extract module name as fallback if not found in uploads
         Set<TrackedEntry> downloads = report.getDownloads();
 
         if (downloads != null) {
@@ -425,11 +424,6 @@ public class TrackingReportProcessor {
                                         promotionTargetsCache);
                             }
                             filteredDownloads.add(download);
-
-                            // Extract module name from first download as fallback (if not already set)
-                            if (moduleName == null) {
-                                moduleName = computeIdentifier(download);
-                            }
                             break;
 
                         case GENERIC:
@@ -459,7 +453,7 @@ public class TrackingReportProcessor {
         if (moduleName == null) {
             throw new RepositoryDriverException(
                     "Unable to determine module name for build %s. "
-                            + "No BREW_BUILD_NAME in PNC Build attributes, and no valid artifacts in uploads or downloads.",
+                            + "No BREW_BUILD_NAME in PNC Build attributes, and no valid artifacts in uploads",
                     buildContentId);
         }
 
