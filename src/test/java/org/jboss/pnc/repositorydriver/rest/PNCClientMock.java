@@ -50,9 +50,13 @@ public class PNCClientMock implements PNCClient {
             // Only provide BREW_BUILD_NAME for "test-id" to test primary extraction path
             buildAttributes.put("BREW_BUILD_NAME", "com.example:test-artifact");
             buildAttributes.put("BREW_BUILD_VERSION", "1.0.0");
+        } else if ("X".equals(id)) {
+            // Provide BREW_BUILD_NAME for "X" (used by DriverTest and ArtifactoryDriverTest)
+            buildAttributes.put("BREW_BUILD_NAME", "org.example:build-x-artifact");
+            buildAttributes.put("BREW_BUILD_VERSION", "1.0.0");
         }
         // For other IDs (like "build-without-brew-name"), don't include BREW_BUILD_NAME
-        // to test fallback paths
+        // to test exception throwing when no module name can be determined
 
         // Return a mock Build object with required fields
         return Build.builder()

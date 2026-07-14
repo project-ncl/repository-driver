@@ -236,8 +236,8 @@ public class TrackingReportProcessorTest {
     }
 
     @Test
-    public void testCreatePromotionBuildInfo_FallsBackToDownloadsWhenNoUploads() throws RepositoryDriverException {
-        // given: TrackingReport with only downloads (no uploads)
+    public void testCreatePromotionBuildInfo_ThrowsExceptionWhenNoUploadsAndNoBrewBuildName() {
+        // given: TrackingReport with only downloads (no uploads) and no BREW_BUILD_NAME
         Set<TrackedEntry> downloads = new HashSet<>();
 
         RepositoryId downloadKey = RepositoryId.builder()
@@ -263,21 +263,20 @@ public class TrackingReportProcessorTest {
                 .uploads(new HashSet<>())
                 .build();
 
-        // when: createPromotionBuildInfo is called with no uploads
-        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
-                report,
-                false,
-                "build-without-brew-name",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
-
-        // then: Module name falls back to identifier from downloads
-        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
-        String moduleName = buildInfo.getName();
+        // when/then: createPromotionBuildInfo throws exception when no uploads and no BREW_BUILD_NAME
+        RepositoryDriverException exception = Assertions.assertThrows(
+                RepositoryDriverException.class,
+                () -> trackingReportProcessor.createPromotionBuildInfo(
+                        report,
+                        false,
+                        "build-without-brew-name",
+                        RepositoryType.MAVEN,
+                        BuildCategory.STANDARD),
+                "Should throw exception when no uploads and no BREW_BUILD_NAME");
 
         Assertions.assertTrue(
-                moduleName.contains("org.apache.commons:commons-lang3"),
-                "Module name should fall back to download identifier when no uploads: " + moduleName);
+                exception.getMessage().contains("Unable to determine module name"),
+                "Exception message should indicate module name determination failure: " + exception.getMessage());
     }
 
     @Test
