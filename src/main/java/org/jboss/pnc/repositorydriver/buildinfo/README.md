@@ -19,83 +19,131 @@ This converter enables PNC to:
 
 ## Key Design
 
-**One TrackingReport → One Build Object**
+**Two-Build Architecture for Independent Promotion**
 
-A single `TrackingReport` is converted to a single `Build` object containing:
-- **Artifacts** (from uploads) - what the build produced
-- **Dependencies** (from downloads) - what the build consumed
+The converter creates **two separate Build objects** to enable independent promotion:
 
-This design aligns with Artifactory's `uploadBuild` API which accepts a single Build object. The Build can then be promoted using Artifactory's `promoteBuild` API, where you can specify whether to promote artifacts, dependencies, or both via the `BuildPromotionRequest`.
+1. **Primary Build**: Contains artifacts (uploads) and non-generic dependencies (downloads)
+   - Module ID: `{buildName}:{buildNumber}`
+   - Artifacts: Filtered uploads
+   - Dependencies: Filtered Maven/NPM downloads
+   - Promoted to: artifacts target (e.g., `pnc-mvn-builds`) and dependencies target (e.g., `pnc-mvn-imports`)
+   
+2. **Generic Downloads Build**: Contains generic downloads as dependencies (may be null if no generic downloads)
+   - Module ID: `{buildName}-generic-downloads:{buildNumber}`
+   - Artifacts: None (empty list)
+   - Dependencies: Generic downloads (stored as dependencies, not artifacts)
+   - Promoted to: generic downloads target (e.g., `pnc-generic-downloads`)
 
-### Module Name Determination
+**Why two Build objects?** Artifactory cannot differentiate between modules during promotion. When you call `promoteBuild()` with `setArtifacts(true)` or `setDependencies(true)`, Artifactory promotes ALL artifacts or ALL dependencies across ALL modules in the Build. Using separate Build objects ensures:
+- Correct Artifactory semantics - each Build promoted independently
+- Proper isolation - generic downloads don't interfere with primary promotion
+- Semantic correctness - generic downloads stored as dependencies (consumed artifacts)
+- Clear separation - distinct purposes for each Build
 
-The module name (build name) is determined using a cascading fallback strategy:
-
-1. **Primary**: Extract from PNC Build attributes (`BREW_BUILD_NAME` + `BREW_BUILD_VERSION`)
-   - Example: `com.example:my-artifact:1.0.0`
-2. **Fallback 1**: Use identifier from first upload entry (via `computeIdentifier()`)
-   - Maven: `groupId:artifactId:type:version`
-   - NPM: `package@version`
-   - Generic: URL-based identifier
-3. **Fallback 2**: Use identifier from first download entry (via `computeIdentifier()`)
-4. **Validation**: Throws `RepositoryDriverException` if no module name can be determined
-
-This approach ensures accurate module naming for multi-module projects by using authoritative PNC Build metadata when available.
+The `BuildInfoPromotion` record wraps both Build objects with their respective target repositories.
 
 ## Usage
 
-### Basic Usage
+### Creating Primary Build
 
 ```java
 // Get tracking report from PNC
 TrackingReport report = trackingServiceClient.getReport(buildContentId);
 
-// Convert entire TrackingReport to a single Build object
+// Convert TrackingReport to primary Build object
 // The trackingID from the report is automatically used as the build number
-Build build = BuildInfoConverter.fromTrackingReport(
+Build primaryBuild = BuildInfoConverter.fromTrackingReport(
     report,
-    "my-build-name"
+    "pnc",                    // projectName
+    "my-build-name",          // buildName
+    RepositoryType.MAVEN,     // repositoryType
+    "Maven",                  // buildAgentName
+    "3.8.1",                  // buildAgentVersion
+    Build.formatBuildStarted(System.currentTimeMillis())  // startTime
 );
 
 // Upload to Artifactory
-artifactory.builds().uploadBuild(build);
+artifactory.builds().uploadBuild(primaryBuild);
 ```
 
-### With Additional Properties
+### Creating Generic Downloads Build
 
 ```java
-Map<String, String> additionalProps = new HashMap<>();
-additionalProps.put("buildUrl", "https://ci.example.com/build/123");
-additionalProps.put("vcsRevision", "abc123def456");
-additionalProps.put("vcsUrl", "https://github.com/example/repo");
+// Separate generic downloads from other downloads
+Set<TrackedEntry> genericDownloads = report.getDownloads().stream()
+    .filter(d -> d.getRepoId().getPackageType() == PackageType.GENERIC)
+    .collect(Collectors.toSet());
 
-Build build = BuildInfoConverter.fromTrackingReport(
-    report,
-    "my-build",
-    additionalProps
+// Create separate Build for generic downloads (if any exist)
+Build genericBuild = BuildInfoConverter.createGenericDownloadsBuild(
+    genericDownloads,
+    "pnc",                    // projectName
+    "my-build-name",          // buildName
+    report.getTrackingID(),   // buildNumber
+    "Maven",                  // buildAgentName
+    "3.8.1",                  // buildAgentVersion
+    Build.formatBuildStarted(System.currentTimeMillis())  // startTime
 );
+
+if (genericBuild != null) {
+    artifactory.builds().uploadBuild(genericBuild);
+}
 ```
 
-**Note**: The `trackingID` field from the `TrackingReport` is automatically used as the build number in the generated `Build` object. This simplifies the API and ensures consistency between PNC's tracking system and Artifactory's build info.
+**Note**: The `trackingID` field from the `TrackingReport` is used as the build number in both Build objects. This ensures consistency between PNC's tracking system and Artifactory's build info.
 
-### Promoting a Build
+### Promoting Builds
 
-After uploading the build to Artifactory, you can promote it:
+After uploading the builds to Artifactory, you can promote them independently:
 
 ```java
-// Promote the build to a target repository
-BuildPromotionRequest promotionRequest = new BuildPromotionRequest();
-promotionRequest.setTargetRepo("releases");
-promotionRequest.setStatus("Released");
-promotionRequest.setComment("Promoting build to releases");
+// Promote primary Build artifacts to build repository
+BuildPromotionRequest artifactsPromotion = new BuildPromotionRequest();
+artifactsPromotion.setTargetRepo("pnc-mvn-builds");
+artifactsPromotion.setStatus("promoted");
+artifactsPromotion.setComment("Promoted by PNC Repository Driver - artifacts");
+artifactsPromotion.setCopy(true);
+artifactsPromotion.setArtifacts(true);
+artifactsPromotion.setDependencies(false);
 
-// The promotion can include artifacts, dependencies, or both
-// This is controlled by the BuildPromotionRequest configuration
 artifactory.builds().promoteBuild(
-    build.getName(),
-    build.getNumber(),
-    promotionRequest
+    primaryBuild.getName(),
+    primaryBuild.getNumber(),
+    artifactsPromotion
 );
+
+// Promote primary Build dependencies to shared imports
+BuildPromotionRequest dependenciesPromotion = new BuildPromotionRequest();
+dependenciesPromotion.setTargetRepo("pnc-mvn-imports");
+dependenciesPromotion.setStatus("promoted");
+dependenciesPromotion.setComment("Promoted by PNC Repository Driver - dependencies");
+dependenciesPromotion.setCopy(true);
+dependenciesPromotion.setArtifacts(false);
+dependenciesPromotion.setDependencies(true);
+
+artifactory.builds().promoteBuild(
+    primaryBuild.getName(),
+    primaryBuild.getNumber(),
+    dependenciesPromotion
+);
+
+// Promote generic downloads Build (if it exists)
+if (genericBuild != null) {
+    BuildPromotionRequest genericPromotion = new BuildPromotionRequest();
+    genericPromotion.setTargetRepo("pnc-generic-downloads");
+    genericPromotion.setStatus("promoted");
+    genericPromotion.setComment("Promoted by PNC Repository Driver - generic downloads");
+    genericPromotion.setCopy(true);
+    genericPromotion.setArtifacts(false);
+    genericPromotion.setDependencies(true);  // Generic downloads stored as dependencies
+    
+    artifactory.builds().promoteBuild(
+        genericBuild.getName(),
+        genericBuild.getNumber(),
+        genericPromotion
+    );
+}
 ```
 
 ### Serializing to JSON
@@ -112,48 +160,68 @@ mapper.writeValue(new File("build-info.json"), build);
 
 ## Build Object Structure
 
-The generated `Build` object contains:
+### Primary Build
 
-### Core Properties
+The primary `Build` object contains:
+
+**Core Properties:**
 - `version`: BuildInfo schema version (1.0.1)
 - `name`: Build name
-- `number`: Build number/version
+- `number`: Build number (trackingID)
+- `project`: Project name (e.g., "pnc")
 - `started`: ISO 8601 formatted start timestamp
-- `buildAgent`: Information about the build tool (PNC)
+- `buildAgent`: Information about the build tool (e.g., "Maven", "Gradle")
 - `agent`: Information about the CI server (PNC-Repository-Driver)
-- `properties`: Custom key-value properties
 
-### Modules
-Each `Build` contains one module with:
-- `id`: Module identifier (buildName:buildNumber)
+**Module:**
+- `id`: Module identifier (`buildName:buildNumber`)
+- `type`: Module type based on RepositoryType (e.g., "maven", "npm")
 - `artifacts`: List of produced artifacts (from TrackingReport uploads)
-- `dependencies`: List of consumed dependencies (from TrackingReport downloads)
+- `dependencies`: List of consumed dependencies (from TrackingReport non-generic downloads)
 
-### Artifacts (from uploads)
-Each artifact includes:
-- `type`: Package type (mvn, npm, generic, etc.)
+**Artifacts (from uploads):**
+- `type`: Artifact type using JFrog's `getTypeString()` algorithm (e.g., "jar", "pom", "sources")
 - `name`: File name
 - `sha256`, `sha1`, `md5`: Checksums
-- `properties`: Additional metadata (path, localUrl, originUrl)
+- `remotePath`: Artifact path in repository
+- `originalDeploymentRepo`: Source repository path
 
-### Dependencies (from downloads)
-Each dependency includes:
-- `type`: Package type
+**Dependencies (from downloads):**
+- `type`: Artifact type using JFrog's `getTypeString()` algorithm
 - `id`: Dependency identifier (path)
 - `sha256`, `sha1`, `md5`: Checksums
-- `scopes`: Repository scopes
+
+### Generic Downloads Build
+
+The generic downloads `Build` object (if created) contains:
+
+**Core Properties:** Same as primary Build
+
+**Module:**
+- `id`: Module identifier (`buildName-generic-downloads:buildNumber`)
+- `type`: "generic"
+- `artifacts`: Empty list
+- `dependencies`: List of generic downloads (stored as dependencies, not artifacts)
+
+**Dependencies (generic downloads):**
+- `type`: File extension
+- `id`: Dependency identifier (path)
+- `sha256`, `sha1`, `md5`: Checksums
 
 ## Example Output
+
+### Primary Build JSON
 
 ```json
 {
   "version": "1.0.1",
   "name": "my-build",
-  "number": "1.0.0",
+  "number": "build-123",
+  "project": "pnc",
   "started": "2024-01-15T10:30:00.000+0000",
   "buildAgent": {
-    "name": "PNC",
-    "version": "3.5.1"
+    "name": "Maven",
+    "version": "3.8.1"
   },
   "agent": {
     "name": "PNC-Repository-Driver",
@@ -161,28 +229,62 @@ Each dependency includes:
   },
   "modules": [
     {
-      "id": "my-build:1.0.0",
+      "id": "my-build:build-123",
+      "type": "maven",
       "artifacts": [
         {
-          "type": "mvn",
+          "type": "jar",
           "name": "myapp-1.0.0.jar",
           "sha256": "abc123...",
           "sha1": "def456...",
           "md5": "ghi789...",
-          "properties": {
-            "path": "/org/example/myapp/1.0.0/myapp-1.0.0.jar",
-            "localUrl": "file:///tmp/myapp-1.0.0.jar"
-          }
+          "remotePath": "org/example/myapp/1.0.0/myapp-1.0.0.jar",
+          "originalDeploymentRepo": "pnc-mvn-build-repo"
         }
       ],
       "dependencies": [
         {
-          "type": "mvn",
-          "id": "/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar",
+          "type": "jar",
+          "id": "org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar",
           "sha256": "dep123...",
           "sha1": "dep456...",
-          "md5": "dep789...",
-          "scopes": ["central"]
+          "md5": "dep789..."
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Generic Downloads Build JSON
+
+```json
+{
+  "version": "1.0.1",
+  "name": "my-build-generic-downloads",
+  "number": "build-123",
+  "project": "pnc",
+  "started": "2024-01-15T10:30:00.000+0000",
+  "buildAgent": {
+    "name": "Maven",
+    "version": "3.8.1"
+  },
+  "agent": {
+    "name": "PNC-Repository-Driver",
+    "version": "3.5.1"
+  },
+  "modules": [
+    {
+      "id": "my-build-generic-downloads:build-123",
+      "type": "generic",
+      "artifacts": [],
+      "dependencies": [
+        {
+          "type": "zip",
+          "id": "example.com/path/to/file.zip",
+          "sha256": "gen123...",
+          "sha1": "gen456...",
+          "md5": "gen789..."
         }
       ]
     }
@@ -192,54 +294,107 @@ Each dependency includes:
 
 ## Integration with Artifactory
 
-### Upload Build
-
-```java
-TrackingReport report = trackingServiceClient.getReport(buildContentId);
-Build build = BuildInfoConverter.fromTrackingReport(report, buildName);
-
-// Upload to Artifactory
-artifactory.builds().uploadBuild(build);
-```
-
-### Promote Build
-
-The `promoteBuild` API allows you to promote artifacts and/or dependencies to different repositories:
-
-```java
-BuildPromotionRequest request = new BuildPromotionRequest();
-request.setTargetRepo("releases");
-request.setStatus("Released");
-request.setCopy(true); // Copy instead of move
-
-// Promote the build using the trackingID as build number
-artifactory.builds().promoteBuild(buildName, report.getTrackingID(), request);
-```
-
-The promotion behavior (whether to promote artifacts, dependencies, or both) is controlled by the `BuildPromotionRequest` configuration and Artifactory's promotion rules.
-
-## Workflow Example
+### Complete Workflow Example
 
 ```java
 // 1. Build completes, tracking report is generated
 TrackingReport report = trackingServiceClient.getReport(buildContentId);
-// report.getTrackingID() returns something like "build-12345"
+String trackingId = report.getTrackingID(); // e.g., "build-12345"
 
-// 2. Convert to BuildInfo format (trackingID is used as build number)
-Build build = BuildInfoConverter.fromTrackingReport(
-    report,
-    "my-project"
+// 2. Separate generic downloads from other downloads
+Set<TrackedEntry> nonGenericDownloads = report.getDownloads().stream()
+    .filter(d -> d.getRepoId().getPackageType() != PackageType.GENERIC)
+    .collect(Collectors.toSet());
+
+Set<TrackedEntry> genericDownloads = report.getDownloads().stream()
+    .filter(d -> d.getRepoId().getPackageType() == PackageType.GENERIC)
+    .collect(Collectors.toSet());
+
+// 3. Create primary Build (artifacts + non-generic dependencies)
+TrackingReport primaryReport = TrackingReport.builder()
+    .uploads(report.getUploads())
+    .downloads(nonGenericDownloads)
+    .trackingID(trackingId)
+    .build();
+
+Build primaryBuild = BuildInfoConverter.fromTrackingReport(
+    primaryReport,
+    "pnc",
+    "my-project",
+    RepositoryType.MAVEN,
+    "Maven",
+    "3.8.1",
+    Build.formatBuildStarted(System.currentTimeMillis())
 );
 
-// 3. Upload to Artifactory
-artifactory.builds().uploadBuild(build);
+// 4. Upload primary Build to Artifactory
+artifactory.builds().uploadBuild(primaryBuild);
 
-// 4. Later, promote to releases using the trackingID as build number
-BuildPromotionRequest promotionRequest = new BuildPromotionRequest();
-promotionRequest.setTargetRepo("releases");
-promotionRequest.setStatus("Released");
-artifactory.builds().promoteBuild("my-project", report.getTrackingID(), promotionRequest);
+// 5. Promote artifacts to build repository
+BuildPromotionRequest artifactsPromotion = new BuildPromotionRequest();
+artifactsPromotion.setTargetRepo("pnc-mvn-builds");
+artifactsPromotion.setArtifacts(true);
+artifactsPromotion.setDependencies(false);
+artifactory.builds().promoteBuild(
+    primaryBuild.getName(),
+    primaryBuild.getNumber(),
+    artifactsPromotion
+);
+
+// 6. Promote dependencies to shared imports
+BuildPromotionRequest dependenciesPromotion = new BuildPromotionRequest();
+dependenciesPromotion.setTargetRepo("pnc-mvn-imports");
+dependenciesPromotion.setArtifacts(false);
+dependenciesPromotion.setDependencies(true);
+artifactory.builds().promoteBuild(
+    primaryBuild.getName(),
+    primaryBuild.getNumber(),
+    dependenciesPromotion
+);
+
+// 7. Create and promote generic downloads Build (if any)
+if (!genericDownloads.isEmpty()) {
+    Build genericBuild = BuildInfoConverter.createGenericDownloadsBuild(
+        genericDownloads,
+        "pnc",
+        "my-project",
+        trackingId,
+        "Maven",
+        "3.8.1",
+        Build.formatBuildStarted(System.currentTimeMillis())
+    );
+    
+    artifactory.builds().uploadBuild(genericBuild);
+    
+    BuildPromotionRequest genericPromotion = new BuildPromotionRequest();
+    genericPromotion.setTargetRepo("pnc-generic-downloads");
+    genericPromotion.setArtifacts(false);
+    genericPromotion.setDependencies(true);
+    artifactory.builds().promoteBuild(
+        genericBuild.getName(),
+        genericBuild.getNumber(),
+        genericPromotion
+    );
+}
 ```
+
+## Artifact Type Determination
+
+The converter uses JFrog's canonical `getTypeString()` algorithm to determine artifact types:
+
+### Maven Artifacts
+Uses `ArtifactPathInfo` to extract Maven GAVTC (Group, Artifact, Version, Type, Classifier), then applies JFrog's algorithm:
+- **JAR with classifier**: Uses classifier as type (e.g., "sources", "javadoc", "tests")
+- **JAR without classifier**: Type is "jar"
+- **POM**: Type is "pom"
+- **Other types**: Appends extension with hyphen if not already present (e.g., "war", "bundle-jar")
+
+### NPM and Generic Artifacts
+Uses file extension as the type (e.g., "tgz", "zip", "tar.gz")
+
+### Special Cases
+- **Maven artifacts without extensions**: Uses `.empty` substitute extension (NCL-7238 workaround)
+- **Type length limit**: Falls back to original type if result exceeds 64 characters (Artifactory limit)
 
 ## References
 
@@ -254,7 +409,9 @@ artifactory.builds().promoteBuild("my-project", report.getTrackingID(), promotio
 
 This utility requires:
 - `org.jfrog.buildinfo:build-info-api:2.43.9` (or later)
+- `org.jfrog.buildinfo:build-info-extractor:2.43.9` (for `getTypeString()` algorithm)
 - `org.jboss.pnc:pnc-api` (for TrackingReport and TrackedEntry)
+- `org.commonjava.atlas:atlas-identities` (for Maven artifact path parsing)
 
 ## Testing
 
@@ -262,6 +419,6 @@ See `BuildInfoConverterTest` for comprehensive unit tests covering:
 - TrackingReport with both uploads and downloads
 - TrackingReport with only uploads
 - TrackingReport with only downloads
-- Additional properties handling
 - Empty TrackingReport handling
 - Various package types (Maven, NPM, Generic)
+- Proper artifact type determination using JFrog's algorithm
