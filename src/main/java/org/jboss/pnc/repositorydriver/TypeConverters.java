@@ -1,6 +1,7 @@
 package org.jboss.pnc.repositorydriver;
 
 import org.jboss.pnc.api.constants.RepositoryIdentifier;
+import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jfrog.build.api.builder.ModuleType;
@@ -74,5 +75,18 @@ public class TypeConverters {
             case GENERIC_PROXY -> RepositoryIdentifier.HTTP;
             default -> throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
         };
+    }
+
+    /**
+     * Convert BuildType to build agent name format for environment tools lookup.
+     * MVN is converted to "MAVEN", other types use their name in uppercase.
+     * This matches the format used in PNC Build environment attributes.
+     *
+     * @param buildType the build type to convert
+     * @return the build agent name string (e.g., "MAVEN", "NPM", "GRADLE")
+     */
+    public static String toBuildTypeString(BuildType buildType) {
+        // MVN -> MAVEN, others use their enum name
+        return buildType == BuildType.MVN ? "MAVEN" : buildType.name();
     }
 }

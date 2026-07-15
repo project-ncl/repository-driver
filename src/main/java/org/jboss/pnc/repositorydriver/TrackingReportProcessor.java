@@ -1,6 +1,5 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.apache.commons.lang3.StringUtils.isNotEmpty;
 import static org.jboss.pnc.repositorydriver.ArchiveDownloadEntry.fromTrackedEntry;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.MVN_SHARED_IMPORTS_ID;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.NPM_SHARED_IMPORTS_ID;
@@ -32,10 +31,10 @@ import org.commonjava.atlas.maven.ident.ref.SimpleArtifactRef;
 import org.commonjava.atlas.maven.ident.util.ArtifactPathInfo;
 import org.commonjava.atlas.npm.ident.ref.NpmPackageRef;
 import org.commonjava.atlas.npm.ident.util.NpmPackagePathInfo;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.ArtifactQuality;
 import org.jboss.pnc.api.enums.BuildCategory;
+import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
@@ -44,7 +43,6 @@ import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.common.Strings;
 import org.jboss.pnc.common.version.VersionParser;
-import org.jboss.pnc.dto.Build;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilter;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterArchive;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
@@ -52,7 +50,6 @@ import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
 import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
 import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
-import org.jboss.pnc.repositorydriver.rest.PNCClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,10 +88,6 @@ public class TrackingReportProcessor {
 
     @Inject
     Configuration configuration;
-
-    @Inject
-    @RestClient
-    PNCClient pncClient;
 
     private PatternsList ignoredRepoPatterns;
 
@@ -300,8 +293,8 @@ public class TrackingReportProcessor {
      * @param report the tracking report containing uploads and downloads
      * @param tempBuild whether this is a temporary build
      * @param buildContentId the build content ID (tracking ID)
-     * @param repositoryType the repository type for uploads
      * @param buildCategory the build category
+     * @param repositoryType the repository type for uploads
      * @return BuildInfoPromotion containing both Builds and their target repositories
      * @throws RepositoryDriverException if BuildInfo creation fails
      */
@@ -310,8 +303,12 @@ public class TrackingReportProcessor {
             @SpanAttribute(value = "report") TrackingReport report,
             @SpanAttribute(value = "tempBuild") boolean tempBuild,
             @SpanAttribute(value = "buildContentId") String buildContentId,
-            @SpanAttribute(value = "repositoryType") RepositoryType repositoryType,
-            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory)
+            @SpanAttribute(value = "buildCategory") BuildCategory buildCategory,
+            @SpanAttribute(value = "buildType") BuildType buildType,
+            @SpanAttribute(value = "buildStartTime") Instant buildStartTime,
+            @SpanAttribute(value = "buildName") String buildName,
+            @SpanAttribute(value = "buildVersion") String buildVersion,
+            @SpanAttribute(value = "environmentTools") Map<String, String> environmentTools)
             throws RepositoryDriverException {
 
         Set<TrackedEntry> filteredUploads = new HashSet<>();
@@ -322,57 +319,42 @@ public class TrackingReportProcessor {
         RepositoryId genericDownloadsTarget = null;
         Map<PackageType, RepositoryId> promotionTargetsCache = new HashMap<>();
 
-        // Use repository type as agent name (e.g., "MAVEN", "NPM")
-        String buildAgentName = repositoryType.name();
+        // Derive RepositoryType from BuildType
+        RepositoryType repositoryType = buildType.getRepoType();
+
+        // Use BuildType to get agent name (e.g., MVN -> "MAVEN", NPM -> "NPM")
+        String buildAgentName = TypeConverters.toBuildTypeString(buildType);
         String buildAgentVersion = null;
         String startTime = null;
 
         // Determine module name with cascading fallback:
-        // 1. Use BREW_BUILD_NAME + BREW_BUILD_VERSION from PNC Build attributes (most reliable)
+        // 1. Use buildName + buildVersion from RepositoryPromoteRequest (most reliable)
         // 2. Extract from first upload artifact
-        // 3. Extract from first download artifact
         String moduleName = null;
 
-        // Fetch build information from PNC to get build agent details, start time, and module name
-        if (isNotEmpty(configuration.getPncUrl())) {
-            String build = buildContentId.replace("build-", "");
-            logger.debug("Fetching build information from PNC for build {}", build);
-            Build pncBuild = pncClient.getSpecific(build);
-
-            if (pncBuild != null) {
-                // Extract start time
-                if (pncBuild.getStartTime() != null) {
-                    startTime = pncBuild.getStartTime().toString();
-                }
-
-                // Extract build agent name and version from environment attributes
-                if (pncBuild.getEnvironment() != null && pncBuild.getEnvironment().getAttributes() != null) {
-                    buildAgentVersion = pncBuild.getEnvironment().getAttributes().get(buildAgentName);
-                }
-
-                // Extract module name from build attributes
-                // Combine BREW_BUILD_NAME (groupId:artifactId) with BREW_BUILD_VERSION to form full GAV
-                logger.warn("### Got attributes {}", pncBuild.getAttributes());
-                if (pncBuild.getAttributes() != null) {
-                    String brewBuildName = pncBuild.getAttributes().get("BREW_BUILD_NAME");
-                    String brewBuildVersion = pncBuild.getAttributes().get("BREW_BUILD_VERSION");
-
-                    if (brewBuildName != null && brewBuildVersion != null) {
-                        // Combine to form full GAV: groupId:artifactId:version
-                        moduleName = brewBuildName + ":" + versionParser.parse(brewBuildVersion).unsuffixedVersion();
-                        logger.debug("Extracted module name from PNC Build: {}", moduleName);
-                    }
-                }
-
-                logger.debug(
-                        "Build info for {}: startTime={}, buildAgent={}:{}, moduleName={}",
-                        build,
-                        startTime,
-                        buildAgentName,
-                        buildAgentVersion,
-                        moduleName);
-            }
+        // Extract build information from RepositoryPromoteRequest parameters
+        if (buildStartTime != null) {
+            startTime = buildStartTime.toString();
         }
+
+        // Extract build agent version from environment tools
+        if (environmentTools != null) {
+            buildAgentVersion = environmentTools.get(buildAgentName);
+        }
+
+        // Extract module name from build name and version
+        if (buildName != null && buildVersion != null) {
+            moduleName = buildName + ":" + versionParser.parse(buildVersion).unsuffixedVersion();
+            logger.debug("Extracted module name from RepositoryPromoteRequest: {}", moduleName);
+        }
+
+        logger.debug(
+                "Build info for {}: startTime={}, buildAgent={}:{}, moduleName={}",
+                buildContentId,
+                startTime,
+                buildAgentName,
+                buildAgentVersion,
+                moduleName);
 
         // Process uploads with filtering and determine artifacts target
         // Also extract module name as fallback if PNC Build info is unavailable
@@ -398,6 +380,7 @@ public class TrackingReportProcessor {
                     // Extract module name from first upload as fallback (if not already set)
                     if (moduleName == null) {
                         moduleName = computeIdentifier(upload);
+                        logger.debug("Extracted module name {} from upload {}", moduleName, upload);
                     }
                 }
             }
@@ -453,7 +436,7 @@ public class TrackingReportProcessor {
         if (moduleName == null) {
             throw new RepositoryDriverException(
                     "Unable to determine module name for build %s. "
-                            + "No BREW_BUILD_NAME in PNC Build attributes, and no valid artifacts in uploads",
+                            + "No buildName/buildVersion in RepositoryPromoteRequest, and no valid artifacts in uploads",
                     buildContentId);
         }
 

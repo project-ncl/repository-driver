@@ -172,6 +172,10 @@ public class DriverTest {
                 .tempBuild(false)
                 .buildCategory(BuildCategory.STANDARD)
                 .callback(callbackRequest)
+                .rtBuildStartTime(java.time.Instant.now())
+                .rtBuildName("com.example:test-artifact")
+                .rtBuildVersion("1.0.0")
+                .rtEnvironmentTools(java.util.Map.of("MAVEN", "3.6.3"))
                 .build();
 
         // when
@@ -215,6 +219,10 @@ public class DriverTest {
                 .buildCategory(BuildCategory.STANDARD)
                 .callback(callbackRequest)
                 .heartBeat(heartbeatRequest)
+                .rtBuildStartTime(java.time.Instant.now())
+                .rtBuildName("com.example:test-artifact")
+                .rtBuildVersion("1.0.0")
+                .rtEnvironmentTools(java.util.Map.of("MAVEN", "3.6.3"))
                 .build();
 
         // when

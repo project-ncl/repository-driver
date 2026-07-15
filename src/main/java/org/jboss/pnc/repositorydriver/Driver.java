@@ -307,8 +307,12 @@ public class Driver {
                             report,
                             promoteRequest.isTempBuild(),
                             buildContentId,
-                            buildType.getRepoType(),
-                            buildCategory);
+                            buildCategory,
+                            buildType,
+                            promoteRequest.getRtBuildStartTime(),
+                            promoteRequest.getRtBuildName(),
+                            promoteRequest.getRtBuildVersion(),
+                            promoteRequest.getRtEnvironmentTools());
 
                     // Some basic verification
                     if (uploadedArtifacts
