@@ -2,15 +2,17 @@ package org.jboss.pnc.repositorydriver;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import jakarta.inject.Inject;
 
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.BuildCategory;
-import org.jboss.pnc.api.enums.RepositoryType;
+import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
@@ -74,8 +76,12 @@ public class TrackingReportProcessorTest {
                 report,
                 false,
                 "test-build-id",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
         // then: Only non-ignored downloads matching filter patterns are included
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
@@ -131,8 +137,12 @@ public class TrackingReportProcessorTest {
                 report,
                 false,
                 "test-build-id",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
         // then: Module names are correctly determined from uploads based on package type
         org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
@@ -171,23 +181,27 @@ public class TrackingReportProcessorTest {
                 .uploads(uploads)
                 .build();
 
-        // when: createPromotionBuildInfo is called (PNCClientMock provides BREW_BUILD_NAME)
+        // when: createPromotionBuildInfo is called with build name from parameters
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
-                "test-id", // This will trigger PNCClientMock to return Build with BREW_BUILD_NAME
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                "test-id",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:brew-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
-        // then: Module name comes from PNC Build attributes (BREW_BUILD_NAME:BREW_BUILD_VERSION)
+        // then: Module name comes from parameters passed to createPromotionBuildInfo
         org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
         String moduleName = buildInfo.getName();
 
-        // PNCClientMock returns BREW_BUILD_NAME="com.example:test-artifact" and BREW_BUILD_VERSION="1.0.0"
+        // Module name is passed as parameter: "com.example:brew-artifact"
         Assertions.assertEquals(
-                "com.example:test-artifact:1.0.0",
+                "com.example:brew-artifact:1.0.0",
                 moduleName,
-                "Module name should come from PNC Build BREW_BUILD_NAME and BREW_BUILD_VERSION");
+                "Module name should come from parameters passed to createPromotionBuildInfo");
     }
 
     @Test
@@ -217,22 +231,25 @@ public class TrackingReportProcessorTest {
                 .uploads(uploads)
                 .build();
 
-        // when: createPromotionBuildInfo is called with build ID that has no BREW_BUILD_NAME
-        // Note: PNCClientMock only provides BREW_BUILD_NAME for buildId "test-id"
+        // when: createPromotionBuildInfo is called with module name from uploads
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
                 "build-without-brew-name",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:fallback-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
-        // then: Module name falls back to identifier from uploads
+        // then: Module name comes from parameters passed to createPromotionBuildInfo
         org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
         String moduleName = buildInfo.getName();
 
         Assertions.assertTrue(
-                moduleName.contains("org.example:mylib"),
-                "Module name should fall back to upload identifier when BREW_BUILD_NAME not available: " + moduleName);
+                moduleName.contains("com.example:fallback-artifact"),
+                "Module name should come from parameters: " + moduleName);
     }
 
     @Test
@@ -263,16 +280,20 @@ public class TrackingReportProcessorTest {
                 .uploads(new HashSet<>())
                 .build();
 
-        // when/then: createPromotionBuildInfo throws exception when no uploads and no BREW_BUILD_NAME
+        // when/then: createPromotionBuildInfo throws exception when no module name provided
         RepositoryDriverException exception = Assertions.assertThrows(
                 RepositoryDriverException.class,
                 () -> trackingReportProcessor.createPromotionBuildInfo(
                         report,
                         false,
                         "build-without-brew-name",
-                        RepositoryType.MAVEN,
-                        BuildCategory.STANDARD),
-                "Should throw exception when no uploads and no BREW_BUILD_NAME");
+                        BuildCategory.STANDARD,
+                        BuildType.MVN,
+                        Instant.now(),
+                        null, // No module name provided
+                        "1.0.0",
+                        Map.of("MAVEN", "3.6.3")),
+                "Should throw exception when no module name provided");
 
         Assertions.assertTrue(
                 exception.getMessage().contains("Unable to determine module name"),
@@ -295,8 +316,12 @@ public class TrackingReportProcessorTest {
                         report,
                         false,
                         "build-without-brew-name",
-                        RepositoryType.MAVEN,
-                        BuildCategory.STANDARD),
+                        BuildCategory.STANDARD,
+                        BuildType.MVN,
+                        Instant.now(),
+                        null, // No module name provided
+                        "1.0.0",
+                        Map.of("MAVEN", "3.6.3")),
                 "Should throw exception when module name cannot be determined");
 
         Assertions.assertTrue(
@@ -334,18 +359,22 @@ public class TrackingReportProcessorTest {
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
-                "test-id", // PNCClientMock provides BREW_BUILD_NAME
-                RepositoryType.NPM,
-                BuildCategory.STANDARD);
+                "test-id",
+                BuildCategory.STANDARD,
+                BuildType.NPM,
+                Instant.now(),
+                "@scope/npm-package",
+                "1.0.0",
+                Map.of("NPM", "8.19.2"));
 
-        // then: Module name comes from PNC Build attributes
+        // then: Module name comes from parameters passed to createPromotionBuildInfo
         org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
         String moduleName = buildInfo.getName();
 
         Assertions.assertEquals(
-                "com.example:test-artifact:1.0.0",
+                "@scope/npm-package:1.0.0",
                 moduleName,
-                "NPM module name should also come from PNC Build BREW_BUILD_NAME");
+                "NPM module name should come from parameters passed to createPromotionBuildInfo");
     }
 
     @Test
@@ -362,8 +391,12 @@ public class TrackingReportProcessorTest {
                 report,
                 false,
                 "test-build-id",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
         // then: Should have no targets for empty report
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion even for empty report");
@@ -476,8 +509,12 @@ public class TrackingReportProcessorTest {
                 report,
                 false,
                 "test-build-id",
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
         // then: Should have two separate Build objects (primary and generic) with multiple targets
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
@@ -612,8 +649,12 @@ public class TrackingReportProcessorTest {
                 report,
                 false,
                 buildContentId,
-                RepositoryType.MAVEN,
-                BuildCategory.STANDARD);
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
         Assertions.assertNotNull(promotion.primaryBuild(), "Primary build should be created");
         Assertions.assertNotNull(promotion.artifactsTarget(), "Artifacts target should be set");
