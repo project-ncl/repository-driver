@@ -82,9 +82,11 @@ import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.impl.util.Util;
+import org.jfrog.artifactory.client.model.LocalRepository;
 import org.jfrog.artifactory.client.model.PromotionMessage;
 import org.jfrog.artifactory.client.model.Repository;
 import org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl;
+import org.jfrog.artifactory.client.model.impl.RepositoryBuildersImpl;
 import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.artifactory.client.model.repository.settings.impl.MavenRepositorySettingsImpl;
@@ -331,7 +333,7 @@ public class Driver {
 
                     if (promotion.primaryBuild().getModules() != null &&
                             promotion.primaryBuild().getModules().get(0).getArtifacts() != null &&
-                            promotion.primaryBuild().getModules().get(0).getArtifacts().size() > 0) {
+                            !promotion.primaryBuild().getModules().get(0).getArtifacts().isEmpty()) {
                         // In artifactory the build-info recording only works for uploads if the build name
                         // and build number are set on the artifacts.
                         artifactory
@@ -418,6 +420,22 @@ public class Driver {
                                 promotion.genericDownloadsTarget().getPath());
                         promoteToRepository(genericBuild, promotion.genericDownloadsTarget(), false);
                     }
+
+                    // TODO: Setting repositories to readonly. Currently we're using blackedOut
+                    //     which is "Disable Artifact Resolution in Repository" in the UI
+                    report.getUploads().stream().findAny().ifPresent(u -> {
+                        String id = u.getRepoId().getPath();
+                        Repository repo = artifactory.repository(id).get();
+                        logger.info("### From uploads found repository {} with repo {}", id, repo);
+                        if (repo instanceof LocalRepository) {
+                            artifactory.repositories()
+                                    .update(
+                                            RepositoryBuildersImpl.create()
+                                                    .builderFrom((LocalRepository) repo)
+                                                    .blackedOut(true)
+                                                    .build());
+                        }
+                    });
                 } catch (RepositoryDriverException e) {
                     String message = "Failed promoting downloaded or uploaded artifacts: ";
                     userLog.error(message, e);
@@ -836,11 +854,6 @@ public class Driver {
                 .build();
         String r = artifactory.repositories().create(REPO_UI_POSITION, repository);
 
-        logger.info(
-                "### setupBuildRepos::created local repo: {} extraDependencyRepos {}",
-                r,
-                extraDependencyRepositories);
-
         Repository group = ArtifactoryBuildGroupBuilder
                 .builder(configuration, artifactory, settings, virtualName)
                 .withDescription(
@@ -855,11 +868,9 @@ public class Driver {
                 // build-specific repos
                 .addExtraConstituents(extraDependencyRepositories)
                 .build();
-        String changelog = "Creating repository group for resolving artifacts (repo: " + buildContentId
-                + "), with tempBuild: " + tempBuild;
-        logger.info(changelog);
-        r = artifactory.repositories().create(REPO_UI_POSITION, group);
-        logger.info("### setupBuildRepos::created virtual repo: {}", r);
+        String v = artifactory.repositories().create(REPO_UI_POSITION, group);
+
+        logger.info("Created local repository {} and virtual repository {}", r, v);
     }
 
     /**
@@ -934,9 +945,6 @@ public class Driver {
             logger.error(message, e);
             throw new PromotionValidationException(message, e);
         }
-
-        // TODO: Cleanup and set repositories to readonly. While changing maven repositories
-        //     not to handle release or snapshot deploymentType might work not sure about npm or generic repos
     }
 
     private Runnable heartBeatSender(Request heartBeat) {
