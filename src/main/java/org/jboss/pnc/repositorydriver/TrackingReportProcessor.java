@@ -50,6 +50,7 @@ import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterPromotion;
 import org.jboss.pnc.repositorydriver.artifactfilter.PatternsList;
 import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
 import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
+import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

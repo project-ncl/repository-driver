@@ -5,7 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.pnc.repositorydriver.RepositoryDriverException;
+import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.ArtifactoryClientBuilder;
 import org.slf4j.Logger;
