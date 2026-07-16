@@ -24,14 +24,22 @@ public class ArchiveDownloadEntry {
     public static ArchiveDownloadEntry fromTrackedEntry(
             TrackedEntry entry,
             TargetRepository targetRepository) {
-        // targetRepository.getRepositoryPath() contains both project and name in format: {project}-{name}
-        // We need to split it to extract the project and name parts
+        // targetRepository.getRepositoryPath() is an Artifactory URL path, e.g.:
+        //   /artifactory/{project}-{name}
+        //   /artifactory/api/npm/{project}-{name}
+        // Strip the known prefixes to recover the bare "{project}-{name}" segment.
         String repositoryPath = targetRepository.getRepositoryPath();
+        if (repositoryPath.startsWith("/artifactory/api/npm/")) {
+            repositoryPath = repositoryPath.substring("/artifactory/api/npm/".length());
+        } else if (repositoryPath.startsWith("/artifactory/")) {
+            repositoryPath = repositoryPath.substring("/artifactory/".length());
+        }
 
         int firstHyphen = repositoryPath.indexOf('-');
         if (firstHyphen <= 0) {
             throw new IllegalArgumentException(
-                    "Invalid repository path format: " + repositoryPath + ". Expected format: {project}-{name}");
+                    "Invalid repository path format: " + targetRepository.getRepositoryPath()
+                            + ". Expected format: /artifactory/{project}-{name}");
         }
 
         String project = repositoryPath.substring(0, firstHyphen);
