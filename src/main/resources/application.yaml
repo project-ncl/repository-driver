@@ -139,5 +139,5 @@ repository-driver:
     # TEMPORARY: Use internal Artifactory queries instead of external tracking service
     # Set to true until external tracking service is deployed
     # TODO: Remove this flag when external service is ready
-    use-internal-tracking: false
+    use-internal-tracking: true
     api-url: http://localhost:8080

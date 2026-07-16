@@ -123,6 +123,7 @@ public class TrackingReportProcessor {
                 }
 
                 TargetRepository targetRepository = getDownloadsTargetRepository(download);
+                logger.info("### Download target repo: {}", targetRepository);
 
                 // ignored dependency sources for promotion are the internal ones, so those artifacts are built inhouse
                 ArtifactQuality quality = ignoreDependencySource(repoId) ? ArtifactQuality.NEW
@@ -236,6 +237,8 @@ public class TrackingReportProcessor {
                         .buildCategory(buildCategory)
                         .build();
 
+                logger.info("### Upload target repo: {}", targetRepository);
+
                 artifacts.add(validateArtifact(artifact));
             }
         }
@@ -295,7 +298,11 @@ public class TrackingReportProcessor {
      * @param tempBuild whether this is a temporary build
      * @param buildContentId the build content ID (tracking ID)
      * @param buildCategory the build category
-     * @param repositoryType the repository type for uploads
+     * @param buildType the repository type for uploads
+     * @param buildStartTime the start time from PNC
+     * @param buildName the name of the build
+     * @param buildVersion the RH version of the build
+     * @param environmentTools an environment map from PNC Config
      * @return BuildInfoPromotion containing both Builds and their target repositories
      * @throws RepositoryDriverException if BuildInfo creation fails
      */
@@ -718,29 +725,28 @@ public class TrackingReportProcessor {
         RepositoryId repoId = download.getRepoId();
         PackageType packageType = download.getRepoId().getPackageType();
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
-        String repoPath;
+        String repoPath = "";
         String identifier = TypeConverters.toRepositoryIdentifier(repoType);
 
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
             if (ignoreDependencySource(repoId)) {
-                repoPath = repoId.getPath();
+                // TODO: Historic? Need to check what this was meant to do.
+                repoPath = "/artifactory/" + repoId.getPath();
             } else {
-                repoPath = download.getRepoId().getProject() + "-" + TypeConverters.toRepositoryTypeString(repoType)
-                        + "-imports";
+                switch (repoType) {
+                    case MAVEN ->
+                        repoPath = "/artifactory/" + download.getRepoId().getProject() + "-" + MVN_SHARED_IMPORTS_ID;
+                    case NPM -> repoPath = "/artifactory/api/npm/" + download.getRepoId().getProject() + "-"
+                            + NPM_SHARED_IMPORTS_ID;
+                }
             }
-            logger.info(
-                    "### getDownloadsTargetRepo::ignoreDepSource {} and repoPath {} repoId {}",
-                    ignoreDependencySource(repoId),
-                    repoPath,
-                    repoId);
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
-            repoPath = download.getRepoId().getProject() + "-" + RepositoryConstants.GENERIC_DOWNLOADS;
+            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-"
+                    + RepositoryConstants.GENERIC_DOWNLOADS;
         } else {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported by Indy repo manager driver.");
         }
-
-        logger.info("### getDownloadsTargetRepository::repoId {} repoType {} repoPath {} ", repoId, repoType, repoPath);
 
         return TargetRepository.builder()
                 .identifier(identifier)
@@ -781,8 +787,12 @@ public class TrackingReportProcessor {
 
         String target = getBuildPromotionTarget(TypeConverters.toPackageType(repoType), buildCategory, tempBuild);
         String identifier = TypeConverters.toRepositoryIdentifier(repoType);
-        String repoPath = configuration.getDeploymentType() + "-" + target;
+        String repoPath = "";
 
+        switch (repoType) {
+            case MAVEN -> repoPath = "/artifactory/" + configuration.getDeploymentType() + "-" + target;
+            case NPM -> repoPath = "/artifactory/api/npm/" + configuration.getDeploymentType() + "-" + target;
+        }
         return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
