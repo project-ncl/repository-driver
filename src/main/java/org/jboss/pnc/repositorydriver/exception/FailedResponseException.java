@@ -1,4 +1,4 @@
-package org.jboss.pnc.repositorydriver;
+package org.jboss.pnc.repositorydriver.exception;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
