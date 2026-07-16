@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jboss.pnc.repositorydriver;
+package org.jboss.pnc.repositorydriver.exception;
 
 import java.text.MessageFormat;
 import java.util.IllegalFormatException;
