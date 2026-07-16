@@ -21,7 +21,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
 
-import org.jboss.pnc.repositorydriver.StoppingException;
+import org.jboss.pnc.repositorydriver.exception.StoppingException;
 
 /**
  * @author Matej Lazar &lt;mlazar@redhat.com&gt;
