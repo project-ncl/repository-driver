@@ -1,6 +1,15 @@
 quarkus:
   application:
     name: pnc-repository-driver
+  index-dependency:
+    tracking-service:
+      group-id: org.jboss.pnc
+      artifact-id: pnc-api
+      classifier: jakarta
+  rest-client:
+    tracking-service:
+      url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
+      scope: jakarta.inject.Singleton
   otel:
     enabled: true
     traces:
@@ -67,21 +76,26 @@ pnc_client_auth:
   #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
 
 repository-driver:
+  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  environment: DEV # Artifactory environment (e.g., DEV, PROD)
   # Build Category Configuration
   build-categories:
     # Default category
     default:
-      build-promotion-target: pnc-builds
-      temp-build-promotion-target: temporary-builds
+      # Note - both these targets will have the deployment prefixed so a target
+      # of mvn-builds could become pnc-devel-mvn-builds
+      build-promotion-target: builds
+      temp-build-promotion-target: temp-builds
+      # This represents the components of the virtual group.
       build-group-constituents:
         temp-hosted:
-          - temporary-builds
+          - temp-builds
         temp-group:
-          - builds-untested+shared-imports+public
+          builds-imports-public
         hosted: [] # deliberately left empty
+        # Indy allows same name for group/hosted but Artifactory doesn't
         group:
-          - builds-untested+shared-imports+public
-
+          - builds-imports-public
   ignored-path-patterns:
     archive:
       maven:
@@ -97,6 +111,9 @@ repository-driver:
     promotion:
     archive:
   self-base-url:
+  artifactory-client:
+    url:
+    access-token:
   indy-client:
     api-url:
     request-timeout: 30
@@ -110,6 +127,7 @@ repository-driver:
   callback-retry-delay-msec: 500
   callback-retry-max-delay-msec: 5000
   archive-service:
+    enabled: true
     api-url:
     prefer-http-2: true
     running-wait-for: 60
@@ -117,95 +135,9 @@ repository-driver:
     running-retry-max-delay-msec: 5000
   heartbeat:
     interval: 30
-
-"%test":
-  quarkus:
-    arc:
-      # to use the injected Mock instead
-      exclude-types: org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
-    oidc:
-      enabled: false
-    oidc-client:
-      enabled: false
-    http:
-      auth:
-        basic: false
-    security:
-      ldap:
-        enabled: false
-    log:
-      console:
-        json: false
-  repository-driver:
-    http-client:
-      connect-timeout: 1
-      request-timeout: 3
-
-    # Build Category Configuration
-    build-categories:
-      # Default category
-      default:
-        build-promotion-target: target
-        temp-build-promotion-target: temporary-target
-        build-group-constituents:
-          temp-hosted:
-            - constituent-temp-hosted
-          temp-group:
-            - constituent-temp-group
-          hosted:
-            - consituent-hosted
-          group:
-            - constituent-group
-
-      # Standard category
-      standard:
-        build-group-constituents:
-          temp-hosted:
-            - temp-central
-          temp-group: []
-          hosted:
-            - central
-
-      # Service category
-      service:
-        build-promotion-target: service-builds
-        temp-build-promotion-target: temporary-service-builds
-        build-group-constituents:
-          temp-hosted:
-            - central
-          temp-group: []
-          hosted:
-            - central
-          group: []
-    ignored-path-patterns:
-      archive:
-        maven: [".*/maven-metadata\\.xml(\\..+)?$"]
-      promotion:
-        maven: [".*/maven-metadata\\.xml$", ".*\\.sha1$"]
-        npm:
-        generic:
-      result:
-        maven:
-        npm:
-        generic:
-    indy-sidecar:
-      enabled: false
-      url: http://sidecar:8093/
-    ignored-repo-patterns:
-      promotion: ["maven:.*:ignored", "maven:.+:tobeigno.+"]
-      archive: ["maven:.*:build-yyyyy", "maven:hosted:build-xxxxx"]
-    self-base-url: "http://localhost:8081/"
-    indy-client:
-      api-url: "http://indy-host/api/"
-    archive-service:
-      api-url: "http://archive-service/archive/"
-    bifrost-uploader:
-      api-url: "http://bifrost-host/"
-    heartbeat:
-      interval: 1
-
-"%dev":
-  quarkus:
-    log:
-      console:
-        json: false
+  tracking-service:
+    # TEMPORARY: Use internal Artifactory queries instead of external tracking service
+    # Set to true until external tracking service is deployed
+    # TODO: Remove this flag when external service is ready
+    use-internal-tracking: true
+    api-url: http://localhost:8080

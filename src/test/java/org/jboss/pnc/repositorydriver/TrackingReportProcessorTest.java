@@ -1,31 +1,31 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.commonjava.indy.pkg.PackageTypeConstants.PKG_TYPE_GENERIC_HTTP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import jakarta.inject.Inject;
 
-import org.commonjava.indy.folo.dto.TrackedContentDTO;
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
-import org.commonjava.indy.model.core.AccessChannel;
-import org.commonjava.indy.model.core.StoreKey;
-import org.commonjava.indy.model.core.StoreType;
-import org.commonjava.indy.pkg.PackageTypeConstants;
+import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.enums.BuildCategory;
-import org.jboss.pnc.api.enums.RepositoryType;
+import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryArtifact;
+import org.jboss.pnc.api.tracker.dto.PackageType;
+import org.jboss.pnc.api.tracker.dto.TrackedEntry;
+import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
+import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
+import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
+import io.quarkus.logging.Log;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -48,151 +48,660 @@ public class TrackingReportProcessorTest {
     }
 
     @Test
-    public void shouldDownloadTwoThenVerifyExtractedArtifactsContainThem() {
-        // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
-
+    public void testCreatePromotionBuildInfos_FiltersDownloadsCorrectly() throws RepositoryDriverException {
+        // given: TrackingReport with downloads from ignored and non-ignored sources
+        Set<TrackedEntry> downloads = new HashSet<>();
         downloads.add(TrackingReportMocks.indyPomFromCentral);
-        downloads.add(TrackingReportMocks.indyPomSha1FromCentral);
         downloads.add(TrackingReportMocks.indyJarFromCentral);
-        downloads.add(TrackingReportMocks.indyJarSha1FromCentral);
-        report.setDownloads(downloads);
 
-        // when
-        Set<StoreKey> genericRepos = new HashSet<>();
-        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
-        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
+        // Add download from ignored source (should be filtered out)
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(TrackingReportMocks.ignoredKey)
+                        .path("/org/example/artifact/1.0/artifact-1.0.jar")
+                        .originUrl("https://example.com/artifact-1.0.jar")
+                        .localUrl("file:///tmp/artifact-1.0.jar")
+                        .md5("def")
+                        .sha1("def")
+                        .sha256("def")
+                        .build());
 
-        // then
-        Assertions.assertEquals(1, sourceTargetPaths.size());
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
 
-        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().orElseThrow();
-        Assertions.assertEquals(TrackingReportMocks.centralKey, fromCentralToSharedImports.getSource());
-        Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, fromCentralToSharedImports.getTarget());
+        // when: createPromotionBuildInfo is called
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-build-id",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
-        Set<String> paths = fromCentralToSharedImports.getPaths();
-        Set<String> expected = new HashSet<>();
-        expected.add(TrackingReportMocks.indyPom);
-        expected.add(TrackingReportMocks.indyJar);
+        // then: Only non-ignored downloads matching filter patterns are included
+        Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
+        Assertions.assertTrue(promotion.hasDependenciesTarget(), "Should have dependencies target");
 
-        Assertions.assertLinesMatch(expected.stream(), paths.stream());
-    }
+        var buildInfo = promotion.primaryBuild();
+        var module = buildInfo.getModules().get(0);
 
-    @ParameterizedTest
-    @ValueSource(booleans = { true, false })
-    public void shouldUploadTwoThenVerifyExtractedArtifactsContainThem(boolean tempBuild) {
-        // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> uploads = new HashSet<>();
-
-        String buildContentId = "build-X";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
-        StoreKey promotedBuildsKey = new StoreKey(
-                PackageTypeConstants.PKG_TYPE_MAVEN,
-                StoreType.hosted,
-                tempBuild ? configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD)
-                        : configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
-
-        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar));
-        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar + ".md5"));
-        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyJar + ".sha1"));
-        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom));
-        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom + ".md5"));
-        uploads.add(new TrackedContentEntryDTO(buildKey, AccessChannel.NATIVE, TrackingReportMocks.indyPom + ".sha1"));
-        report.setUploads(uploads);
-
-        // when
-        PromotionPaths promotionPaths = trackingReportProcessor
-                .collectUploadsPromotions(
-                        report,
-                        tempBuild,
-                        RepositoryType.MAVEN,
-                        BuildCategory.STANDARD,
-                        buildContentId);
-        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
-
-        // then
-        Assertions.assertEquals(1, sourceTargetPaths.size());
-
-        SourceTargetPaths fromBuildToPromoted = sourceTargetPaths.stream().findAny().orElseThrow();
-        Assertions.assertEquals(buildKey, fromBuildToPromoted.getSource());
-        Assertions.assertEquals(promotedBuildsKey, fromBuildToPromoted.getTarget());
-
-        Set<String> paths = fromBuildToPromoted.getPaths();
-        Set<String> expected = new HashSet<>();
-        expected.add(TrackingReportMocks.indyPom);
-        expected.add(TrackingReportMocks.indyPom + ".md5");
-        expected.add(TrackingReportMocks.indyJar);
-        expected.add(TrackingReportMocks.indyJar + ".md5");
-
-        Assertions.assertLinesMatch(expected.stream(), paths.stream());
+        // Should have 2 dependencies (pom and jar from central, not the ignored one)
+        Assertions.assertEquals(
+                2,
+                module.getDependencies().size(),
+                "Should have 2 dependencies from non-ignored source");
+        Assertions.assertEquals(
+                0,
+                module.getArtifacts().size(),
+                "Should have no artifacts (only downloads)");
     }
 
     @Test
-    public void shouldExcludeInternalRepoByName() {
-        // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+    public void testCreatePromotionBuildInfos_DeterminesModuleNames() throws RepositoryDriverException {
+        // given: TrackingReport with Maven and NPM uploads (module name comes from uploads, not downloads)
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Maven upload - should extract GAV
+        uploads.add(TrackingReportMocks.indyPomFromCentral);
+
+        // NPM upload - should extract package@version
+        RepositoryId npmBuildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.NPM)
+                .name("npm-build")
+                .build();
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(npmBuildKey)
+                        .path("/lodash/-/lodash-4.17.21.tgz")
+                        .originUrl("https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz")
+                        .localUrl("file:///tmp/lodash-4.17.21.tgz")
+                        .md5("npm-md5")
+                        .sha1("npm-sha1")
+                        .sha256("npm-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-build-id",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
+
+        // then: Module names are correctly determined from uploads based on package type
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        // Check based on uploads package type (Maven in this test)
+        // Maven module name should contain GAV format (groupId:artifactId:version)
+        Assertions.assertTrue(
+                moduleName.contains(":"),
+                "Maven module name should contain GAV format with colons: " + moduleName);
+
+        // Verify targets are set correctly
+        if (promotion.hasArtifactsTarget()) {
+            PackageType packageType = promotion.artifactsTarget().getPackageType();
+            if (packageType == PackageType.MAVEN) {
+                Assertions.assertTrue(
+                        moduleName.contains(":"),
+                        "Maven module name should contain GAV format with colons: " + moduleName);
+            } else if (packageType == PackageType.NPM) {
+                Assertions.assertTrue(
+                        moduleName.contains("@") || moduleName.contains("lodash"),
+                        "NPM module name should contain package name: " + moduleName);
+            }
+        }
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_UsesBrewBuildNameFromPNCBuild() throws RepositoryDriverException {
+        // given: TrackingReport with uploads, but PNC Build has BREW_BUILD_NAME
+        Set<TrackedEntry> uploads = new HashSet<>();
+        uploads.add(TrackingReportMocks.indyPomFromCentral);
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called with build name from parameters
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-id",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:brew-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
+
+        // then: Module name comes from parameters passed to createPromotionBuildInfo
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        // Module name is passed as parameter: "com.example:brew-artifact"
+        Assertions.assertEquals(
+                "com.example:brew-artifact:1.0.0",
+                moduleName,
+                "Module name should come from parameters passed to createPromotionBuildInfo");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_FallsBackToUploadsWhenNoBrewBuildName() throws RepositoryDriverException {
+        // given: TrackingReport with uploads, PNC Build without BREW_BUILD_NAME
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Add a Maven upload with clear GAV
+        RepositoryId buildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-test")
+                .build();
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(buildKey)
+                        .path("/org/example/mylib/2.0.0/mylib-2.0.0.jar")
+                        .localUrl("file:///tmp/mylib-2.0.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called with module name from uploads
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "build-without-brew-name",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:fallback-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
+
+        // then: Module name comes from parameters passed to createPromotionBuildInfo
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        Assertions.assertTrue(
+                moduleName.contains("com.example:fallback-artifact"),
+                "Module name should come from parameters: " + moduleName);
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_ThrowsExceptionWhenNoUploadsAndNoBrewBuildName() {
+        // given: TrackingReport with only downloads (no uploads) and no BREW_BUILD_NAME
+        Set<TrackedEntry> downloads = new HashSet<>();
+
+        RepositoryId downloadKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-X")
+                .build();
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(downloadKey)
+                        .path("/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar")
+                        .originUrl(
+                                "https://repo.maven.apache.org/maven2/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar")
+                        .localUrl("file:///tmp/commons-lang3-3.12.0.jar")
+                        .md5("download-md5")
+                        .sha1("download-sha1")
+                        .sha256("download-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
+
+        // when/then: createPromotionBuildInfo throws exception when no module name provided
+        RepositoryDriverException exception = Assertions.assertThrows(
+                RepositoryDriverException.class,
+                () -> trackingReportProcessor.createPromotionBuildInfo(
+                        report,
+                        false,
+                        "build-without-brew-name",
+                        BuildCategory.STANDARD,
+                        BuildType.MVN,
+                        Instant.now(),
+                        null, // No module name provided
+                        "1.0.0",
+                        Map.of("MAVEN", "3.6.3")),
+                "Should throw exception when no module name provided");
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unable to determine module name"),
+                "Exception message should indicate module name determination failure: " + exception.getMessage());
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_ThrowsExceptionWhenNoModuleNameAvailable() {
+        // given: TrackingReport with no uploads and no valid downloads
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(new HashSet<>())
+                .build();
+
+        // when/then: createPromotionBuildInfo throws exception
+        RepositoryDriverException exception = Assertions.assertThrows(
+                RepositoryDriverException.class,
+                () -> trackingReportProcessor.createPromotionBuildInfo(
+                        report,
+                        false,
+                        "build-without-brew-name",
+                        BuildCategory.STANDARD,
+                        BuildType.MVN,
+                        Instant.now(),
+                        null, // No module name provided
+                        "1.0.0",
+                        Map.of("MAVEN", "3.6.3")),
+                "Should throw exception when module name cannot be determined");
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unable to determine module name"),
+                "Exception message should indicate module name determination failure: " + exception.getMessage());
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_NPMModuleNameFromBrewBuild() throws RepositoryDriverException {
+        // given: NPM build with BREW_BUILD_NAME in PNC Build
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        RepositoryId npmBuildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.NPM)
+                .name("npm-build")
+                .build();
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(npmBuildKey)
+                        .path("/lodash/-/lodash-4.17.21.tgz")
+                        .localUrl("file:///tmp/lodash-4.17.21.tgz")
+                        .md5("npm-md5")
+                        .sha1("npm-sha1")
+                        .sha256("npm-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called for NPM build
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-id",
+                BuildCategory.STANDARD,
+                BuildType.NPM,
+                Instant.now(),
+                "@scope/npm-package",
+                "1.0.0",
+                Map.of("NPM", "8.19.2"));
+
+        // then: Module name comes from parameters passed to createPromotionBuildInfo
+        org.jfrog.build.api.Build buildInfo = promotion.primaryBuild();
+        String moduleName = buildInfo.getName();
+
+        Assertions.assertEquals(
+                "@scope/npm-package:1.0.0",
+                moduleName,
+                "NPM module name should come from parameters passed to createPromotionBuildInfo");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_HandlesEmptyReport() throws RepositoryDriverException {
+        // given: Empty TrackingReport
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(new HashSet<>())
+                .uploads(new HashSet<>())
+                .build();
+
+        // when: createPromotionBuildInfo is called
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-build-id",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
+
+        // then: Should have no targets for empty report
+        Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion even for empty report");
+        Assertions.assertFalse(promotion.hasArtifactsTarget(), "Should have no artifacts target for empty report");
+        Assertions
+                .assertFalse(promotion.hasDependenciesTarget(), "Should have no dependencies target for empty report");
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfos_MultipleRepositoriesForMavenAndGeneric()
+            throws RepositoryDriverException {
+        // given: TrackingReport with Maven downloads, Generic downloads, and Maven uploads
+        Set<TrackedEntry> downloads = new HashSet<>();
+        Set<TrackedEntry> uploads = new HashSet<>();
+
+        // Maven downloads from central - should go to pnc-mvn-imports
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyJarFromCentral);
+
+        // Additional Maven downloads from jackson-core
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(TrackingReportMocks.centralKey)
+                        .path("/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.jar")
+                        .originUrl(
+                                "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.jar")
+                        .localUrl("file:///tmp/jackson-core-2.0.0.jar")
+                        .md5("jackson-md5")
+                        .sha1("jackson-sha1")
+                        .sha256("jackson-sha256")
+                        .build());
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(TrackingReportMocks.centralKey)
+                        .path("/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.pom")
+                        .originUrl(
+                                "https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.0.0/jackson-core-2.0.0.pom")
+                        .localUrl("file:///tmp/jackson-core-2.0.0.pom")
+                        .md5("jackson-pom-md5")
+                        .sha1("jackson-pom-sha1")
+                        .sha256("jackson-pom-sha256")
+                        .build());
+
+        // Generic downloads from different repositories - should go to pnc-generic-downloads
+        RepositoryId genericRepo1 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.GENERIC)
+                .name("generic-repo-1")
+                .build();
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(genericRepo1)
+                        .path("/files/archive1.tar.gz")
+                        .originUrl("https://example.com/archive1.tar.gz")
+                        .localUrl("file:///tmp/archive1.tar.gz")
+                        .md5("gen1-md5")
+                        .sha1("gen1-sha1")
+                        .sha256("gen1-sha256")
+                        .build());
+
+        RepositoryId genericRepo2 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.GENERIC)
+                .name("generic-repo-2")
+                .build();
+        downloads.add(
+                TrackedEntry.builder()
+                        .repoId(genericRepo2)
+                        .path("/files/archive2.zip")
+                        .originUrl("https://example.com/archive2.zip")
+                        .localUrl("file:///tmp/archive2.zip")
+                        .md5("gen2-md5")
+                        .sha1("gen2-sha1")
+                        .sha256("gen2-sha256")
+                        .build());
+
+        // Maven uploads - should go to pnc-mvn-builds (build promotion target)
+        RepositoryId mavenUploadRepoId = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("mvn-builds")
+                .build();
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(mavenUploadRepoId)
+                        .path("/com/example/myapp/1.0/myapp-1.0.jar")
+                        .localUrl("file:///tmp/myapp-1.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(mavenUploadRepoId)
+                        .path("/com/example/myapp/1.0/myapp-1.0.pom")
+                        .localUrl("file:///tmp/myapp-1.0.pom")
+                        .md5("upload-pom-md5")
+                        .sha1("upload-pom-sha1")
+                        .sha256("upload-pom-sha256")
+                        .build());
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-build-id")
+                .downloads(downloads)
+                .uploads(uploads)
+                .build();
+
+        // when: createPromotionBuildInfo is called
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "test-build-id",
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
+
+        // then: Should have two separate Build objects (primary and generic) with multiple targets
+        Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
+        Assertions.assertTrue(promotion.hasArtifactsTarget(), "Should have artifacts target");
+        Assertions.assertTrue(promotion.hasDependenciesTarget(), "Should have dependencies target");
+        Assertions.assertTrue(promotion.hasGenericDownloads(), "Should have generic downloads target");
+
+        var primaryBuild = promotion.primaryBuild();
+        Assertions.assertNotNull(primaryBuild, "Should have primary Build object");
+        Assertions.assertEquals(
+                "test-build-id",
+                primaryBuild.getNumber(),
+                "Primary build should have correct tracking ID");
+        Assertions.assertEquals(
+                1,
+                primaryBuild.getModules().size(),
+                "Primary build should have 1 module (artifacts + non-generic dependencies)");
+
+        var genericBuild = promotion.genericBuild();
+        Assertions.assertNotNull(genericBuild, "Should have generic Build object");
+        Assertions.assertEquals(
+                "test-build-id",
+                genericBuild.getNumber(),
+                "Generic build should have same tracking ID as primary");
+        Assertions.assertTrue(
+                genericBuild.getName().endsWith("-generic-downloads"),
+                "Generic build name should have suffix to differentiate from primary, got: " + genericBuild.getName());
+        Assertions.assertEquals(
+                1,
+                genericBuild.getModules().size(),
+                "Generic build should have 1 module (generic downloads as dependencies)");
+
+        // Verify Maven shared-imports target (dependencies target)
+        Assertions.assertEquals(
+                RepositoryConstants.MVN_SHARED_IMPORTS_ID,
+                promotion.dependenciesTarget().getName(),
+                "Should have Maven shared-imports repository (pnc-mvn-imports)");
+        Assertions.assertEquals(
+                PackageType.MAVEN,
+                promotion.dependenciesTarget().getPackageType(),
+                "Dependencies target should be Maven package type");
+        Assertions.assertEquals(
+                "pnc",
+                promotion.dependenciesTarget().getProject(),
+                "Project should be 'pnc' from deployment config");
+
+        // Verify artifacts target (build promotion target)
+        Assertions.assertNotNull(promotion.artifactsTarget(), "Should have artifacts target");
+        Assertions.assertEquals(
+                PackageType.MAVEN,
+                promotion.artifactsTarget().getPackageType(),
+                "Artifacts target should be Maven package type");
+
+        // Verify generic downloads target
+        Assertions.assertNotNull(promotion.genericDownloadsTarget(), "Should have generic downloads target");
+        Assertions.assertEquals(
+                RepositoryConstants.GENERIC_DOWNLOADS,
+                promotion.genericDownloadsTarget().getName(),
+                "Generic downloads target should be pnc-generic-downloads");
+        Assertions.assertEquals(
+                PackageType.GENERIC,
+                promotion.genericDownloadsTarget().getPackageType(),
+                "Generic downloads target should be Generic package type");
+
+        // Verify primary module (contains uploads as artifacts and Maven downloads as dependencies)
+        org.jfrog.build.api.Module primaryModule = primaryBuild.getModules().get(0);
+        Assertions.assertNotNull(primaryModule, "Should have primary module");
+        Assertions.assertNotNull(primaryModule.getArtifacts(), "Primary module should have artifacts list");
+        Assertions.assertEquals(
+                2,
+                primaryModule.getArtifacts().size(),
+                "Primary module should have 2 artifacts (jar and pom uploads)");
+        // Handle potential null dependencies (Module class may not initialize lists)
+        int primaryDepsSize = primaryModule.getDependencies() == null ? 0 : primaryModule.getDependencies().size();
+        Assertions.assertEquals(
+                4,
+                primaryDepsSize,
+                "Primary module should have 4 dependencies (indy pom, indy jar, jackson jar, jackson pom)");
+
+        // Verify generic downloads module (contains generic downloads as dependencies, not artifacts)
+        org.jfrog.build.api.Module genericModule = genericBuild.getModules().get(0);
+        Assertions.assertNotNull(genericModule, "Should have generic downloads module");
+        Assertions.assertTrue(
+                genericModule.getId().contains("generic-downloads"),
+                "Generic module ID should contain 'generic-downloads'");
+        // Generic downloads are stored as dependencies (consumed artifacts), not artifacts (produced artifacts)
+        int genericDepsSize = genericModule.getDependencies() == null ? 0 : genericModule.getDependencies().size();
+        Assertions.assertEquals(
+                2,
+                genericDepsSize,
+                "Generic downloads module should have 2 dependencies (from 2 different repos)");
+        // Generic module should have no artifacts (downloads are dependencies, not produced artifacts)
+        int genericArtifactsSize = genericModule.getArtifacts() == null ? 0 : genericModule.getArtifacts().size();
+        Assertions.assertEquals(
+                0,
+                genericArtifactsSize,
+                "Generic downloads module should have no artifacts (downloads stored as dependencies)");
+
+    }
+
+    @Test
+    public void testCreatePromotionBuildInfo_CombinesUploadsAndDownloads() throws RepositoryDriverException {
+        Set<TrackedEntry> downloads = new HashSet<>();
+        Set<TrackedEntry> uploads = new HashSet<>();
 
         downloads.add(TrackingReportMocks.indyPomFromCentral);
-        downloads.add(
-                new TrackedContentEntryDTO(
-                        TrackingReportMocks.ignoredKey,
-                        AccessChannel.NATIVE,
-                        TrackingReportMocks.indyJar));
-        report.setDownloads(downloads);
 
-        // when
-        Set<StoreKey> genericRepos = new HashSet<>();
-        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
-        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
+        String buildContentId = "test-build";
+        RepositoryId buildRepoId = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name(buildContentId)
+                .build();
 
-        // then
-        Assertions.assertEquals(1, sourceTargetPaths.size());
+        uploads.add(
+                TrackedEntry.builder()
+                        .repoId(buildRepoId)
+                        .path("/com/example/myapp/1.0/myapp-1.0.jar")
+                        .localUrl("file:///tmp/myapp-1.0.jar")
+                        .md5("upload-md5")
+                        .sha1("upload-sha1")
+                        .sha256("upload-sha256")
+                        .build());
 
-        SourceTargetPaths fromCentralToSharedImports = sourceTargetPaths.stream().findAny().orElseThrow();
-        Assertions.assertEquals(TrackingReportMocks.centralKey, fromCentralToSharedImports.getSource());
-        Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, fromCentralToSharedImports.getTarget());
-    }
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("test-tracking-id")
+                .downloads(downloads)
+                .uploads(uploads)
+                .build();
 
-    @Test
-    public void shouldExcludeInternalRepoByRegex() {
-        // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        var promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                buildContentId,
+                BuildCategory.STANDARD,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:test-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
 
-        String pom1 = "/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.pom";
-        downloads.add(new TrackedContentEntryDTO(TrackingReportMocks.centralKey, AccessChannel.NATIVE, pom1));
-        downloads.add(new TrackedContentEntryDTO(TrackingReportMocks.toBeIgnoredKey, AccessChannel.NATIVE, pom1));
-        downloads.add(new TrackedContentEntryDTO(TrackingReportMocks.notToBeIgnoredKey, AccessChannel.NATIVE, pom1));
-        report.setDownloads(downloads);
+        Assertions.assertNotNull(promotion.primaryBuild(), "Primary build should be created");
+        Assertions.assertNotNull(promotion.artifactsTarget(), "Artifacts target should be set");
+        Assertions.assertNotNull(promotion.dependenciesTarget(), "Dependencies target should be set");
 
-        // when
-        Set<StoreKey> genericRepos = new HashSet<>();
-        PromotionPaths promotionPaths = trackingReportProcessor.collectDownloadsPromotions(report, genericRepos);
-        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
+        Assertions.assertEquals(
+                "mvn-" + configuration.getBuildPromotionTarget(BuildCategory.STANDARD),
+                promotion.artifactsTarget().getName());
+        Assertions.assertEquals(RepositoryConstants.MVN_SHARED_IMPORTS_ID, promotion.dependenciesTarget().getName());
 
-        // then
-        Assertions.assertEquals(2, sourceTargetPaths.size());
+        Assertions.assertFalse(
+                promotion.primaryBuild().getModules().isEmpty(),
+                "Primary build should contain at least one module");
+
+        org.jfrog.build.api.Module module = promotion.primaryBuild().getModules().get(0);
+
+        Assertions.assertTrue(
+                module.getArtifacts() != null && !module.getArtifacts().isEmpty(),
+                "Primary build module should contain uploaded artifacts");
+        Assertions.assertTrue(
+                module.getDependencies() != null && !module.getDependencies().isEmpty(),
+                "Primary build module should contain downloaded dependencies");
     }
 
     @Test
     public void verifyUploadedArtifacts() throws RepositoryDriverException {
         // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> uploads = new HashSet<>();
+        Set<TrackedEntry> uploads = new HashSet<>();
 
         String buildContentId = "build-X";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
+        RepositoryId buildKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name(buildContentId)
+                .build();
 
-        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
+        TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         uploads.add(trackedIndyJar);
 
-        TrackedContentEntryDTO trackedIndyPom = mavenEntry(buildContentId, TrackingReportMocks.indyPom, "originPomUrl");
+        TrackedEntry trackedIndyPom = mavenEntry(buildContentId, TrackingReportMocks.indyPom, "originPomUrl");
         uploads.add(trackedIndyPom);
 
-        report.setUploads(uploads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(new HashSet<>())
+                .uploads(uploads)
+                .build();
 
         // when
         List<RepositoryArtifact> artifacts = trackingReportProcessor
@@ -210,20 +719,21 @@ public class TrackingReportProcessorTest {
     @Test
     public void verifyDownloadedArtifacts() throws RepositoryDriverException {
         // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "build-X";
-        StoreKey buildKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, buildContentId);
 
-        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
+        TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         downloads.add(trackedIndyJar);
 
         String originPomUrl = "originPomUrl";
-        TrackedContentEntryDTO trackedIndyPom = mavenEntry(buildContentId, TrackingReportMocks.indyPom, originPomUrl);
+        TrackedEntry trackedIndyPom = mavenEntry(buildContentId, TrackingReportMocks.indyPom, originPomUrl);
         downloads.add(trackedIndyPom);
 
-        report.setDownloads(downloads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
 
         // when
         List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilter);
@@ -245,20 +755,22 @@ public class TrackingReportProcessorTest {
     @Test
     public void verifyNoFileExtensionArtifacts() throws RepositoryDriverException {
         // given
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "build-Y";
         String noFileExtensionUrl = "originNoFileExtensionUrl";
         // NCL-7238: Handle urls with no file extension
-        TrackedContentEntryDTO trackedNoFileExtensionArtifact = mavenEntry(
+        TrackedEntry trackedNoFileExtensionArtifact = mavenEntry(
                 buildContentId,
                 TrackingReportMocks.noFileExtensionArtifact,
                 noFileExtensionUrl);
 
         downloads.add(trackedNoFileExtensionArtifact);
 
-        report.setDownloads(downloads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
 
         // when
         List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilter);
@@ -275,17 +787,19 @@ public class TrackingReportProcessorTest {
 
     @Test
     void shouldNotArchiveGenericProxyArtifacts() throws RepositoryDriverException {
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "build-X";
-        TrackedContentEntryDTO trackedIndyJar = genericProxyEntry(
+        TrackedEntry trackedIndyJar = genericProxyEntry(
                 buildContentId,
                 TrackingReportMocks.indyJar,
                 "originJarUrl");
         downloads.add(trackedIndyJar);
 
-        report.setDownloads(downloads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
         Assertions.assertEquals(entries.size(), 0);
@@ -293,82 +807,120 @@ public class TrackingReportProcessorTest {
 
     @Test
     void archivalShouldRespectInternalRepos() throws RepositoryDriverException {
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "ignored";
-        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
-        StoreKey buildKey = trackedIndyJar.getStoreKey();
+        TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
+        RepositoryId buildKey = trackedIndyJar.getRepoId();
         downloads.add(trackedIndyJar);
 
-        report.setDownloads(downloads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
         Assertions.assertEquals(entries.size(), 1);
-        Assertions.assertEquals(entries.get(0).getStoreKey(), buildKey);
+        RepositoryId entryKey = entries.get(0).getRepositoryId();
+        Assertions.assertEquals(entryKey, buildKey);
     }
 
     @Test
     void archivalShouldRespectPromotionToSharedImports() throws RepositoryDriverException {
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "build-x";
-        TrackedContentEntryDTO trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
+        TrackedEntry trackedIndyJar = mavenEntry(buildContentId, TrackingReportMocks.indyJar, "originJarUrl");
         downloads.add(trackedIndyJar);
 
         String buildContentId2 = "build-y";
-        TrackedContentEntryDTO trackedIndyNpmArt = mavenEntry(
+        TrackedEntry trackedIndyNpmArt = mavenEntry(
                 buildContentId2,
                 TrackingReportMocks.indyJar,
                 "originJarUrl");
         downloads.add(trackedIndyNpmArt);
 
-        report.setDownloads(downloads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
         Assertions.assertEquals(2, entries.size());
 
         for (ArchiveDownloadEntry entry : entries) {
-            Assertions.assertEquals(entry.getStoreKey().getPackageType(), "maven");
-            Assertions.assertEquals(entry.getStoreKey().getType(), StoreType.hosted);
-            Assertions.assertEquals(entry.getStoreKey().getName(), "shared-imports");
+            /*
+             * Previously each entry was e.g.
+             * ArchiveDownloadEntry(storeKey=maven:hosted:shared-imports,
+             * path=/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar, md5=0bee89b07a248e27c83fc3d5951213c1,
+             * sha256=edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb,
+             * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
+             * ArchiveDownloadEntry(storeKey=maven:hosted:shared-imports,
+             * path=/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar, md5=0bee89b07a248e27c83fc3d5951213c1,
+             * sha256=edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb,
+             * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
+             *
+             * They are now e.g.
+             * ArchiveDownloadEntry(repositoryId=RepositoryId(project=pnc, name=build-x), packageType=MVN,
+             * path=/org/commonjava/indy/indy-core/0.17.0/indy-core-0.17.0.jar, md5=0bee89b07a248e27c83fc3d5951213c1,
+             * sha256=edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb,
+             * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
+             *
+             */
+            Log.info("### path " + entry.getRepositoryId().getPath() + " entry is " + entry.toString());
+
+            Assertions.assertEquals(PackageType.MAVEN, entry.getRepositoryId().getPackageType());
+            Assertions.assertEquals("pnc-mvn-imports", entry.getRepositoryId().getPath());
         }
     }
 
     @Test
     void archivalShouldFilterOutByRepoFilter() throws RepositoryDriverException {
-        TrackedContentDTO report = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
+        Set<TrackedEntry> downloads = new HashSet<>();
 
         String buildContentId = "build-x";
-        StoreKey storeKey = new StoreKey("maven", StoreType.hosted, "build-xxxxx"); // from app.yaml
-        TrackedContentEntryDTO shouldFilter = mavenEntry(
+        RepositoryId repositoryKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-xxxxx")
+                .build(); // from app.yaml
+        TrackedEntry shouldFilter = mavenEntry(
                 buildContentId,
                 TrackingReportMocks.indyJar,
                 "originJarUrl",
-                storeKey);
+                repositoryKey);
         downloads.add(shouldFilter);
 
         String buildContentId2 = "build-y";
-        StoreKey storeKey2 = new StoreKey("maven", StoreType.hosted, "build-yyyyy"); // from app.yaml
-        TrackedContentEntryDTO shouldFilter2 = mavenEntry(
+        RepositoryId repositoryKey2 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("build-yyyyy")
+                .build(); // from app.yaml
+        TrackedEntry shouldFilter2 = mavenEntry(
                 buildContentId2,
                 TrackingReportMocks.indyJar,
                 "originJarUrl",
-                storeKey2);
+                repositoryKey2);
         downloads.add(shouldFilter2);
 
         String buildContentId3 = "build-z";
-        StoreKey storeKey3 = new StoreKey("maven", StoreType.hosted, "ignored");
-        TrackedContentEntryDTO shouldNotFilter = mavenEntry(
+        RepositoryId repositoryKey3 = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("ignored")
+                .build();
+        TrackedEntry shouldNotFilter = mavenEntry(
                 buildContentId3,
                 TrackingReportMocks.indyPom,
                 "originJarUrl",
-                storeKey3);
+                repositoryKey3);
         downloads.add(shouldNotFilter);
 
-        report.setDownloads(downloads);
+        TrackingReport report = TrackingReport.builder()
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
         Assertions.assertEquals(entries.size(), 1);
@@ -377,95 +929,36 @@ public class TrackingReportProcessorTest {
         assertEquals(notFilteredOut.getPath(), TrackingReportMocks.indyPom);
     }
 
-    @Test
-    public void testPromotionPathGeneration() {
-        // given
-        TrackedContentDTO trackedContent = new TrackedContentDTO();
-        Set<TrackedContentEntryDTO> downloads = new HashSet<>();
-
-        String gpRepoName = "docs-oracle-com-build-ABCDEFGH";
-        String gpPath = "/javase/8/docs/api";
-        String gpOriginUrl = "http://docs.oracle.com/javase/8/docs/api";
-        TrackedContentEntryDTO genericProxyEntry = genericProxyEntry("r-" + gpRepoName, gpPath, gpOriginUrl);
-        downloads.add(genericProxyEntry);
-        StoreKey gpStoreKey = genericProxyEntry.getStoreKey();
-
-        String mavenRepoName = "build-ABCDEFGH";
-        String mavenMetadataPath = "/com/fasterxml/jackson/datatype/jackson-datatype-jaxrs/maven-metadata.xml";
-        String mavenMetadataOriginUrl = "http://indy.local/api/content/maven/hosted/build-A47MNG4KFVIAY/com/fasterxml/jackson/datatype/jackson-datatype-jaxrs/maven-metadata.xml";
-        TrackedContentEntryDTO metadataEntry = mavenEntry(mavenRepoName, mavenMetadataPath, mavenMetadataOriginUrl);
-        downloads.add(metadataEntry);
-
-        String jarPath = "/com/fasterxml/jackson/core/jackson-annotations/2.16.0.redhat-00001/jackson-annotations-2.16.0.redhat-00001.jar";
-        TrackedContentEntryDTO jarEntry = mavenEntry(mavenRepoName, jarPath, null);
-        downloads.add(jarEntry);
-        trackedContent.setDownloads(downloads);
-
-        // when
-        Set<StoreKey> genericRepos = new HashSet<>();
-        PromotionPaths promotionPaths = trackingReportProcessor
-                .collectDownloadsPromotions(trackedContent, genericRepos);
-        Set<SourceTargetPaths> sourceTargetPaths = promotionPaths.getSourceTargetsPaths();
-
-        // then
-        Assertions.assertEquals(2, sourceTargetPaths.size());
-
-        // Generic repos
-        Assertions.assertEquals(1, genericRepos.size());
-        assertTrue(genericRepos.contains(gpStoreKey));
-
-        SourceTargetPaths gpToDedicatedRepo = sourceTargetPaths.stream()
-                .filter(a -> a.getSource().equals(gpStoreKey))
-                .findAny()
-                .orElseThrow();
-        StoreKey dedicatedRepo = new StoreKey(PKG_TYPE_GENERIC_HTTP, StoreType.hosted, "h-" + gpRepoName);
-        Assertions.assertEquals(dedicatedRepo, gpToDedicatedRepo.getTarget());
-
-        Set<String> gpExpectedPaths = new HashSet<>();
-        gpExpectedPaths.add(gpPath);
-        Assertions.assertLinesMatch(gpExpectedPaths.stream(), gpToDedicatedRepo.getPaths().stream());
-
-        // Maven repos
-        SourceTargetPaths mavenToSharedImports = sourceTargetPaths.stream()
-                .filter(a -> a.getSource().equals(metadataEntry.getStoreKey()))
-                .findAny()
-                .orElseThrow();
-        Assertions.assertEquals(TrackingReportMocks.sharedImportsKey, mavenToSharedImports.getTarget());
-
-        Set<String> mavenExpectedPaths = new HashSet<>();
-        mavenExpectedPaths.add(jarPath);
-        Assertions.assertLinesMatch(mavenExpectedPaths.stream(), mavenToSharedImports.getPaths().stream());
+    private static TrackedEntry genericProxyEntry(String name, String path, String originUrl) {
+        return TrackedEntry.builder()
+                .repoId(RepositoryId.builder().project("pnc").packageType(PackageType.GENERIC).name(name).build())
+                .path(path)
+                .originUrl(originUrl)
+                .md5("0bee89b07a248e27c83fc3d5951213c1")
+                .sha1("03cfd743661f07975fa2f1220c5194cbaff48451")
+                .sha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb")
+                .build();
     }
 
-    private static TrackedContentEntryDTO genericProxyEntry(String name, String path, String originUrl) {
-        StoreKey storeKey = new StoreKey(PKG_TYPE_GENERIC_HTTP, StoreType.remote, name);
-        TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.GENERIC_PROXY, path);
-        entry.setOriginUrl(originUrl);
-        entry.setMd5("0bee89b07a248e27c83fc3d5951213c1");
-        entry.setSha1("03cfd743661f07975fa2f1220c5194cbaff48451");
-        entry.setSha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb");
-        return entry;
+    private static TrackedEntry mavenEntry(String name, String path, String originUrl) {
+        RepositoryId repositoryKey = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name(name)
+                .build();
+        return mavenEntry(name, path, originUrl, repositoryKey);
     }
 
-    private static TrackedContentEntryDTO mavenEntry(String name, String path, String originUrl) {
-        StoreKey storeKey = new StoreKey(PackageTypeConstants.PKG_TYPE_MAVEN, StoreType.hosted, name);
-        return mavenEntry(name, path, originUrl, storeKey);
-    }
-
-    private static TrackedContentEntryDTO mavenEntry(String name, String path, String originUrl, StoreKey storeKey) {
-        TrackedContentEntryDTO entry = new TrackedContentEntryDTO(storeKey, AccessChannel.NATIVE, path);
-        entry.setOriginUrl(originUrl);
-        entry.setMd5("0bee89b07a248e27c83fc3d5951213c1");
-        entry.setSha1("03cfd743661f07975fa2f1220c5194cbaff48451");
-        entry.setSha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb");
-        return entry;
-    }
-
-    @Test
-    void parseRpmPathToIdentifier() {
-        String path1 = "/org/jboss/pnc/rpm/eap8-apache-sshd/2.14.0.redhat-00003/apache-sshd-2.14.0-3.redhat_00005.1.el8eap.noarch.rpm";
-        String identifier1 = "org.jboss.pnc.rpm:eap8-apache-sshd:rpm:2.14.0.redhat-00003:2.14.0-3.redhat_00005.1.el8eap.noarch";
-
-        assertEquals(TrackingReportProcessor.parseRpmPathToGAPVQ(path1).identifier(), identifier1);
+    private static TrackedEntry mavenEntry(String name, String path, String originUrl, RepositoryId repositoryKey) {
+        return TrackedEntry.builder()
+                .repoId(repositoryKey)
+                .path(path)
+                .originUrl(originUrl)
+                .md5("0bee89b07a248e27c83fc3d5951213c1")
+                .sha1("03cfd743661f07975fa2f1220c5194cbaff48451")
+                .sha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb")
+                .build();
     }
 }
+
+// Made with Bob

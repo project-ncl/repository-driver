@@ -17,18 +17,14 @@
  */
 package org.jboss.pnc.repositorydriver.artifactfilter;
 
-import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
-
 import java.util.Collections;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
-import org.commonjava.indy.model.core.StoreKey;
+import org.jboss.pnc.api.tracker.dto.PackageType;
+import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.repositorydriver.Configuration;
 
 /**
@@ -58,20 +54,21 @@ public class ArtifactFilterArchive implements ArtifactFilter {
     }
 
     @Override
-    public boolean accepts(TrackedContentEntryDTO artifact) {
+    public boolean accepts(TrackedEntry artifact) {
         String path = artifact.getPath();
-        StoreKey storeKey = artifact.getStoreKey();
-        return !ignoreContent(ignoredPathPatterns, storeKey.getPackageType(), path)
-                && !ignoredRepoPatterns.matchesOne(storeKey.toString());
+        PackageType packageType = artifact.getRepoId().getPackageType();
+        String repoId = artifact.getRepoId().getPath();
+        return !ignoreContent(ignoredPathPatterns, packageType, path)
+                && !ignoredRepoPatterns.matchesOne(repoId);
     }
 
-    private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, String packageType, String path) {
+    private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, PackageType packageType, String path) {
         switch (packageType) {
-            case MAVEN_PKG_KEY:
+            case MAVEN:
                 return ignoredPathPatterns.getMaven().matchesOne(path);
-            case NPM_PKG_KEY:
+            case NPM:
                 return true;
-            case GENERIC_PKG_KEY:
+            case GENERIC:
                 return true;
             default:
                 throw new IllegalArgumentException(

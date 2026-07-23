@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.jboss.pnc.api.constants.MDCHeaderKeys;
+import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
 import org.slf4j.MDC;
 
 /**

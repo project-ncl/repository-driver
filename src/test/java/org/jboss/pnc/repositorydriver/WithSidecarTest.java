@@ -3,6 +3,7 @@ package org.jboss.pnc.repositorydriver;
 import static io.restassured.RestAssured.given;
 import static org.jboss.pnc.repositorydriver.DriverTest.requestHeaders;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.any;
 
 import jakarta.inject.Inject;
@@ -14,7 +15,13 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
 import org.jboss.pnc.repositorydriver.profile.WithSidecar;
+import org.jboss.pnc.repositorydriver.runtime.ArtifactoryProducer;
 import org.jboss.pnc.repositorydriver.runtime.BifrostLogUploaderProducer;
+import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.Builds;
+import org.jfrog.artifactory.client.ItemHandle;
+import org.jfrog.artifactory.client.Repositories;
+import org.jfrog.artifactory.client.RepositoryHandle;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -39,11 +46,26 @@ public class WithSidecarTest {
 
     @BeforeAll
     public static void beforeClass() throws Exception {
+        // Mock BifrostLogUploader
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
         Mockito.doNothing().when(bifrostLogUploader).uploadString(any(), any());
         BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
         Mockito.when(bifrostLogUploaderProducer.createClient(any(), anyInt(), anyInt())).thenReturn(bifrostLogUploader);
         QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
+
+        // Mock Artifactory
+        Artifactory artifactory = Mockito.mock(Artifactory.class);
+        RepositoryHandle repositoryHandle = Mockito.mock(RepositoryHandle.class);
+        Mockito.when(artifactory.repository(Mockito.anyString())).thenReturn(repositoryHandle);
+        ItemHandle itemHandle = Mockito.mock(ItemHandle.class);
+        Mockito.when(repositoryHandle.folder(Mockito.anyString())).thenReturn(itemHandle);
+        Mockito.when(repositoryHandle.exists()).thenReturn(true);
+        Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
+        Mockito.when(artifactory.builds()).thenReturn(Mockito.mock(Builds.class, RETURNS_DEEP_STUBS));
+
+        ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
+        Mockito.when(artifactoryProducer.produce()).thenReturn(artifactory);
+        QuarkusMock.installMockForType(artifactoryProducer, ArtifactoryProducer.class);
     }
 
     @Test
@@ -71,10 +93,10 @@ public class WithSidecarTest {
 
         // then
         Assertions.assertEquals(
-                "http://sidecar:8093/folo/track/build-X/maven/group/build-X/",
+                "http://sidecar:8093/api/pnc-mvn-build-X-virt",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://localhost/folo/track/build-X/maven/hosted/build-X/",
+                "http://artifactory-host/api/pnc-mvn-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 }

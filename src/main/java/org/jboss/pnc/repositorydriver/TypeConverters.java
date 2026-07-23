@@ -1,38 +1,92 @@
 package org.jboss.pnc.repositorydriver;
 
-import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
-
+import org.jboss.pnc.api.constants.RepositoryIdentifier;
+import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.RepositoryType;
+import org.jboss.pnc.api.tracker.dto.PackageType;
+import org.jfrog.build.api.builder.ModuleType;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
 public class TypeConverters {
 
-    public static RepositoryType toRepoType(String packageType) {
-        switch (packageType) {
-            case MAVEN_PKG_KEY:
-                return RepositoryType.MAVEN;
-            case NPM_PKG_KEY:
-                return RepositoryType.NPM;
-            case GENERIC_PKG_KEY:
-                return RepositoryType.GENERIC_PROXY;
-            default:
-                return RepositoryType.GENERIC_PROXY;
-        }
+    public static RepositoryType toRepoType(PackageType packageType) {
+        return switch (packageType) {
+            case MAVEN -> RepositoryType.MAVEN;
+            case NPM -> RepositoryType.NPM;
+            default -> RepositoryType.GENERIC_PROXY;
+        };
     }
 
-    public static String getIndyPackageTypeKey(RepositoryType repoType) {
-        switch (repoType) {
-            case MAVEN:
-                return MAVEN_PKG_KEY;
-            case NPM:
-                return NPM_PKG_KEY;
-            default:
-                throw new IllegalArgumentException(
-                        "Repository type " + repoType + " is not supported by this repository manager driver.");
+    /**
+     * Convert RepositoryType to PackageType
+     */
+    public static PackageType toPackageType(RepositoryType repositoryType) {
+        return switch (repositoryType) {
+            case MAVEN -> PackageType.MAVEN;
+            case NPM -> PackageType.NPM;
+            case GENERIC_PROXY -> PackageType.GENERIC;
+            default -> throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
+        };
+    }
+
+    /**
+     * Convert RepositoryType to lowercase string representation for repository paths.
+     * MAVEN is converted to "mvn", other types use their name in lowercase.
+     */
+    public static String toRepositoryTypeString(RepositoryType repoType) {
+        if (repoType == null) {
+            return null;
         }
+        return repoType == RepositoryType.MAVEN ? "mvn" : repoType.name().toLowerCase();
+    }
+
+    /**
+     * Convert RepositoryType to JFrog ModuleType for BuildInfo.
+     * Uses the official JFrog ModuleType enum values.
+     *
+     * @param repositoryType the repository type to convert
+     * @return the corresponding JFrog ModuleType
+     * @see <a href=
+     *      "https://github.com/jfrog/build-info/blob/master/build-info-api/src/main/java/org/jfrog/build/api/builder/ModuleType.java">JFrog
+     *      ModuleType</a>
+     */
+    public static ModuleType toModuleType(RepositoryType repositoryType) {
+        return switch (repositoryType) {
+            case MAVEN -> ModuleType.MAVEN;
+            case NPM -> ModuleType.NPM;
+            case GENERIC_PROXY -> ModuleType.GENERIC;
+            default -> throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
+        };
+    }
+
+    /**
+     * Convert RepositoryType to RepositoryIdentifier constant.
+     * Used for setting the identifier field in TargetRepository.
+     *
+     * @param repositoryType the repository type to convert
+     * @return the corresponding RepositoryIdentifier constant
+     */
+    public static String toRepositoryIdentifier(RepositoryType repositoryType) {
+        return switch (repositoryType) {
+            case MAVEN -> RepositoryIdentifier.MAVEN;
+            case NPM -> RepositoryIdentifier.NPM;
+            case GENERIC_PROXY -> RepositoryIdentifier.HTTP;
+            default -> throw new IllegalArgumentException("Unknown repository type: " + repositoryType);
+        };
+    }
+
+    /**
+     * Convert BuildType to build agent name format for environment tools lookup.
+     * MVN is converted to "MAVEN", other types use their name in uppercase.
+     * This matches the format used in PNC Build environment attributes.
+     *
+     * @param buildType the build type to convert
+     * @return the build agent name string (e.g., "MAVEN", "NPM", "GRADLE")
+     */
+    public static String toBuildTypeString(BuildType buildType) {
+        // MVN -> MAVEN, others use their enum name
+        return buildType == BuildType.MVN ? "MAVEN" : buildType.name();
     }
 }

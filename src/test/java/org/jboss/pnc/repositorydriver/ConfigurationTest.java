@@ -41,9 +41,9 @@ public class ConfigurationTest {
     @DisplayName("Should have read build category promotion properly and use default as fallback")
     void testBuildCategoryTempBuildPromotionTarget() {
 
-        // standard doesn't define the temp build, should fall back to default
-        assertEquals("temporary-target", configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD));
-        assertEquals("target", configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
+        // standard doesn't define the temp build, should fall back to default from main config
+        assertEquals("temp-builds", configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD));
+        assertEquals("builds", configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
 
         // service does define the promotion values, should use them
         assertEquals("temporary-service-builds", configuration.getTempBuildPromotionTarget(BuildCategory.SERVICE));
@@ -60,9 +60,9 @@ public class ConfigurationTest {
                 Optional.of(List.of("temp-central")),
                 configuration.getBuildGroupConstituentsTempHosted(BuildCategory.STANDARD));
 
-        // not defined in 'central'; should use default
+        // not defined in 'standard'; should use default from main config
         assertEquals(
-                Optional.of(List.of("constituent-group")),
+                Optional.of(List.of("builds-imports-public")),
                 configuration.getBuildGroupConstituentsGroup(BuildCategory.STANDARD));
     }
 

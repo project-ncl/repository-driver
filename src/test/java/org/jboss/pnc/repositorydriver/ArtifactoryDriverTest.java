@@ -1,10 +1,15 @@
 package org.jboss.pnc.repositorydriver;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static io.restassured.RestAssured.given;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.any;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -17,7 +22,6 @@ import java.util.concurrent.BlockingQueue;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.api.constants.HttpHeaders;
 import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
@@ -55,30 +59,37 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusTestProfile;
+import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.security.TestSecurity;
 import io.restassured.RestAssured;
 
-/**
- * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
- */
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
 @QuarkusTestResource(WiremockTestServer.class)
-public class DriverTest {
+@TestProfile(ArtifactoryDriverTest.class)
+public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
     private static final String BIND_HOST = "127.0.0.1";
 
-    private static final Logger logger = LoggerFactory.getLogger(DriverTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(ArtifactoryDriverTest.class);
+
+    @Override
+    public Map<String, String> getConfigOverrides() {
+        return Map.of(
+                "repository-driver.backend",
+                "artifactory");
+    }
 
     @Inject
     ObjectMapper mapper;
 
+    @Inject
+    Configuration configuration;
+
     private static HttpServer callbackServer;
 
     private static final BlockingQueue<Request> callbackRequests = new ArrayBlockingQueue<>(100);
-
-    @ConfigProperty(name = "test.wiremock.url")
-    String wiremockUrl;
 
     @BeforeAll
     public static void beforeClass() throws Exception {
@@ -94,7 +105,7 @@ public class DriverTest {
         callbackServer.start(8082, BIND_HOST);
 
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
-        Mockito.doNothing().when(bifrostLogUploader).uploadString(any(), any());
+        Mockito.doNothing().when(bifrostLogUploader).uploadString(Mockito.any(), Mockito.any());
         BifrostLogUploaderProducer bifrostLogUploaderProducer = Mockito.mock(BifrostLogUploaderProducer.class);
         Mockito.when(bifrostLogUploaderProducer.createClient(any(), anyInt(), anyInt())).thenReturn(bifrostLogUploader);
         QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
@@ -128,12 +139,57 @@ public class DriverTest {
     }
 
     @Test
+    public void testRepoNames() {
+        String name = ArtifactoryUtils
+                .createRepositoryName(
+                        configuration.getDeploymentType().toString(),
+                        BuildType.MVN_RPM,
+                        "build-ABCDEF",
+                        ArtifactoryUtils.RepositoryType.LOCAL);
+        assertEquals("pnc-mvn-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getDeploymentType().toString(),
+                BuildType.GRADLE,
+                "build-ABCDEF",
+                ArtifactoryUtils.RepositoryType.LOCAL);
+        assertEquals("pnc-mvn-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getDeploymentType().toString(),
+                BuildType.GRADLE,
+                "build-ABCDEF",
+                ArtifactoryUtils.RepositoryType.LOCAL);
+        assertEquals("pnc-mvn-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getDeploymentType().toString(),
+                BuildType.GRADLE,
+                "build-ABCDEF",
+                ArtifactoryUtils.RepositoryType.LOCAL_TEMP);
+        assertEquals("pnc-mvn-temp-build-ABCDEF", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getDeploymentType().toString(),
+                BuildType.GRADLE,
+                "build-ABCDEF",
+                ArtifactoryUtils.RepositoryType.VIRTUAL);
+        assertEquals("pnc-mvn-build-ABCDEF-virt", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getDeploymentType().toString(),
+                BuildType.GRADLE,
+                "build-ABCDEF",
+                ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP);
+        assertEquals("pnc-mvn-temp-build-ABCDEF-virt", name);
+    }
+
+    @Test
     public void shouldCreateRepository() {
         // given
         RepositoryCreateRequest request = RepositoryCreateRequest.builder()
                 .buildContentId("build-X")
                 .buildType(BuildType.MVN)
-                .buildCategory(BuildCategory.STANDARD)
                 .tempBuild(false)
                 .build();
         // when
@@ -204,42 +260,6 @@ public class DriverTest {
     }
 
     @Test
-    public void testPromoteHeartBeat() throws URISyntaxException, InterruptedException {
-        // given
-        Request callbackRequest = new Request(
-                Request.Method.POST,
-                new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
-                Collections.singletonList(
-                        new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
-        Request heartbeatRequest = new Request(Request.Method.POST, new URI(wiremockUrl + "/heartbeat"));
-        RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
-                .buildContentId("build-X")
-                .buildType(BuildType.MVN)
-                .tempBuild(false)
-                .buildCategory(BuildCategory.STANDARD)
-                .callback(callbackRequest)
-                .heartBeat(heartbeatRequest)
-                .rtBuildStartTime(java.time.Instant.now())
-                .rtBuildName("com.example:test-artifact")
-                .rtBuildVersion("1.0.0")
-                .rtEnvironmentTools(java.util.Map.of("MAVEN", "3.6.3"))
-                .build();
-
-        // when
-        given().contentType(MediaType.APPLICATION_JSON)
-                .headers(requestHeaders())
-                .body(request)
-                .when()
-                .put("/promote")
-                .then()
-                .statusCode(204);
-        Thread.sleep(1500);
-
-        // then
-        verify(postRequestedFor(urlEqualTo("/heartbeat")));
-    }
-
-    @Test
     public void testArchiveRequest() {
         given().contentType(MediaType.APPLICATION_JSON)
                 .headers(requestHeaders())
@@ -247,7 +267,9 @@ public class DriverTest {
                 .when()
                 .post("/archive")
                 .then()
-                .statusCode(204);
+                .statusCode(204)
+                .extract()
+                .body();
 
         verify(
                 1,

@@ -1,9 +1,8 @@
 package org.jboss.pnc.repositorydriver;
 
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
-import org.commonjava.indy.model.core.StoreKey;
-import org.commonjava.indy.model.core.StoreType;
+import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
+import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,34 +14,48 @@ import lombok.ToString;
 @Getter
 @ToString
 public class ArchiveDownloadEntry {
-    private final StoreKey storeKey;
+    private final RepositoryId repositoryId;
     private final String path;
     private final String md5;
     private final String sha256;
     private final String sha1;
     private final Long size;
 
-    public static ArchiveDownloadEntry fromTrackedContentEntry(
-            TrackedContentEntryDTO dto,
+    public static ArchiveDownloadEntry fromTrackedEntry(
+            TrackedEntry entry,
             TargetRepository targetRepository) {
-        return new ArchiveDownloadEntry(
-                getStoreKeyFromRepositoryPath(targetRepository.getRepositoryPath()),
-                dto.getPath(),
-                dto.getMd5(),
-                dto.getSha256(),
-                dto.getSha1(),
-                dto.getSize());
-    }
-
-    /**
-     * Splits repositoryPath like /api/content/maven/hosted/pnc-builds into a storeKey like maven:hosted:pnc-builds
-     */
-    private static StoreKey getStoreKeyFromRepositoryPath(String repositoryPath) {
-        String[] split = repositoryPath.split("/");
-        if (split.length <= 2) {
-            throw new IllegalArgumentException();
+        // targetRepository.getRepositoryPath() is an Artifactory URL path, e.g.:
+        //   /artifactory/{project}-{name}
+        //   /artifactory/api/npm/{project}-{name}
+        // Strip the known prefixes to recover the bare "{project}-{name}" segment.
+        String repositoryPath = targetRepository.getRepositoryPath();
+        if (repositoryPath.startsWith("/artifactory/api/npm/")) {
+            repositoryPath = repositoryPath.substring("/artifactory/api/npm/".length());
+        } else if (repositoryPath.startsWith("/artifactory/")) {
+            repositoryPath = repositoryPath.substring("/artifactory/".length());
         }
 
-        return new StoreKey(split[split.length - 3], StoreType.get(split[split.length - 2]), split[split.length - 1]);
+        int firstHyphen = repositoryPath.indexOf('-');
+        if (firstHyphen <= 0) {
+            throw new IllegalArgumentException(
+                    "Invalid repository path format: " + targetRepository.getRepositoryPath()
+                            + ". Expected format: /artifactory/{project}-{name}");
+        }
+
+        String project = repositoryPath.substring(0, firstHyphen);
+        String name = repositoryPath.substring(firstHyphen + 1);
+
+        RepositoryId newId = RepositoryId.builder()
+                .project(project)
+                .name(name)
+                .packageType(entry.getRepoId().getPackageType())
+                .build();
+        return new ArchiveDownloadEntry(
+                newId,
+                entry.getPath(),
+                entry.getMd5(),
+                entry.getSha256(),
+                entry.getSha1(),
+                entry.getSize());
     }
 }

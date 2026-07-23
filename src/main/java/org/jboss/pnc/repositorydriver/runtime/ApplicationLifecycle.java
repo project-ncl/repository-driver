@@ -45,9 +45,13 @@ public class ApplicationLifecycle {
     private boolean shuttingDown;
 
     void onStart(@Observes StartupEvent event) {
+        // NCL-7315: we need to log startup and shutdown
+        logger.info("The application is starting");
     }
 
     void onStop(@Observes ShutdownEvent event) {
+        // NCL-7315: we need to log startup and shutdown
+        logger.info("The application is stopping");
         shuttingDown = true;
         Duration shutdownTimeout = ConfigProvider.getConfig().getValue("quarkus.shutdown.timeout", Duration.class);
         Instant shutdownStarted = Instant.now();
