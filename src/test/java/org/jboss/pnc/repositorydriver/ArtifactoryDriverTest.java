@@ -142,46 +142,46 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
     public void testRepoNames() {
         String name = ArtifactoryUtils
                 .createRepositoryName(
-                        configuration.getDeploymentType().toString(),
+                        configuration.getDeploymentType(),
                         BuildType.MVN_RPM,
                         "build-ABCDEF",
                         ArtifactoryUtils.RepositoryType.LOCAL);
-        assertEquals("pnc-mvn-build-ABCDEF", name);
+        assertEquals(configuration.getDeploymentType() + "-mvn-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(
-                configuration.getDeploymentType().toString(),
+                configuration.getDeploymentType(),
                 BuildType.GRADLE,
                 "build-ABCDEF",
                 ArtifactoryUtils.RepositoryType.LOCAL);
-        assertEquals("pnc-mvn-build-ABCDEF", name);
+        assertEquals(configuration.getDeploymentType() + "-mvn-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(
-                configuration.getDeploymentType().toString(),
+                configuration.getDeploymentType(),
                 BuildType.GRADLE,
                 "build-ABCDEF",
                 ArtifactoryUtils.RepositoryType.LOCAL);
-        assertEquals("pnc-mvn-build-ABCDEF", name);
+        assertEquals(configuration.getDeploymentType() + "-mvn-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(
-                configuration.getDeploymentType().toString(),
+                configuration.getDeploymentType(),
                 BuildType.GRADLE,
                 "build-ABCDEF",
                 ArtifactoryUtils.RepositoryType.LOCAL_TEMP);
-        assertEquals("pnc-mvn-temp-build-ABCDEF", name);
+        assertEquals(configuration.getDeploymentType() + "-mvn-temp-build-ABCDEF", name);
 
         name = ArtifactoryUtils.createRepositoryName(
-                configuration.getDeploymentType().toString(),
+                configuration.getDeploymentType(),
                 BuildType.GRADLE,
                 "build-ABCDEF",
                 ArtifactoryUtils.RepositoryType.VIRTUAL);
-        assertEquals("pnc-mvn-build-ABCDEF-virt", name);
+        assertEquals(configuration.getDeploymentType() + "-mvn-build-ABCDEF-virt", name);
 
         name = ArtifactoryUtils.createRepositoryName(
-                configuration.getDeploymentType().toString(),
+                configuration.getDeploymentType(),
                 BuildType.GRADLE,
                 "build-ABCDEF",
                 ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP);
-        assertEquals("pnc-mvn-temp-build-ABCDEF-virt", name);
+        assertEquals(configuration.getDeploymentType() + "-mvn-temp-build-ABCDEF-virt", name);
     }
 
     @Test
@@ -206,10 +206,10 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
 
         // then
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-mvn-build-X-virt",
+                "http://artifactory-host/api/" + configuration.getDeploymentType() + "-mvn-build-X-virt",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-mvn-build-X",
+                "http://artifactory-host/api/" + configuration.getDeploymentType() + "-mvn-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 

@@ -150,10 +150,10 @@ public class DriverTest {
 
         // then
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-mvn-build-X-virt",
+                "http://artifactory-host/api/pnc-stage-mvn-build-X-virt",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-mvn-build-X",
+                "http://artifactory-host/api/pnc-stage-mvn-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 
