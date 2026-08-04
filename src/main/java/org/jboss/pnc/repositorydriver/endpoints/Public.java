@@ -84,7 +84,7 @@ public class Public {
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     @PUT
     @Path("/seal")
-    public void seal(String buildContentId) throws RepositoryDriverException {
+    public void seal(String buildContentId) {
         logger.info("Sealing: {}", LogSanitizer.clean(buildContentId));
         driver.sealTrackingReport(buildContentId);
     }

@@ -802,7 +802,7 @@ public class TrackingReportProcessorTest {
                 .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
-        Assertions.assertEquals(entries.size(), 0);
+        Assertions.assertEquals(0, entries.size());
     }
 
     @Test
@@ -820,7 +820,7 @@ public class TrackingReportProcessorTest {
                 .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
-        Assertions.assertEquals(entries.size(), 1);
+        Assertions.assertEquals(1, entries.size());
         RepositoryId entryKey = entries.get(0).getRepositoryId();
         Assertions.assertEquals(entryKey, buildKey);
     }
@@ -923,8 +923,7 @@ public class TrackingReportProcessorTest {
                 .build();
         List<ArchiveDownloadEntry> entries = trackingReportProcessor.collectArchivalArtifacts(report);
 
-        Assertions.assertEquals(entries.size(), 1);
-
+        Assertions.assertEquals(1, entries.size());
         ArchiveDownloadEntry notFilteredOut = entries.iterator().next();
         assertEquals(notFilteredOut.getPath(), TrackingReportMocks.indyPom);
     }
