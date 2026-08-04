@@ -729,8 +729,12 @@ public class TrackingReportProcessor {
 
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
             if (ignoreDependencySource(repoId)) {
-                // TODO: Historic? Need to check what this was meant to do.
-                repoPath = "/artifactory/" + repoId.getPath();
+                logger.debug("Ignoring repository for downloads {}", repoId.getPath());
+                switch (repoType) {
+                    case MAVEN ->
+                        repoPath = "/artifactory/" + download.getRepoId().getPath();
+                    case NPM -> repoPath = "/artifactory/api/npm/" + download.getRepoId().getPath();
+                }
             } else {
                 switch (repoType) {
                     case MAVEN ->
