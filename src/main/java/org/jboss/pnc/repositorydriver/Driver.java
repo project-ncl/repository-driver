@@ -421,13 +421,12 @@ public class Driver {
                         promoteToRepository(genericBuild, promotion.genericDownloadsTarget(), false);
                     }
 
-                    // TODO: Setting repositories to readonly. Currently we're using blackedOut
-                    //     which is "Disable Artifact Resolution in Repository" in the UI
+                    // Setting repositories to readonly. Currently we're using blackedOut which is "Disable Artifact Resolution in Repository" in the UI
                     report.getUploads().stream().findAny().ifPresent(u -> {
                         String id = u.getRepoId().getPath();
                         Repository repo = artifactory.repository(id).get();
-                        logger.info("### From uploads found repository {} with repo {}", id, repo);
                         if (repo instanceof LocalRepository) {
+                            logger.debug("Setting repository id {} with repo {} to blackedOut.", id, repo);
                             artifactory.repositories()
                                     .update(
                                             RepositoryBuildersImpl.create()
@@ -825,8 +824,12 @@ public class Driver {
                 // Create local and virtual repository
                 // MavenRepositorySettingsImpl implicitly sets package type maven.
                 MavenRepositorySettingsImpl mavenSettings = new MavenRepositorySettingsImpl();
-                // TODO: Should we disable this? It verifies that the value set for
-                //       groupId:artifactId:version in the POM is consistent with the deployed path.
+                // Reference:
+                // https://docs.jfrog.com/artifactory/docs/remote-repositories#additional-settings-for-mavengradleivysbt-remote-repositories
+                // https://jfrog.com/help/r/what-is-failed-to-transform-pom-file-error/what-is-failed-to-transform-pom-file-error
+                // While this option should only be for invalid coordinates it seems POM parsing errors
+                // also cause failures. Therefore lets supress this check to avoid those errors for
+                // any badly written poms.
                 mavenSettings.setSuppressPomConsistencyChecks(true);
                 mavenSettings.setHandleReleases(true);
                 mavenSettings.setHandleSnapshots(false);
@@ -990,7 +993,6 @@ public class Driver {
     public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId) {
         try {
             userLog.info("Sealing tracking record");
-            // TODO: Indy seal returned a boolean - this doesn't?
             trackingServiceClient.sealReport(buildContentId);
             uploadLogs("", "seal");
         } catch (Exception ex) {
