@@ -93,10 +93,10 @@ public class WithSidecarTest {
 
         // then
         Assertions.assertEquals(
-                "http://sidecar:8093/api/pnc-mvn-build-X-virt",
+                "http://sidecar:8093/api/pnc-stage-mvn-build-X-virt",
                 repositoryCreateResponse.getRepositoryDependencyUrl());
         Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-mvn-build-X",
+                "http://artifactory-host/api/pnc-stage-mvn-build-X",
                 repositoryCreateResponse.getRepositoryDeployUrl());
     }
 }

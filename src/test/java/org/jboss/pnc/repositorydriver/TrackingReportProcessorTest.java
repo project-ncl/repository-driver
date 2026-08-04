@@ -558,7 +558,7 @@ public class TrackingReportProcessorTest {
                 promotion.dependenciesTarget().getPackageType(),
                 "Dependencies target should be Maven package type");
         Assertions.assertEquals(
-                "pnc",
+                "pnc-stage",
                 promotion.dependenciesTarget().getProject(),
                 "Project should be 'pnc' from deployment config");
 

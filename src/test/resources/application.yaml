@@ -26,7 +26,7 @@ quarkus:
       json:
         enabled: false
 repository-driver:
-  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  deployment: pnc-stage # pnc / pnc-stage / pnc-devel
   environment: DEV # Artifactory environment (e.g., DEV, PROD)
   # Build Category Configuration
   build-categories:
