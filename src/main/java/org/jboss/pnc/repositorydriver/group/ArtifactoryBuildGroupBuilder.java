@@ -49,12 +49,12 @@ public class ArtifactoryBuildGroupBuilder {
     public static ArtifactoryBuildGroupBuilder builder(
             Configuration configuration,
             Artifactory artifactory,
-            RepositorySettings packageType,
+            RepositorySettings settings,
             String virtualName) {
 
         ArtifactoryBuildGroupBuilder buildGroupBuilder = new ArtifactoryBuildGroupBuilder();
         buildGroupBuilder.artifactory = artifactory;
-        buildGroupBuilder.settings = packageType;
+        buildGroupBuilder.settings = settings;
         buildGroupBuilder.configuration = configuration;
         buildGroupBuilder.name = virtualName;
         return buildGroupBuilder;
