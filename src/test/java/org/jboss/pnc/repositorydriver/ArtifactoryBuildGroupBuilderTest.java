@@ -7,8 +7,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 import jakarta.inject.Inject;
 
@@ -187,6 +191,72 @@ public class ArtifactoryBuildGroupBuilderTest {
         assertTrue(
                 repos.contains("pnc-mvn-builds-imports-public"),
                 "Should contain pnc-mvn-builds-imports-public");
+    }
+
+    @Test
+    public void shouldAddExtraConstituents() {
+
+        // Mock RemoteRepositoryBuilder
+        RemoteRepositoryBuilder remoteRepositoryBuilder = Mockito.mock(RemoteRepositoryBuilder.class);
+        Mockito.when(remoteRepositoryBuilder.archiveBrowsingEnabled(any(Boolean.class)))
+                .thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.description(any())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.repositorySettings(any())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.url(anyString())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.key(anyString())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.listRemoteFolderItems(any(Boolean.class)))
+                .thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.environments(any())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.projectKey(any())).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(remoteRepositoryBuilder.build()).thenReturn(Mockito.mock(RemoteRepository.class));
+
+        // Mock RepositoryBuilders
+        RepositoryBuilders repositoryBuilders = Mockito.mock(RepositoryBuilders.class);
+        Mockito.when(repositoryBuilders.remoteRepositoryBuilder()).thenReturn(remoteRepositoryBuilder);
+        Mockito.when(repositoryBuilders.virtualRepositoryBuilder()).thenReturn(new VirtualRepositoryBuilderImpl() {
+        });
+
+        // Mock Repositories
+        Repositories repositories = Mockito.mock(Repositories.class);
+        Mockito.when(repositories.builders()).thenReturn(repositoryBuilders);
+        Mockito.when(repositories.create(anyInt(), any(RemoteRepository.class))).thenReturn("CREATED");
+
+        // Mock RepositoryHandle — always report non-existent so each repo gets created
+        RepositoryHandle repositoryHandle = Mockito.mock(RepositoryHandle.class);
+        Mockito.when(repositoryHandle.exists()).thenReturn(false);
+
+        Artifactory artifactory = Mockito.mock(Artifactory.class);
+        Mockito.when(artifactory.repositories()).thenReturn(repositories);
+        Mockito.when(artifactory.repository(anyString())).thenReturn(repositoryHandle);
+
+        MavenRepositorySettingsImpl settings = new MavenRepositorySettingsImpl();
+
+        List<String> extraRepos = Arrays.asList(
+                "http://resources.knopflerfish.org/repo/maven2/release/",
+                "http://packages.confluent.io/maven/",
+                "http://maven.icm.edu.pl/artifactory/repo/");
+
+        var result = ArtifactoryBuildGroupBuilder.builder(configuration, artifactory, settings, "pnc-virtual-ID")
+                .addExtraConstituents(extraRepos)
+                .build();
+
+        // Verify three remote repositories were created
+        verify(repositories, times(3)).create(anyInt(), any());
+
+        // Verify all three repo IDs appear in the virtual group's constituent list
+        // ID format: <host-with-dashes>-<md5(path)>
+        String knopflerfishId = "resources-knopflerfish-org-"
+                + ArtifactoryUtils.generateMd5Hash("/repo/maven2/release/");
+        String confluentId = "packages-confluent-io-" + ArtifactoryUtils.generateMd5Hash("/maven/");
+        String icmId = "maven-icm-edu-pl-" + ArtifactoryUtils.generateMd5Hash("/artifactory/repo/");
+
+        var repos = result.getRepositories();
+        System.out.println("### repositories: " + repos);
+
+        assertEquals(3, repos.size(), "Should have exactly 3 extra constituents");
+        assertTrue(repos.contains(knopflerfishId), "Should contain Knopflerfish repo: " + knopflerfishId);
+        assertTrue(repos.contains(confluentId), "Should contain Confluent repo: " + confluentId);
+        assertTrue(repos.contains(icmId), "Should contain ICM edu repo: " + icmId);
     }
 
     @Test
