@@ -367,11 +367,10 @@ public class TrackingReportProcessor {
         // Process uploads with filtering and determine artifacts target
         // Also extract module name as fallback if PNC Build info is unavailable
         Set<TrackedEntry> uploads = report.getUploads();
-        PackageType uploadsPackageType = null;
 
         if (uploads != null && !uploads.isEmpty()) {
 
-            uploadsPackageType = TypeConverters.toPackageType(repositoryType);
+            PackageType uploadsPackageType = TypeConverters.toPackageType(repositoryType);
 
             // Determine target for uploads
             artifactsTarget = RepositoryId.builder()
