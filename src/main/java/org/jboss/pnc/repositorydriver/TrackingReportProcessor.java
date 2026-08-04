@@ -375,7 +375,7 @@ public class TrackingReportProcessor {
 
             // Determine target for uploads
             artifactsTarget = RepositoryId.builder()
-                    .project(configuration.getDeploymentType().toString())
+                    .project(configuration.getDeploymentType())
                     .packageType(uploadsPackageType)
                     .name(getBuildPromotionTarget(uploadsPackageType, buildCategory, tempBuild))
                     .build();
@@ -459,7 +459,7 @@ public class TrackingReportProcessor {
         org.jfrog.build.api.Build primaryBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
                 .fromTrackingReport(
                         primaryReport,
-                        configuration.getDeploymentType().toString(),
+                        configuration.getDeploymentType(),
                         moduleName,
                         repositoryType,
                         buildAgentName,
@@ -471,7 +471,7 @@ public class TrackingReportProcessor {
         if (!filteredGenericDownloads.isEmpty()) {
             genericBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter.createGenericDownloadsBuild(
                     filteredGenericDownloads,
-                    configuration.getDeploymentType().toString(),
+                    configuration.getDeploymentType(),
                     moduleName,
                     buildContentId,
                     buildAgentName,
@@ -806,7 +806,7 @@ public class TrackingReportProcessor {
             Map<PackageType, RepositoryId> promotionTargetsCache) {
         if (!promotionTargetsCache.containsKey(packageType)) {
             RepositoryId repositoryId = RepositoryId.builder()
-                    .project(configuration.getDeploymentType().toString())
+                    .project(configuration.getDeploymentType())
                     .packageType(packageType)
                     .name(packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
                     .build();

@@ -76,7 +76,7 @@ pnc_client_auth:
   #    path: /mnt/secrets/ldap_credentials # file must be in format: <username>:<password>
 
 repository-driver:
-  deployment: prod # prod [pnc] / stage [pnc-stage] / devel [pnc-devel]
+  deployment: pnc # pnc / pnc-stage / pnc-devel
   environment: DEV # Artifactory environment (e.g., DEV, PROD)
   # Build Category Configuration
   build-categories:

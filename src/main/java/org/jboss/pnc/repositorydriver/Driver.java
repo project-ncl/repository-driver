@@ -165,13 +165,13 @@ public class Driver {
 
             // Calculate repository names once
             String hostedRepoName = ArtifactoryUtils.createRepositoryName(
-                    configuration.getDeploymentType().toString(),
+                    configuration.getDeploymentType(),
                     buildType,
                     buildId,
                     repositoryCreateRequest.isTempBuild() ? ArtifactoryUtils.RepositoryType.LOCAL_TEMP
                             : ArtifactoryUtils.RepositoryType.LOCAL);
             String virtualRepoName = ArtifactoryUtils.createRepositoryName(
-                    configuration.getDeploymentType().toString(),
+                    configuration.getDeploymentType(),
                     buildType,
                     buildId,
                     repositoryCreateRequest.isTempBuild() ? ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP
@@ -362,7 +362,7 @@ public class Driver {
                                 "Uploading primary BuildInfo {} #{} to Artifactory",
                                 primaryBuild.getName(),
                                 primaryBuild.getNumber());
-                        artifactory.builds().uploadBuild(primaryBuild, configuration.getDeploymentType().toString());
+                        artifactory.builds().uploadBuild(primaryBuild, configuration.getDeploymentType());
                     } catch (Exception e) {
                         String message = String.format(
                                 "Failed to upload primary BuildInfo %s #%s to Artifactory",
@@ -404,7 +404,7 @@ public class Driver {
                                     genericBuild.getName(),
                                     genericBuild.getNumber());
                             artifactory.builds()
-                                    .uploadBuild(genericBuild, configuration.getDeploymentType().toString());
+                                    .uploadBuild(genericBuild, configuration.getDeploymentType());
                         } catch (Exception e) {
                             String message = String.format(
                                     "Failed to upload generic downloads BuildInfo %s #%s to Artifactory",
@@ -483,7 +483,7 @@ public class Driver {
             // CLEANUP
             try {
                 String virtualRepoName = ArtifactoryUtils.createRepositoryName(
-                        configuration.getDeploymentType().toString(),
+                        configuration.getDeploymentType(),
                         buildType,
                         promoteRequest.getBuildContentId(),
                         promoteRequest.isTempBuild() ? ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP
@@ -858,7 +858,7 @@ public class Driver {
                 .builders()
                 .localRepositoryBuilder()
                 .archiveBrowsingEnabled(true)
-                .projectKey(configuration.getDeploymentType().toString())
+                .projectKey(configuration.getDeploymentType())
                 .environments(Collections.singletonList(configuration.getEnvironment()))
                 .description("PNC Build repository for " + hostedName)
                 .repositorySettings(settings)
@@ -935,7 +935,7 @@ public class Driver {
                             buildName,
                             buildNumber,
                             promotionRequest,
-                            configuration.getDeploymentType().toString());
+                            configuration.getDeploymentType());
 
             userLog.info(
                     "Successfully promoted BuildInfo {} #{} to {} with messages {}",
