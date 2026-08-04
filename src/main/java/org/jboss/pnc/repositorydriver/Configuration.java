@@ -38,23 +38,8 @@ public class Configuration {
     private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
             .unwrap(SmallRyeConfig.class);
 
-    public enum DeploymentType {
-        PROD("pnc"), STAGE("pnc-stage"), DEVEL("pnc-devel");
-
-        private final String value;
-
-        DeploymentType(String s) {
-            value = s;
-        }
-
-        @Override
-        public String toString() {
-            return value;
-        }
-    }
-
-    @ConfigProperty(name = "repository-driver.deployment", defaultValue = "prod")
-    DeploymentType deploymentType;
+    @ConfigProperty(name = "repository-driver.deployment", defaultValue = "pnc")
+    String deploymentType;
 
     @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
     String environment;
