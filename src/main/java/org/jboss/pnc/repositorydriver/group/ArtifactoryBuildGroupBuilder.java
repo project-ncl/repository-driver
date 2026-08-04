@@ -182,8 +182,6 @@ public class ArtifactoryBuildGroupBuilder {
                                 "Creating remote repository {} from url {}",
                                 artifactRepository.id,
                                 artifactRepository.url);
-                        // TODO: Used for user-defined extra repositories. Still need to discuss
-                        //    naming of repo using MD5 versus numeric suffix
                         if (!artifactory.repository(artifactRepository.id).exists()) {
                             RemoteRepository r = artifactory.repositories()
                                     .builders()
@@ -221,20 +219,11 @@ public class ArtifactoryBuildGroupBuilder {
             if (host == null) {
                 logger.warn("No host in repository URL entered: {}. Skipping!", url);
             } else {
-                // Create a unique ID that includes both host and path using MD5 hash
-                // This ensures two URLs with same host but different paths get different repository IDs
-                String hostWithDashes = host.replaceAll("\\.", "-");
-                String path = uri.getPath();
-
-                String id;
-                if (path != null && !path.isEmpty() && !path.equals("/")) {
-                    // Include path in the ID using MD5 hash to keep it short and valid
-                    String urlHash = ArtifactoryUtils.generateMd5Hash(path);
-                    id = hostWithDashes + "-" + urlHash;
-                } else {
-                    // No significant path, just use host
-                    id = hostWithDashes;
-                }
+                // Generate a human-readable, length-safe repository key.
+                // Format: {host-slug}-{12-char-md5-of-full-url}
+                // Max length: 41 chars — within both the 58-char remote and 64-char local limits.
+                // The full original URL is stored in the repository description for human lookup.
+                String id = ArtifactoryUtils.generateRepoIdFromUrl(host, url);
 
                 result = ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
             }

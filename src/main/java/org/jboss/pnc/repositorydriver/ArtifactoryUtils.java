@@ -1,12 +1,12 @@
 package org.jboss.pnc.repositorydriver;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
+import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.jboss.pnc.api.enums.BuildType;
+import org.jboss.pnc.common.security.Md5;
 
 public class ArtifactoryUtils {
 
@@ -70,7 +70,7 @@ public class ArtifactoryUtils {
             String buildContentId,
             RepositoryType repoType) {
 
-        List<String> parts = new ArrayList<String>();
+        List<String> parts = new ArrayList<>();
         // Add parts in order: project, type, temporary (if applicable), build, virtual (if applicable)
         parts.add(project);
         parts.add(TypeConverters.toRepositoryTypeString(buildType.getRepoType()));
@@ -86,32 +86,49 @@ public class ArtifactoryUtils {
     }
 
     /**
-     * Generate MD5 hash of a string and return it as a hex string.
-     * Used to create unique, shortened identifiers from URLs.
+     * Generate a human-readable, length-safe Artifactory repository key from a URL.
+     * <p>
+     * Format: {@code {host-slug}-{12-char-md5-of-full-url}}
+     * <p>
+     * The host slug is the hostname with dots replaced by dashes, trimmed at the last
+     * dash word-boundary within 28 characters. The 12-character hex suffix is the first
+     * 12 characters of the MD5 of the full URL, ensuring uniqueness even when two URLs
+     * share the same host but differ in path.
+     * <p>
+     * Maximum output length: 41 characters (well within JFrog's 58-char remote repo limit
+     * and 64-char local repo limit).
      *
-     * @param input The input string to hash
-     * @return The MD5 hash as a hex string, or the input if hashing fails
+     * @param host the URI host string (e.g. {@code "resources.knopflerfish.org"})
+     * @param url the full URL string used as hash input
+     * @return a repository key safe for both local and remote Artifactory repositories
      */
-    public static String generateMd5Hash(String input) {
-        if (input == null || input.isEmpty()) {
-            return input;
-        }
+    public static String generateRepoIdFromUrl(String host, String url) {
+        String hostWithDashes = host.replaceAll("\\.", "-");
+        String slug = trimAtDashBoundary(hostWithDashes, 28);
         try {
-            MessageDigest md = MessageDigest.getInstance("MD5");
-            byte[] hashBytes = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hexString = new StringBuilder();
-            for (byte b : hashBytes) {
-                String hex = Integer.toHexString(0xff & b);
-                if (hex.length() == 1) {
-                    hexString.append('0');
-                }
-                hexString.append(hex);
-            }
-            return hexString.toString();
-        } catch (NoSuchAlgorithmException e) {
-            // MD5 should always be available, but if not, return the input
-            return input;
+            String shortHash = Md5.digest(url).substring(0, 12);
+            return slug + "-" + shortHash;
+        } catch (NoSuchAlgorithmException | IOException e) {
+            // MD5 is mandated by the JVM spec and the input is a validated URI string — cannot happen
+            throw new IllegalStateException("Failed to compute MD5 for URL: " + url, e);
         }
+    }
+
+    /**
+     * Trim a dash-delimited string to at most {@code maxLen} characters, cutting at the
+     * last dash boundary so that no segment is partially included.
+     *
+     * @param s the dash-delimited string to trim
+     * @param maxLen the maximum character length
+     * @return the trimmed string, at most {@code maxLen} characters long
+     */
+    static String trimAtDashBoundary(String s, int maxLen) {
+        if (s.length() <= maxLen) {
+            return s;
+        }
+        String truncated = s.substring(0, maxLen);
+        int lastDash = truncated.lastIndexOf('-');
+        return lastDash > 0 ? truncated.substring(0, lastDash) : truncated;
     }
 
 }

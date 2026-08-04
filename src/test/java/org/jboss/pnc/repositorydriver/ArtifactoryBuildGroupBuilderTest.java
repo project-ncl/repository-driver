@@ -95,6 +95,12 @@ public class ArtifactoryBuildGroupBuilderTest {
         System.out.println("### Got repositories " + result.getRepositories());
         // Expected: TEST + pnc-central + pnc-builds-imports-public + repo1-maven-org-<hash> = 4 repos
         assertEquals(4, result.getRepositories().size());
+        String repo1Id = ArtifactoryUtils.generateRepoIdFromUrl(
+                "repo1.maven.org",
+                "https://repo1.maven.org/maven2/");
+        assertTrue(
+                result.getRepositories().contains(repo1Id),
+                "Should contain repo1.maven.org extra repo: " + repo1Id);
         assertEquals(configuration.getDeploymentType() + "-virtual-ID", result.getKey());
         assertInstanceOf(MavenRepositorySettings.class, result.getRepositorySettings());
         assertTrue(((MavenRepositorySettings) result.getRepositorySettings()).getHandleReleases());
@@ -252,11 +258,16 @@ public class ArtifactoryBuildGroupBuilderTest {
         verify(repositories, times(3)).create(anyInt(), any());
 
         // Verify all three repo IDs appear in the virtual group's constituent list
-        // ID format: <host-with-dashes>-<md5(path)>
-        String knopflerfishId = "resources-knopflerfish-org-"
-                + ArtifactoryUtils.generateMd5Hash("/repo/maven2/release/");
-        String confluentId = "packages-confluent-io-" + ArtifactoryUtils.generateMd5Hash("/maven/");
-        String icmId = "maven-icm-edu-pl-" + ArtifactoryUtils.generateMd5Hash("/artifactory/repo/");
+        // ID format: {host-slug}-{12-char-md5-of-full-url}  (max 41 chars, within 58-char remote limit)
+        String knopflerfishId = ArtifactoryUtils.generateRepoIdFromUrl(
+                "resources.knopflerfish.org",
+                "http://resources.knopflerfish.org/repo/maven2/release/");
+        String confluentId = ArtifactoryUtils.generateRepoIdFromUrl(
+                "packages.confluent.io",
+                "http://packages.confluent.io/maven/");
+        String icmId = ArtifactoryUtils.generateRepoIdFromUrl(
+                "maven.icm.edu.pl",
+                "http://maven.icm.edu.pl/artifactory/repo/");
 
         var repos = result.getRepositories();
         System.out.println("### repositories: " + repos);
