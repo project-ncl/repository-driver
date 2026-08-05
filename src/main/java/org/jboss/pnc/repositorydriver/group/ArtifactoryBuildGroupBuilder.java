@@ -136,15 +136,9 @@ public class ArtifactoryBuildGroupBuilder {
         }
 
         // add build-type-specific constituents
-        switch (buildType) {
-            case GRADLE:
-                // Gradle plugins repo is also a constituent, so just use project prefix
-                includedRepositories.add(projectPrefix + "-" + GRADLE_PLUGINS_REPO);
-                break;
-
-            default:
-                // no build-type-specific constituents for others
-                break;
+        if (buildType == BuildType.GRADLE) {
+            // Gradle plugins repo is also a constituent, so just use project prefix
+            includedRepositories.add(projectPrefix + "-" + GRADLE_PLUGINS_REPO);
         }
         return this;
     }
