@@ -37,8 +37,8 @@ public class Configuration {
     private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
             .unwrap(SmallRyeConfig.class);
 
-    @ConfigProperty(name = "repository-driver.deployment", defaultValue = "pnc")
-    String deploymentType;
+    @ConfigProperty(name = "repository-driver.artifactory-project", defaultValue = "pnc")
+    String artifactoryProject;
 
     @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
     String environment;

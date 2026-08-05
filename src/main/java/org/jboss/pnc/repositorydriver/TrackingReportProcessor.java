@@ -374,7 +374,7 @@ public class TrackingReportProcessor {
 
             // Determine target for uploads
             artifactsTarget = RepositoryId.builder()
-                    .project(configuration.getDeploymentType())
+                    .project(configuration.getArtifactoryProject())
                     .packageType(uploadsPackageType)
                     .name(getBuildPromotionTarget(uploadsPackageType, buildCategory, tempBuild))
                     .build();
@@ -458,7 +458,7 @@ public class TrackingReportProcessor {
         org.jfrog.build.api.Build primaryBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
                 .fromTrackingReport(
                         primaryReport,
-                        configuration.getDeploymentType(),
+                        configuration.getArtifactoryProject(),
                         moduleName,
                         repositoryType,
                         buildAgentName,
@@ -470,7 +470,7 @@ public class TrackingReportProcessor {
         if (!filteredGenericDownloads.isEmpty()) {
             genericBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter.createGenericDownloadsBuild(
                     filteredGenericDownloads,
-                    configuration.getDeploymentType(),
+                    configuration.getArtifactoryProject(),
                     moduleName,
                     buildContentId,
                     buildAgentName,
@@ -793,8 +793,8 @@ public class TrackingReportProcessor {
         String repoPath = "";
 
         switch (repoType) {
-            case MAVEN -> repoPath = "/artifactory/" + configuration.getDeploymentType() + "-" + target;
-            case NPM -> repoPath = "/artifactory/api/npm/" + configuration.getDeploymentType() + "-" + target;
+            case MAVEN -> repoPath = "/artifactory/" + configuration.getArtifactoryProject() + "-" + target;
+            case NPM -> repoPath = "/artifactory/api/npm/" + configuration.getArtifactoryProject() + "-" + target;
         }
         return TargetRepository.builder()
                 .identifier(identifier)
@@ -809,7 +809,7 @@ public class TrackingReportProcessor {
             Map<PackageType, RepositoryId> promotionTargetsCache) {
         if (!promotionTargetsCache.containsKey(packageType)) {
             RepositoryId repositoryId = RepositoryId.builder()
-                    .project(configuration.getDeploymentType())
+                    .project(configuration.getArtifactoryProject())
                     .packageType(packageType)
                     .name(packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
                     .build();

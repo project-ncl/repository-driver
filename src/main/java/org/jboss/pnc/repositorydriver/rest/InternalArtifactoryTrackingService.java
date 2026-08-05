@@ -187,7 +187,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
 
             // Strip project prefix from repoKey to get the repository name
             // repoKey format: "pnc-mvn-build-123" -> name should be "mvn-build-123"
-            String project = configuration.getDeploymentType();
+            String project = configuration.getArtifactoryProject();
             String repoName = repoKey;
             if (repoKey.startsWith(project + "-")) {
                 repoName = repoKey.substring(project.length() + 1);
