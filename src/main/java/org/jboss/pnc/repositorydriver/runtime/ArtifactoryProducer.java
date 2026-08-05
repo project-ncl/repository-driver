@@ -20,7 +20,13 @@ public class ArtifactoryProducer {
 
     public ArtifactoryProducer(
             @ConfigProperty(name = "repository-driver.artifactory-client.url") String url,
-            @ConfigProperty(name = "repository-driver.artifactory-client.access-token") String accessToken)
+            @ConfigProperty(name = "repository-driver.artifactory-client.access-token") String accessToken,
+            @ConfigProperty(
+                    name = "repository-driver.http-client.connect-timeout",
+                    defaultValue = "5") int connectTimeout,
+            @ConfigProperty(
+                    name = "repository-driver.http-client.request-timeout",
+                    defaultValue = "15") int socketTimeout)
             throws RepositoryDriverException {
         try {
             // TODO: ### Remove the token from the log. Only outputting the last few characters to enable differentiation
@@ -31,6 +37,8 @@ public class ArtifactoryProducer {
             artifactory = ArtifactoryClientBuilder.create()
                     .setAccessToken(accessToken)
                     .setUrl(url)
+                    .setConnectionTimeout(connectTimeout * 1000)
+                    .setSocketTimeout(socketTimeout * 1000)
                     .build();
             logger.info(
                     "Running against Artifactory version {}",
