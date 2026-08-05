@@ -17,7 +17,6 @@
  */
 package org.jboss.pnc.repositorydriver;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,29 +52,11 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.artifactory-client.access-token")
     String accessToken;
 
-    @ConfigProperty(name = "repository-driver.indy-client.api-url")
-    String indyUrl;
-
     @ConfigProperty(name = "repository-driver.archive-service.api-url")
     String archiveServiceEndpoint;
 
     @ConfigProperty(name = "repository-driver.archive-service.enabled", defaultValue = "true")
     boolean archiveServiceEnabled;
-
-    @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
-    Integer indyClientRequestTimeout;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.enabled", defaultValue = "false")
-    Boolean indyClientMetricsEnabled;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.honeycombDataset", defaultValue = "")
-    Optional<String> indyClientMetricsHoneycombDataset;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.honeycombWriteKey", defaultValue = "")
-    Optional<String> indyClientMetricsHoneycombWriteKey;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.baseSampleRate", defaultValue = "0")
-    Optional<Integer> indyClientMetricsBaseSampleRate;
 
     @ConfigProperty(name = "repository-driver.http-client.connect-timeout", defaultValue = "5")
     int httpClientConnectTimeout;
@@ -91,9 +72,6 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.callback-retry-max-delay-msec", defaultValue = "5000")
     long callbackRetryMaxDelayMsec;
-
-    @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
-    Duration keyCloakRequestTimeout;
 
     @ConfigProperty(name = "repository-driver.ignored-repo-patterns.archive")
     Optional<List<String>> ignoredRepoPatternsArchive;
