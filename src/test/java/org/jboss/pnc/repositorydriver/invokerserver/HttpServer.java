@@ -41,7 +41,7 @@ import io.undertow.servlet.api.InstanceFactory;
 public class HttpServer {
     private Undertow undertow;
 
-    private Map<Class<? extends Servlet>, InstanceFactory<? extends Servlet>> servlets = new HashMap<>();
+    private final Map<Class<? extends Servlet>, InstanceFactory<? extends Servlet>> servlets = new HashMap<>();
 
     public void start(int port, String host) throws ServletException, NoSuchAlgorithmException {
         DeploymentInfo servletBuilder = deployment().setClassLoader(HttpServer.class.getClassLoader())

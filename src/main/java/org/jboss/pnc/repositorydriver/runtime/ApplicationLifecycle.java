@@ -41,7 +41,7 @@ public class ApplicationLifecycle {
 
     private static final Logger logger = LoggerFactory.getLogger(ApplicationLifecycle.class);
 
-    private AtomicInteger activePromotions = new AtomicInteger();
+    private final AtomicInteger activePromotions = new AtomicInteger();
     private boolean shuttingDown;
 
     void onStart(@Observes StartupEvent event) {
@@ -57,7 +57,7 @@ public class ApplicationLifecycle {
         Instant shutdownStarted = Instant.now();
         while (activePromotions.get() > 0) {
             if (Duration.between(shutdownStarted, Instant.now()).compareTo(shutdownTimeout) > 0) {
-                logger.warn("Reached quarkus.shutdown.timeout: {}", shutdownTimeout.toString());
+                logger.warn("Reached quarkus.shutdown.timeout: {}", shutdownTimeout);
                 break;
             }
             try {
