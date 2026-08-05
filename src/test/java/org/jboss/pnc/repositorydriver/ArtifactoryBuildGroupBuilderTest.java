@@ -85,7 +85,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         settings.setHandleReleases(true);
         settings.setHandleSnapshots(false);
         var result = ArtifactoryBuildGroupBuilder
-                .builder(configuration, artifactory, settings, configuration.getDeploymentType() + "-virtual-ID")
+                .builder(configuration, artifactory, settings, configuration.getArtifactoryProject() + "-virtual-ID")
                 .addLocal("TEST")
                 .addGlobalConstituents(BuildType.MVN, BuildCategory.STANDARD, false)
                 .addExtraConstituents(
@@ -101,7 +101,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         assertTrue(
                 result.getRepositories().contains(repo1Id),
                 "Should contain repo1.maven.org extra repo: " + repo1Id);
-        assertEquals(configuration.getDeploymentType() + "-virtual-ID", result.getKey());
+        assertEquals(configuration.getArtifactoryProject() + "-virtual-ID", result.getKey());
         assertInstanceOf(MavenRepositorySettings.class, result.getRepositorySettings());
         assertTrue(((MavenRepositorySettings) result.getRepositorySettings()).getHandleReleases());
         assertFalse(((MavenRepositorySettings) result.getRepositorySettings()).getHandleSnapshots());
@@ -133,11 +133,11 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Expected: {deployment}-central (hosted) + {deployment}-builds-imports-public (group from main config default)
         assertEquals(2, repos.size(), "Should have 2 constituents for non-temp build");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-mvn-central"),
-                "Should contain " + configuration.getDeploymentType() + "-mvn-central");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-central"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-central");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-mvn-builds-imports-public"),
-                "Should contain " + configuration.getDeploymentType() + "-mvn-builds-imports-public");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-builds-imports-public"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-builds-imports-public");
     }
 
     @Test
@@ -166,8 +166,8 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Expected: {deployment}-temp-central (temp-hosted only, temp-group is empty)
         assertEquals(1, repos.size(), "Should have 1 constituent for temp build");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-mvn-temp-central"),
-                "Should contain " + configuration.getDeploymentType() + "-mvn-temp-central");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-temp-central"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-temp-central");
     }
 
     @Test
@@ -196,14 +196,15 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Constituent repos use simple project-prefix naming: {deployment}-<constituent-name>
         assertEquals(3, repos.size(), "Should have 3 constituents for Gradle build");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-mvn-central"),
-                "Should contain " + configuration.getDeploymentType() + "-mvn-central");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-central"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-central");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-gradle-plugins"),
-                "Should contain " + configuration.getDeploymentType() + "-gradle-plugins repository for Gradle builds");
+                repos.contains(configuration.getArtifactoryProject() + "-gradle-plugins"),
+                "Should contain " + configuration.getArtifactoryProject()
+                        + "-gradle-plugins repository for Gradle builds");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-mvn-builds-imports-public"),
-                "Should contain " + configuration.getDeploymentType() + "-mvn-builds-imports-public");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-builds-imports-public"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-builds-imports-public");
     }
 
     @Test
@@ -250,7 +251,7 @@ public class ArtifactoryBuildGroupBuilderTest {
                 "http://maven.icm.edu.pl/artifactory/repo/");
 
         var result = ArtifactoryBuildGroupBuilder
-                .builder(configuration, artifactory, settings, configuration.getDeploymentType() + "-virtual-ID")
+                .builder(configuration, artifactory, settings, configuration.getArtifactoryProject() + "-virtual-ID")
                 .addExtraConstituents(extraRepos)
                 .build();
 
@@ -304,11 +305,11 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Constituent repos use simple project-prefix naming: {deployment}-<constituent-name>
         assertEquals(2, repos.size(), "Should have 2 constituents for Gradle temp build");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-mvn-temp-central"),
-                "Should contain " + configuration.getDeploymentType() + "-mvn-temp-central");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-temp-central"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-temp-central");
         assertTrue(
-                repos.contains(configuration.getDeploymentType() + "-gradle-plugins"),
-                "Should contain " + configuration.getDeploymentType()
+                repos.contains(configuration.getArtifactoryProject() + "-gradle-plugins"),
+                "Should contain " + configuration.getArtifactoryProject()
                         + "-gradle-plugins repository for Gradle temp builds");
     }
 }

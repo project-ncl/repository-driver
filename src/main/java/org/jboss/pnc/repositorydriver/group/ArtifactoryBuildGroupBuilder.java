@@ -89,7 +89,7 @@ public class ArtifactoryBuildGroupBuilder {
             boolean tempBuild) {
         // 1. global builds artifacts
         // For constituent repositories, we only want project prefix, not the full naming template
-        String projectPrefix = configuration.getDeploymentType();
+        String projectPrefix = configuration.getArtifactoryProject();
 
         if (tempBuild) {
             for (String hostedTempConstituent : configuration.getBuildGroupConstituentsTempHosted(buildCategory)
@@ -97,7 +97,7 @@ public class ArtifactoryBuildGroupBuilder {
                 includedRepositories.add(
                         ArtifactoryUtils
                                 .createRepositoryName(
-                                        configuration.getDeploymentType(),
+                                        configuration.getArtifactoryProject(),
                                         buildType,
                                         hostedTempConstituent,
                                         ArtifactoryUtils.RepositoryType.LOCAL));
@@ -107,7 +107,7 @@ public class ArtifactoryBuildGroupBuilder {
                 includedRepositories.add(
                         ArtifactoryUtils
                                 .createRepositoryName(
-                                        configuration.getDeploymentType(),
+                                        configuration.getArtifactoryProject(),
                                         buildType,
                                         groupTempConstituent,
                                         ArtifactoryUtils.RepositoryType.LOCAL));
@@ -118,7 +118,7 @@ public class ArtifactoryBuildGroupBuilder {
                 includedRepositories.add(
                         ArtifactoryUtils
                                 .createRepositoryName(
-                                        configuration.getDeploymentType(),
+                                        configuration.getArtifactoryProject(),
                                         buildType,
                                         hostedConstituent,
                                         ArtifactoryUtils.RepositoryType.LOCAL));
@@ -128,7 +128,7 @@ public class ArtifactoryBuildGroupBuilder {
                 includedRepositories.add(
                         ArtifactoryUtils
                                 .createRepositoryName(
-                                        configuration.getDeploymentType(),
+                                        configuration.getArtifactoryProject(),
                                         buildType,
                                         groupConstituent,
                                         ArtifactoryUtils.RepositoryType.LOCAL));
@@ -186,7 +186,7 @@ public class ArtifactoryBuildGroupBuilder {
                             RemoteRepository r = artifactory.repositories()
                                     .builders()
                                     .remoteRepositoryBuilder()
-                                    .projectKey(configuration.getDeploymentType())
+                                    .projectKey(configuration.getArtifactoryProject())
                                     .listRemoteFolderItems(false)
                                     .environments(Collections.singletonList(configuration.getEnvironment()))
                                     .archiveBrowsingEnabled(true)
@@ -237,7 +237,7 @@ public class ArtifactoryBuildGroupBuilder {
                 .builders()
                 .virtualRepositoryBuilder()
                 .artifactoryRequestsCanRetrieveRemoteArtifacts(true)
-                .projectKey(configuration.getDeploymentType())
+                .projectKey(configuration.getArtifactoryProject())
                 .environments(Collections.singletonList(configuration.getEnvironment()))
                 .defaultDeploymentRepo(deploymentRepository)
                 .repositorySettings(settings)
