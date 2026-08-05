@@ -76,8 +76,6 @@ repository-driver:
   artifactory-client:
     url: "http://artifactory-host/api/"
     access-token: "TOKEN"
-  indy-client:
-    api-url: "http://indy-host/api/"
   archive-service:
     enabled: true
     api-url: "http://archive-service/archive/"
