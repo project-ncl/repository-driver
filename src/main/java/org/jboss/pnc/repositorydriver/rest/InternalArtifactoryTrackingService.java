@@ -65,7 +65,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
 
     private static final Logger logger = LoggerFactory.getLogger(InternalArtifactoryTrackingService.class);
 
-    private static final String BUILD_PROPERTY_PREFIX = "pnc.build-";
+    private static final String BUILD_PROPERTY_PREFIX = "pnc.";
 
     @Inject
     Artifactory artifactory;
@@ -100,10 +100,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
 
         try {
             // Extract the build ID without "build-" prefix for property name
-            String buildId = buildContentId.startsWith("build-")
-                    ? buildContentId.substring(6)
-                    : buildContentId;
-            String propertyName = BUILD_PROPERTY_PREFIX + buildId;
+            String propertyName = BUILD_PROPERTY_PREFIX + buildContentId;
 
             logger.debug("Searching all repositories for artifacts with property: {}", propertyName);
 
@@ -132,7 +129,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     TrackedEntry entry = convertToTrackedEntry(repoPath, packageType);
 
                     // Determine if this is an upload or download based on repoKey
-                    if (repoKey.contains(buildId)) {
+                    if (repoKey.contains(buildContentId)) {
                         logger.debug("Classified as UPLOAD: {} (repoKey contains buildId)", repoKey);
                         uploads.add(entry);
                     } else {

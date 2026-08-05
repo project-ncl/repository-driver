@@ -114,9 +114,6 @@ repository-driver:
   artifactory-client:
     url:
     access-token:
-  indy-client:
-    api-url:
-    request-timeout: 30
   indy-sidecar:
     enabled: false
     url:
