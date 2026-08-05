@@ -172,7 +172,7 @@ public class TrackingReportProcessor {
                 URL url = new URL(originUrl);
                 filename = new File(url.getFile()).getName();
             } catch (MalformedURLException ex) {
-                logger.error("Unable to parse the origin URL " + originUrl, ex);
+                logger.error("Unable to parse the origin URL {}", originUrl, ex);
             }
         }
         if (filename == null) {
@@ -405,8 +405,7 @@ public class TrackingReportProcessor {
                 if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
 
                     switch (packageType) {
-                        case MAVEN:
-                        case NPM:
+                        case MAVEN, NPM -> {
                             // Determine dependencies target (prefer first Maven/NPM found)
                             if (dependenciesTarget == null) {
                                 dependenciesTarget = getSharedImportsPromotionTarget(
@@ -414,9 +413,8 @@ public class TrackingReportProcessor {
                                         promotionTargetsCache);
                             }
                             filteredDownloads.add(download);
-                            break;
-
-                        case GENERIC:
+                        }
+                        case GENERIC -> {
                             // Generic downloads will be added as a separate module
                             // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
                             filteredGenericDownloads.add(download);
@@ -429,11 +427,10 @@ public class TrackingReportProcessor {
                                         .name(RepositoryConstants.GENERIC_DOWNLOADS)
                                         .build();
                             }
-                            break;
-
-                        default:
-                            // Skip other package types
-                            break;
+                        }
+                        default -> {
+                        }
+                        // Skip other package types
                     }
                 }
             }
@@ -508,7 +505,7 @@ public class TrackingReportProcessor {
         String identifier = null;
 
         switch (transfer.getRepoId().getPackageType()) {
-            case MAVEN:
+            case MAVEN -> {
                 ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
 
                 if (pathInfo == null) {
@@ -529,26 +526,22 @@ public class TrackingReportProcessor {
                         identifier = gapvq.identifier();
                     }
                 }
-                break;
-
-            case NPM:
+            }
+            case NPM -> {
                 NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(transfer.getPath());
                 if (npmPathInfo != null) {
                     NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
                     identifier = packageRef.toString();
                 }
-                break;
-
-            case GENERIC:
+            }
+            case GENERIC -> {
                 // handle generic downloads along with other invalid download paths for other package types
-                break;
-
-            default:
+            }
+            default ->
                 // do not do anything by default
                 logger.warn(
                         "Package type {} is not handled by repository session.",
                         transfer.getRepoId().getPackageType());
-                break;
         }
 
         if (identifier == null) {
@@ -573,7 +566,7 @@ public class TrackingReportProcessor {
 
         try {
             switch (transfer.getRepoId().getPackageType()) {
-                case MAVEN:
+                case MAVEN -> {
 
                     ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
                     if (pathInfo == null) {
@@ -611,9 +604,8 @@ public class TrackingReportProcessor {
                                     .toString();
                         }
                     }
-                    break;
-
-                case NPM:
+                }
+                case NPM -> {
 
                     NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(transfer.getPath());
                     if (npmPathInfo != null) {
@@ -638,18 +630,15 @@ public class TrackingReportProcessor {
                             }
                         }
                     }
-                    break;
-
-                case GENERIC:
+                }
+                case GENERIC -> {
                     // handle generic downloads along with other invalid download paths for other package types
-                    break;
-
-                default:
+                }
+                default ->
                     // do not do anything by default
                     logger.warn(
                             "Package type {} is not handled by repository session.",
                             transfer.getRepoId().getPackageType());
-                    break;
             }
 
             if (purl == null) {

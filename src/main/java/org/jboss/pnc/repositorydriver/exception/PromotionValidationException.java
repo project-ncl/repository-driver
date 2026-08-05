@@ -24,7 +24,7 @@ public class PromotionValidationException extends Exception {
 
     private static final long serialVersionUID = 8236842740038103177L;
 
-    private Object[] params;
+    private final Object[] params;
 
     private transient String formatted;
 
