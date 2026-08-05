@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import io.quarkus.logging.Log;
 import io.quarkus.test.junit.QuarkusTest;
 
 /**
@@ -867,8 +866,6 @@ public class TrackingReportProcessorTest {
              * sha1=03cfd743661f07975fa2f1220c5194cbaff48451, size=null) mdc:[{}]
              *
              */
-            Log.info("### path " + entry.getRepositoryId().getPath() + " entry is " + entry.toString());
-
             Assertions.assertEquals(PackageType.MAVEN, entry.getRepositoryId().getPackageType());
             Assertions.assertEquals("pnc-mvn-imports", entry.getRepositoryId().getPath());
         }

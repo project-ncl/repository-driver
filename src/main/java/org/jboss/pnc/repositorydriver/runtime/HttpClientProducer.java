@@ -62,7 +62,7 @@ public class HttpClientProducer {
                     .build();
             logger.info("HttpClient initialized successfully");
         } catch (NoSuchAlgorithmException e) {
-            logger.error("Failed to initialize HttpClient: " + e.getMessage(), e);
+            logger.error("Failed to initialize HttpClient: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to initialize HttpClient", e);
         }
     }
