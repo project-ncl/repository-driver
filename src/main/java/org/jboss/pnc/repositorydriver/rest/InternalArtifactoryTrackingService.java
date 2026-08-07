@@ -38,7 +38,9 @@ import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Configuration;
 import org.jfrog.artifactory.client.Artifactory;
-import org.jfrog.artifactory.client.model.RepoPath;
+import org.jfrog.artifactory.client.aql.FileSpecBuilder;
+import org.jfrog.artifactory.client.model.AqlItem;
+import org.jfrog.filespecs.FileSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +50,8 @@ import io.quarkus.arc.properties.IfBuildProperty;
 
 /**
  * TEMPORARY internal implementation of TrackingServiceClient.
- * Queries Artifactory directly using property-based search until external tracking service is ready.
+ * Queries Artifactory directly using a single AQL FileSpec search until the external tracking
+ * service is ready.
  *
  * Controlled by: repository-driver.tracking-service.use-internal-tracking
  * When enabled, this bean is injected instead of the REST client.
@@ -66,6 +69,9 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
     private static final Logger logger = LoggerFactory.getLogger(InternalArtifactoryTrackingService.class);
 
     private static final String BUILD_PROPERTY_PREFIX = "pnc.";
+
+    /** Safety ceiling — no single build should exceed this. */
+    private static final int AQL_RESULT_LIMIT = 50000;
 
     @Inject
     Artifactory artifactory;
@@ -99,17 +105,30 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                 LogSanitizer.clean(buildContentId));
 
         try {
-            // Extract the build ID without "build-" prefix for property name
             String propertyName = BUILD_PROPERTY_PREFIX + buildContentId;
 
             logger.debug("Searching all repositories for artifacts with property: {}", propertyName);
 
-            // Search ALL repositories for artifacts with this property
-            // We can't specify repository names because we don't know them ahead of time
-            List<RepoPath> allItems = artifactory.searches()
-                    .itemsByProperty()
-                    .property(propertyName)
-                    .doSearch();
+            // Single AQL POST — retrieves repo, path, name, checksums, size, and the
+            // jf.origin.remote.path property value all in one call.
+            FileSpec spec = new FileSpecBuilder()
+                    .item("type", "file")
+                    .match("repo", configuration.getArtifactoryProject() + "-*")
+                    .eq("property.key", propertyName)
+                    .include(
+                            "name",
+                            "repo",
+                            "path",
+                            "size",
+                            "actual_sha1",
+                            "actual_md5",
+                            "sha256",
+                            "@jf.origin.remote.path")
+                    // TODO: Handle pagination        
+                    .limit(AQL_RESULT_LIMIT)
+                    .buildFileSpec();
+
+            List<AqlItem> allItems = artifactory.searches().artifactsByFileSpec(spec);
 
             logger.debug(
                     "Found {} total items with property {} across all repositories",
@@ -122,13 +141,12 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
             Set<TrackedEntry> downloads = new HashSet<>();
             Set<TrackedEntry> uploads = new HashSet<>();
 
-            for (RepoPath repoPath : allItems) {
+            for (AqlItem item : allItems) {
                 try {
-                    String repoKey = repoPath.getRepoKey();
+                    String repoKey = item.getRepo();
                     PackageType packageType = detectPackageType(repoKey);
-                    TrackedEntry entry = convertToTrackedEntry(repoPath, packageType);
+                    TrackedEntry entry = convertAqlItemToTrackedEntry(item, packageType);
 
-                    // Determine if this is an upload or download based on repoKey
                     if (repoKey.contains(buildContentId)) {
                         logger.debug("Classified as UPLOAD: {} (repoKey contains buildId)", repoKey);
                         uploads.add(entry);
@@ -137,7 +155,9 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                         downloads.add(entry);
                     }
                 } catch (Exception e) {
-                    logger.warn("Failed to convert item {}: {}", repoPath.getItemPath(), e.getMessage());
+                    logger.warn(
+                            "Failed to convert item: {}",
+                            e.getMessage());
                 }
             }
 
@@ -168,99 +188,90 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
         }
     }
 
-    TrackedEntry convertToTrackedEntry(RepoPath repoPath, PackageType packageType) {
-        String repoKey = repoPath.getRepoKey();
-        String path = repoPath.getItemPath();
+    /**
+     * Converts an {@link AqlItem} returned by the FileSpec AQL search into a {@link TrackedEntry}.
+     * All data is taken directly from the AqlItem — no additional Artifactory calls are made.
+     */
+    TrackedEntry convertAqlItemToTrackedEntry(AqlItem item, PackageType packageType) {
+        String repoKey = item.getRepo();
+        // AQL splits the artifact location into a directory (path) and a filename (name).
+        // Artifactory returns path with a leading '/' (e.g. "/org/example/lib/1.0"); strip it.
+        // When the artifact sits at the repository root, AQL returns path = ".".
+        String rawDirectory = item.getPath();
+        String directory = (rawDirectory != null && rawDirectory.startsWith("/"))
+                ? rawDirectory.substring(1)
+                : rawDirectory;
+        String name = item.getName();
+        String path = (directory == null || directory.isEmpty() || ".".equals(directory))
+                ? name
+                : directory + "/" + name;
 
         logger.debug(
-                "Converting RepoPath to TrackedEntry: repo={}, path={}, packageType={}",
+                "Converting AqlItem to TrackedEntry: repo={}, path={}, packageType={}",
                 repoKey,
                 path,
                 packageType);
 
-        try {
-            // Get file info with checksums
-            logger.debug("Fetching file info for {}/{}", repoKey, path);
-            org.jfrog.artifactory.client.model.File fileInfo = artifactory.repository(repoKey)
-                    .file(path)
-                    .info();
-
-            // Strip project prefix from repoKey to get the repository name
-            // repoKey format: "pnc-mvn-build-123" -> name should be "mvn-build-123"
-            String project = configuration.getArtifactoryProject();
-            String repoName = repoKey;
-            if (repoKey.startsWith(project + "-")) {
-                repoName = repoKey.substring(project.length() + 1);
-                logger.debug("Stripped project prefix '{}' from repoKey: {} -> {}", project, repoKey, repoName);
-            }
-
-            // Build RepositoryId with packageType
-            RepositoryId repoId = RepositoryId.builder()
-                    .project(project)
-                    .packageType(packageType)
-                    .name(repoName)
-                    .build();
-
-            // Get checksums (may be null)
-            String sha256 = fileInfo.getChecksums() != null ? fileInfo.getChecksums().getSha256() : null;
-            String sha1 = fileInfo.getChecksums() != null ? fileInfo.getChecksums().getSha1() : null;
-            String md5 = fileInfo.getChecksums() != null ? fileInfo.getChecksums().getMd5() : null;
-
-            if (sha256 == null && sha1 == null) {
-                logger.warn("No checksums available for {}/{}", repoKey, path);
-            }
-
-            // Build download URL
-            String localUrl = configuration.getArtifactoryUrl() + "/" + repoKey + "/" + path;
-
-            // Try to get origin URL from properties, fall back to local URL
-            String originUrl = getOriginUrl(repoKey, path, localUrl);
-
-            logger.debug("URLs for {}/{}: local={}, origin={}", repoKey, path, localUrl, originUrl);
-
-            TrackedEntry entry = TrackedEntry.builder()
-                    .repoId(repoId)
-                    .path(path)
-                    .size(fileInfo.getSize())
-                    .sha256(sha256)
-                    .sha1(sha1)
-                    .md5(md5)
-                    .localUrl(localUrl)
-                    .originUrl(originUrl)
-                    .build();
-
-            logger.debug("Successfully converted {}/{} to TrackedEntry (size={})", repoKey, path, fileInfo.getSize());
-
-            return entry;
-
-        } catch (Exception e) {
-            logger.error("Failed to convert RepoPath to TrackedEntry: {}/{}", repoKey, path, e);
-            throw new RuntimeException("Failed to get file info for " + repoKey + "/" + path, e);
+        // Strip project prefix from repoKey to get the repository name
+        // repoKey format: "pnc-mvn-build-123" -> name should be "mvn-build-123"
+        String project = configuration.getArtifactoryProject();
+        String repoName = repoKey;
+        if (repoKey.startsWith(project + "-")) {
+            repoName = repoKey.substring(project.length() + 1);
+            logger.debug("Stripped project prefix '{}' from repoKey: {} -> {}", project, repoKey, repoName);
         }
+
+        RepositoryId repoId = RepositoryId.builder()
+                .project(project)
+                .packageType(packageType)
+                .name(repoName)
+                .build();
+
+        String sha256 = item.getSha256();
+        String sha1 = item.getActualSha1();
+        String md5 = item.getActualMd5();
+
+        if (sha256 == null && sha1 == null) {
+            logger.warn("No checksums available for {}/{}", repoKey, path);
+        }
+
+        String localUrl = configuration.getArtifactoryUrl() + "/" + repoKey + "/" + path;
+        String originUrl = extractOriginUrl(item, localUrl);
+
+        logger.debug("URLs for {}/{}: local={}, origin={}", repoKey, path, localUrl, originUrl);
+
+        TrackedEntry entry = TrackedEntry.builder()
+                .repoId(repoId)
+                .path(path)
+                .size(item.getSize())
+                .sha256(sha256)
+                .sha1(sha1)
+                .md5(md5)
+                .localUrl(localUrl)
+                .originUrl(originUrl)
+                .build();
+
+        logger.debug("Successfully converted {}/{} to TrackedEntry (size={})", repoKey, path, item.getSize());
+
+        return entry;
     }
 
-    private String getOriginUrl(String repoKey, String path, String fallbackUrl) {
-        try {
-            var properties = artifactory.repository(repoKey)
-                    .file(path)
-                    .getProperties();
-
-            // Check for JFrog origin remote path property
-            if (properties != null && properties.containsKey("jf.origin.remote.path")) {
-                List<String> values = properties.get("jf.origin.remote.path");
-                if (values != null && !values.isEmpty()) {
-                    String originUrl = values.get(0);
-                    if (originUrl != null && !originUrl.isEmpty()) {
-                        return originUrl;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.debug("Could not retrieve origin URL for {}/{}: {}", repoKey, path, e.getMessage());
+    /**
+     * Extracts the {@code jf.origin.remote.path} property value already embedded in the
+     * {@link AqlItem}. Falls back to {@code fallbackUrl} when the property is absent.
+     * No additional Artifactory call is made.
+     */
+    private String extractOriginUrl(AqlItem item, String fallbackUrl) {
+        if (item.getProperties() == null) {
+            return fallbackUrl;
         }
-
-        // Fall back to local URL
-        return fallbackUrl;
+        return item.getProperties()
+                .stream()
+                .filter(p -> "jf.origin.remote.path".equals(p.getkey()))
+                .map(AqlItem.Property::getValue)
+                .filter(v -> v != null && !v.isEmpty())
+                .findFirst()
+                .orElse(fallbackUrl);
     }
 
     private PackageType detectPackageType(String repoKey) {
@@ -311,5 +322,3 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
         return List.of();
     }
 }
-
-// Made with Bob
