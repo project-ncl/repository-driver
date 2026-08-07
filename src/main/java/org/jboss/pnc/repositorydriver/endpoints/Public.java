@@ -41,8 +41,8 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Driver;
-import org.jboss.pnc.repositorydriver.RepositoryDriverException;
 import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
+import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,7 +84,7 @@ public class Public {
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     @PUT
     @Path("/seal")
-    public void seal(String buildContentId) throws RepositoryDriverException {
+    public void seal(String buildContentId) {
         logger.info("Sealing: {}", LogSanitizer.clean(buildContentId));
         driver.sealTrackingReport(buildContentId);
     }

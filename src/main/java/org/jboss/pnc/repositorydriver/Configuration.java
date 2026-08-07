@@ -17,7 +17,6 @@
  */
 package org.jboss.pnc.repositorydriver;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,29 +37,26 @@ public class Configuration {
     private static final SmallRyeConfig CONFIG_READ = org.eclipse.microprofile.config.ConfigProvider.getConfig()
             .unwrap(SmallRyeConfig.class);
 
+    @ConfigProperty(name = "repository-driver.artifactory-project", defaultValue = "pnc")
+    String artifactoryProject;
+
+    @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
+    String environment;
+
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
 
-    @ConfigProperty(name = "repository-driver.indy-client.api-url")
-    String indyUrl;
+    @ConfigProperty(name = "repository-driver.artifactory-client.url")
+    String artifactoryUrl;
+
+    @ConfigProperty(name = "repository-driver.artifactory-client.access-token")
+    String accessToken;
 
     @ConfigProperty(name = "repository-driver.archive-service.api-url")
     String archiveServiceEndpoint;
 
-    @ConfigProperty(name = "repository-driver.indy-client.request-timeout", defaultValue = "30")
-    Integer indyClientRequestTimeout;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.enabled", defaultValue = "false")
-    Boolean indyClientMetricsEnabled;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.honeycombDataset", defaultValue = "")
-    Optional<String> indyClientMetricsHoneycombDataset;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.honeycombWriteKey", defaultValue = "")
-    Optional<String> indyClientMetricsHoneycombWriteKey;
-
-    @ConfigProperty(name = "repository-driver.indy-client.metrics.baseSampleRate", defaultValue = "0")
-    Optional<Integer> indyClientMetricsBaseSampleRate;
+    @ConfigProperty(name = "repository-driver.archive-service.enabled", defaultValue = "true")
+    boolean archiveServiceEnabled;
 
     @ConfigProperty(name = "repository-driver.http-client.connect-timeout", defaultValue = "5")
     int httpClientConnectTimeout;
@@ -76,9 +72,6 @@ public class Configuration {
 
     @ConfigProperty(name = "repository-driver.callback-retry-max-delay-msec", defaultValue = "5000")
     long callbackRetryMaxDelayMsec;
-
-    @ConfigProperty(name = "repository-driver.keycloak.request-timeout", defaultValue = "PT10S")
-    Duration keyCloakRequestTimeout;
 
     @ConfigProperty(name = "repository-driver.ignored-repo-patterns.archive")
     Optional<List<String>> ignoredRepoPatternsArchive;
@@ -138,7 +131,7 @@ public class Configuration {
 
     /**
      * get the config value for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -166,7 +159,7 @@ public class Configuration {
 
     /**
      * get the config value list for buildcategory. if no values specified for that buildcategory, use the 'default' one
-     * 
+     *
      * @param buildCategory
      * @param leafConfig
      * @return
@@ -215,4 +208,13 @@ public class Configuration {
     public Optional<List<String>> getBuildGroupConstituentsGroup(BuildCategory buildCategory) {
         return getConfigListString(buildCategory, "build-group-constituents.group");
     }
+
+    @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")
+    boolean bifrostUploaderEnabled;
+
+    // TEMPORARY: Use internal Artifactory queries instead of external tracking service
+    // Set to true until external tracking service is deployed
+    // TODO: Remove this flag when external service is ready
+    @ConfigProperty(name = "repository-driver.tracking-service.use-internal-tracking", defaultValue = "false")
+    boolean useInternalTracking;
 }
