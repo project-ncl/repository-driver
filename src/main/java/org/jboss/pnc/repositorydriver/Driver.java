@@ -81,7 +81,6 @@ import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
-import org.jfrog.artifactory.client.impl.util.Util;
 import org.jfrog.artifactory.client.model.LocalRepository;
 import org.jfrog.artifactory.client.model.PromotionMessage;
 import org.jfrog.artifactory.client.model.Repository;
@@ -354,7 +353,6 @@ public class Driver {
                     // Upload and promote primary Build
                     org.jfrog.build.api.Build primaryBuild = promotion.primaryBuild();
                     try {
-                        logger.warn("### primary buildinfo: {}", Util.getStringFromObject(primaryBuild));
                         logger.info(
                                 "Uploading primary BuildInfo {} #{} to Artifactory",
                                 primaryBuild.getName(),
@@ -395,7 +393,6 @@ public class Driver {
                     if (promotion.hasGenericDownloads()) {
                         org.jfrog.build.api.Build genericBuild = promotion.genericBuild();
                         try {
-                            logger.warn("### generic buildinfo: {}", Util.getStringFromObject(genericBuild));
                             logger.info(
                                     "Uploading generic downloads BuildInfo {} #{} to Artifactory",
                                     genericBuild.getName(),

@@ -123,8 +123,10 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                             "actual_sha1",
                             "actual_md5",
                             "sha256",
-                            "@jf.origin.remote.path")
-                    // TODO: Handle pagination        
+                            // Ideally we want to search for "@jf.origin.remote.path" but this then filters
+                            // to only those with that property which uploads do not have.
+                            "property")
+                    // TODO: Handle pagination
                     .limit(AQL_RESULT_LIMIT)
                     .buildFileSpec();
 
@@ -168,12 +170,9 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     LogSanitizer.clean(buildContentId));
 
             if (uploads.isEmpty()) {
-                String errorMsg = String.format(
-                        "No uploads found with property %s. " +
-                                "Ensure artifacts are tagged with build.pnc.* property during build.",
+                logger.error(
+                        "No uploads found with property {}. Ensure artifacts are tagged with build.pnc.* property during build.",
                         LogSanitizer.clean(propertyName));
-                logger.error(errorMsg);
-                throw new RuntimeException(errorMsg);
             }
 
             return TrackingReport.builder()
