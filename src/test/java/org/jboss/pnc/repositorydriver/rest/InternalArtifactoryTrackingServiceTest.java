@@ -28,8 +28,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
 
+import org.jboss.logmanager.LogContext;
+import org.jboss.logmanager.Logger;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
@@ -38,6 +44,7 @@ import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.Searches;
 import org.jfrog.artifactory.client.model.AqlItem;
 import org.jfrog.filespecs.FileSpec;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,6 +70,10 @@ public class InternalArtifactoryTrackingServiceTest {
     private Searches searches;
     private Configuration configuration;
 
+    /** Collects JUL records published through the service's JBoss-backed SLF4J logger. */
+    private CapturingHandler logCapture;
+    private Logger julLogger;
+
     @BeforeEach
     void setUp() {
         service = new InternalArtifactoryTrackingService();
@@ -78,6 +89,18 @@ public class InternalArtifactoryTrackingServiceTest {
         service.artifactory = artifactory;
         service.configuration = configuration;
         service.useInternalTracking = true;
+
+        // slf4j-jboss-logmanager calls LogContext.getLogContext().getLogger(name) — not the
+        // vanilla JUL LogManager — so we must use the same LogContext to get the same instance.
+        logCapture = new CapturingHandler();
+        julLogger = LogContext.getLogContext().getLogger(InternalArtifactoryTrackingService.class.getName());
+        julLogger.addHandler(logCapture);
+        julLogger.setLevel(Level.ALL);
+    }
+
+    @AfterEach
+    void tearDown() {
+        julLogger.removeHandler(logCapture);
     }
 
     // -------------------------------------------------------------------------
@@ -131,7 +154,7 @@ public class InternalArtifactoryTrackingServiceTest {
     }
 
     @Test
-    void getReport_throwsWhenNoUploadsFound() {
+    void getReport_logsErrorWhenNoUploadsFound() {
         // All results are in a repo that does NOT contain the build content ID → all downloads
         AqlItem downloadOnly = aqlItem(
                 PROJECT + "-mvn-shared-imports",
@@ -145,8 +168,13 @@ public class InternalArtifactoryTrackingServiceTest {
 
         stubAqlSearch(List.of(downloadOnly));
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> service.getReport(BUILD_CONTENT_ID));
-        assertTrue(ex.getMessage().contains("Failed to retrieve tracking report"));
+        TrackingReport report = service.getReport(BUILD_CONTENT_ID);
+
+        assertNotNull(report);
+        assertTrue(report.getUploads().isEmpty());
+        assertTrue(
+                logCapture.errorMessages().stream().anyMatch(m -> m.contains("No uploads found")),
+                "Expected an ERROR log message containing 'No uploads found'");
     }
 
     @Test
@@ -180,10 +208,17 @@ public class InternalArtifactoryTrackingServiceTest {
     }
 
     @Test
-    void getReport_emptyResultsThrowsRuntimeException() {
+    void getReport_emptyResultsLogsError() {
         stubAqlSearch(List.of());
 
-        assertThrows(RuntimeException.class, () -> service.getReport(BUILD_CONTENT_ID));
+        TrackingReport report = service.getReport(BUILD_CONTENT_ID);
+
+        assertNotNull(report);
+        assertTrue(report.getUploads().isEmpty());
+        assertTrue(report.getDownloads().isEmpty());
+        assertTrue(
+                logCapture.errorMessages().stream().anyMatch(m -> m.contains("No uploads found")),
+                "Expected an ERROR log message containing 'No uploads found'");
     }
 
     @Test
@@ -498,5 +533,41 @@ public class InternalArtifactoryTrackingServiceTest {
         TrackingReport report = service.getReport(buildId);
         TrackedEntry entry = report.getUploads().iterator().next();
         assertEquals(expected, entry.getRepoId().getPackageType());
+    }
+
+    /**
+     * A JUL {@link Handler} that collects every published {@link LogRecord} so tests can
+     * assert on log output without requiring any additional logging library.
+     *
+     * <p>
+     * The SLF4J binding in this project ({@code slf4j-jboss-logmanager}) routes every
+     * SLF4J call to the JUL logger with the same name as the SLF4J logger, making this a
+     * zero-dependency, zero-configuration way to observe log output in plain JUnit tests.
+     */
+    private static class CapturingHandler extends Handler {
+
+        private final List<LogRecord> records = new ArrayList<>();
+
+        @Override
+        public void publish(LogRecord record) {
+            records.add(record);
+        }
+
+        @Override
+        public void flush() {
+        }
+
+        @Override
+        public void close() {
+            records.clear();
+        }
+
+        /** Returns the formatted messages of all records at ERROR/SEVERE level (intValue == 1000). */
+        List<String> errorMessages() {
+            return records.stream()
+                    .filter(r -> r.getLevel().intValue() == Level.SEVERE.intValue())
+                    .map(LogRecord::getMessage)
+                    .toList();
+        }
     }
 }
