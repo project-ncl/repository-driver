@@ -111,7 +111,8 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
 
             // Single AQL POST — retrieves repo, path, name, checksums, size, and the
             // jf.origin.remote.path property value all in one call.
-            FileSpec spec = new FileSpecBuilder()
+            FileSpec spec = new FileSpec();
+            spec = new FileSpecBuilder()
                     .item("type", "file")
                     .match("repo", configuration.getArtifactoryProject() + "-*")
                     .eq("property.key", propertyName)
@@ -123,12 +124,28 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                             "actual_sha1",
                             "actual_md5",
                             "sha256",
-                            // Ideally we want to search for "@jf.origin.remote.path" but this then filters
-                            // to only those with that property which uploads do not have.
-                            "property")
+                            // Note that searching for a property also acts as a filter and excludes those
+                            // without this property hence the second FileGroup search below to find the
+                            // uploads that don't have this property.
+                            "@jf.origin.remote.path")
                     // TODO: Handle pagination
                     .limit(AQL_RESULT_LIMIT)
-                    .buildFileSpec();
+                    .addToFileSpec(spec);
+            spec = new FileSpecBuilder()
+                    .item("type", "file")
+                    .match("repo", configuration.getArtifactoryProject() + "-*-" + buildContentId)
+                    .eq("property.key", propertyName)
+                    .include(
+                            "name",
+                            "repo",
+                            "path",
+                            "size",
+                            "actual_sha1",
+                            "actual_md5",
+                            "sha256")
+                    // TODO: Handle pagination
+                    .limit(AQL_RESULT_LIMIT)
+                    .addToFileSpec(spec);
 
             List<AqlItem> allItems = artifactory.searches().artifactsByFileSpec(spec);
 
