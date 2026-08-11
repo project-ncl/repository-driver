@@ -440,7 +440,7 @@ public class TrackingReportProcessorTest {
                         .sha256("jackson-pom-sha256")
                         .build());
 
-        // Generic downloads from different repositories - should go to pnc-generic-downloads
+        // Generic downloads from different repositories - should go to pnc-gen-downloads
         RepositoryId genericRepo1 = RepositoryId.builder()
                 .project("pnc")
                 .packageType(PackageType.GENERIC)
@@ -540,7 +540,7 @@ public class TrackingReportProcessorTest {
                 genericBuild.getNumber(),
                 "Generic build should have same tracking ID as primary");
         Assertions.assertTrue(
-                genericBuild.getName().endsWith("-generic-downloads"),
+                genericBuild.getName().endsWith("-gen-downloads"),
                 "Generic build name should have suffix to differentiate from primary, got: " + genericBuild.getName());
         Assertions.assertEquals(
                 1,
@@ -573,7 +573,7 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(
                 RepositoryConstants.GENERIC_DOWNLOADS,
                 promotion.genericDownloadsTarget().getName(),
-                "Generic downloads target should be pnc-generic-downloads");
+                "Generic downloads target should be pnc-gen-downloads");
         Assertions.assertEquals(
                 PackageType.GENERIC,
                 promotion.genericDownloadsTarget().getPackageType(),
@@ -598,8 +598,8 @@ public class TrackingReportProcessorTest {
         org.jfrog.build.api.Module genericModule = genericBuild.getModules().get(0);
         Assertions.assertNotNull(genericModule, "Should have generic downloads module");
         Assertions.assertTrue(
-                genericModule.getId().contains("generic-downloads"),
-                "Generic module ID should contain 'generic-downloads'");
+                genericModule.getId().contains("gen-downloads"),
+                "Generic module ID should contain 'gen-downloads'");
         // Generic downloads are stored as dependencies (consumed artifacts), not artifacts (produced artifacts)
         int genericDepsSize = genericModule.getDependencies() == null ? 0 : genericModule.getDependencies().size();
         Assertions.assertEquals(
