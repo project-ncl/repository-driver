@@ -96,6 +96,7 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Expected: TEST + pnc-central + pnc-builds-imports-public + repo1-maven-org-<hash> = 4 repos
         assertEquals(4, result.getRepositories().size());
         String repo1Id = ArtifactoryUtils.generateRepoIdFromUrl(
+                configuration.getArtifactoryProject(),
                 "repo1.maven.org",
                 "https://repo1.maven.org/maven2/");
         assertTrue(
@@ -261,12 +262,15 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Verify all three repo IDs appear in the virtual group's constituent list
         // ID format: {host-slug}-{12-char-md5-of-full-url}  (max 41 chars, within 58-char remote limit)
         String knopflerfishId = ArtifactoryUtils.generateRepoIdFromUrl(
+                configuration.getArtifactoryProject(),
                 "resources.knopflerfish.org",
                 "http://resources.knopflerfish.org/repo/maven2/release/");
         String confluentId = ArtifactoryUtils.generateRepoIdFromUrl(
+                configuration.getArtifactoryProject(),
                 "packages.confluent.io",
                 "http://packages.confluent.io/maven/");
         String icmId = ArtifactoryUtils.generateRepoIdFromUrl(
+                configuration.getArtifactoryProject(),
                 "maven.icm.edu.pl",
                 "http://maven.icm.edu.pl/artifactory/repo/");
 

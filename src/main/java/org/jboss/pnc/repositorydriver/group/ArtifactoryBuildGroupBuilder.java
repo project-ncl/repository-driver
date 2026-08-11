@@ -167,7 +167,7 @@ public class ArtifactoryBuildGroupBuilder {
 
             if (!splittedRepos.isEmpty()) {
                 Set<ArtifactRepository> repositories = splittedRepos.stream()
-                        .map(this::createArtifactRepository)
+                        .map((String url) -> createArtifactRepository(url, configuration.getArtifactoryProject()))
                         .filter(Objects::nonNull)
                         .collect(Collectors.toSet());
                 for (ArtifactRepository artifactRepository : repositories) {
@@ -176,22 +176,20 @@ public class ArtifactoryBuildGroupBuilder {
                                 "Creating remote repository {} from url {}",
                                 artifactRepository.id,
                                 artifactRepository.url);
-                        if (!artifactory.repository(artifactRepository.id).exists()) {
-                            RemoteRepository r = artifactory.repositories()
-                                    .builders()
-                                    .remoteRepositoryBuilder()
-                                    .projectKey(configuration.getArtifactoryProject())
-                                    .listRemoteFolderItems(false)
-                                    .environments(Collections.singletonList(configuration.getEnvironment()))
-                                    .archiveBrowsingEnabled(true)
-                                    .description("Remote repository for " + artifactRepository.url)
-                                    .repositorySettings(settings)
-                                    .url(artifactRepository.url)
-                                    .key(artifactRepository.id)
-                                    .build();
+                        RemoteRepository r = artifactory.repositories()
+                                .builders()
+                                .remoteRepositoryBuilder()
+                                .projectKey(configuration.getArtifactoryProject())
+                                .listRemoteFolderItems(false)
+                                .environments(Collections.singletonList(configuration.getEnvironment()))
+                                .archiveBrowsingEnabled(true)
+                                .description("Remote repository for " + artifactRepository.url)
+                                .repositorySettings(settings)
+                                .url(artifactRepository.url)
+                                .key(artifactRepository.id)
+                                .build();
 
-                            artifactory.repositories().create(REPO_UI_POSITION, r);
-                        }
+                        artifactory.repositories().create(REPO_UI_POSITION, r);
                     }
                     includedRepositories.add(artifactRepository.id);
                 }
@@ -200,7 +198,7 @@ public class ArtifactoryBuildGroupBuilder {
         return this;
     }
 
-    private ArtifactRepository createArtifactRepository(String url) {
+    private ArtifactRepository createArtifactRepository(String url, String projectKey) {
         ArtifactRepository result = null;
         URI uri = null;
         try {
@@ -217,9 +215,15 @@ public class ArtifactoryBuildGroupBuilder {
                 // Format: {host-slug}-{12-char-md5-of-full-url}
                 // Max length: 41 chars — within both the 58-char remote and 64-char local limits.
                 // The full original URL is stored in the repository description for human lookup.
-                String id = ArtifactoryUtils.generateRepoIdFromUrl(host, url);
+                String id = ArtifactoryUtils.generateRepoIdFromUrl(projectKey, host, url);
 
-                result = ArtifactRepository.builder().id(id).name(id).url(url).releases(true).snapshots(false).build();
+                result = ArtifactRepository.builder()
+                        .id(id)
+                        .name(id)
+                        .url(url)
+                        .releases(true)
+                        .snapshots(false)
+                        .build();
             }
         }
 
