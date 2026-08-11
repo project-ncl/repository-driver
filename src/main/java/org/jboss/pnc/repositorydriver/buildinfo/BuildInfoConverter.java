@@ -29,6 +29,7 @@ import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.TypeConverters;
 import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 import org.jfrog.build.api.Agent;
 import org.jfrog.build.api.Artifact;
 import org.jfrog.build.api.Build;
@@ -201,7 +202,7 @@ public class BuildInfoConverter {
 
         // Create module for generic downloads
         Module genericModule = new Module();
-        genericModule.setId(buildName + "-generic-downloads:" + buildNumber);
+        genericModule.setId(buildName + "-" + RepositoryConstants.GENERIC_DOWNLOADS + ":" + buildNumber);
         genericModule.setType(ModuleType.GENERIC.name().toLowerCase());
         // Store generic downloads as DEPENDENCIES (not artifacts) - they are consumed artifacts
         genericModule.setDependencies(convertToDependencies(genericDownloads));
@@ -210,8 +211,8 @@ public class BuildInfoConverter {
         modules.add(genericModule);
 
         // Use BuildInfoBuilder for cleaner construction
-        // Build name includes "-generic-downloads" suffix to differentiate from primary Build
-        return new BuildInfoBuilder(buildName + "-generic-downloads").number(buildNumber)
+        // Build name includes "-gen-downloads" suffix to differentiate from primary Build
+        return new BuildInfoBuilder(buildName + "-" + RepositoryConstants.GENERIC_DOWNLOADS).number(buildNumber)
                 .version(BUILD_INFO_VERSION)
                 .started(startTime)
                 .buildAgent(buildAgent)

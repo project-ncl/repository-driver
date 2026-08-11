@@ -30,10 +30,10 @@ The converter creates **two separate Build objects** to enable independent promo
    - Promoted to: artifacts target (e.g., `pnc-mvn-builds`) and dependencies target (e.g., `pnc-mvn-imports`)
    
 2. **Generic Downloads Build**: Contains generic downloads as dependencies (may be null if no generic downloads)
-   - Module ID: `{buildName}-generic-downloads:{buildNumber}`
+   - Module ID: `{buildName}-gen-downloads:{buildNumber}`
    - Artifacts: None (empty list)
    - Dependencies: Generic downloads (stored as dependencies, not artifacts)
-   - Promoted to: generic downloads target (e.g., `pnc-generic-downloads`)
+   - Promoted to: generic downloads target (e.g., `pnc-gen-downloads`)
 
 **Why two Build objects?** Artifactory cannot differentiate between modules during promotion. When you call `promoteBuild()` with `setArtifacts(true)` or `setDependencies(true)`, Artifactory promotes ALL artifacts or ALL dependencies across ALL modules in the Build. Using separate Build objects ensures:
 - Correct Artifactory semantics - each Build promoted independently
@@ -131,7 +131,7 @@ artifactory.builds().promoteBuild(
 // Promote generic downloads Build (if it exists)
 if (genericBuild != null) {
     BuildPromotionRequest genericPromotion = new BuildPromotionRequest();
-    genericPromotion.setTargetRepo("pnc-generic-downloads");
+    genericPromotion.setTargetRepo("pnc-gen-downloads");
     genericPromotion.setStatus("promoted");
     genericPromotion.setComment("Promoted by PNC Repository Driver - generic downloads");
     genericPromotion.setCopy(true);
@@ -198,7 +198,7 @@ The generic downloads `Build` object (if created) contains:
 **Core Properties:** Same as primary Build
 
 **Module:**
-- `id`: Module identifier (`buildName-generic-downloads:buildNumber`)
+- `id`: Module identifier (`buildName-gen-downloads:buildNumber`)
 - `type`: "generic"
 - `artifacts`: Empty list
 - `dependencies`: List of generic downloads (stored as dependencies, not artifacts)
@@ -261,7 +261,7 @@ The generic downloads `Build` object (if created) contains:
 ```json
 {
   "version": "1.0.1",
-  "name": "my-build-generic-downloads",
+  "name": "my-build-gen-downloads",
   "number": "build-123",
   "project": "pnc",
   "started": "2024-01-15T10:30:00.000+0000",
@@ -275,7 +275,7 @@ The generic downloads `Build` object (if created) contains:
   },
   "modules": [
     {
-      "id": "my-build-generic-downloads:build-123",
+      "id": "my-build-gen-downloads:build-123",
       "type": "generic",
       "artifacts": [],
       "dependencies": [
@@ -367,7 +367,7 @@ if (!genericDownloads.isEmpty()) {
     artifactory.builds().uploadBuild(genericBuild);
     
     BuildPromotionRequest genericPromotion = new BuildPromotionRequest();
-    genericPromotion.setTargetRepo("pnc-generic-downloads");
+    genericPromotion.setTargetRepo("pnc-gen-downloads");
     genericPromotion.setArtifacts(false);
     genericPromotion.setDependencies(true);
     artifactory.builds().promoteBuild(

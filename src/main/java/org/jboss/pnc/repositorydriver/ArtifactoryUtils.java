@@ -88,7 +88,7 @@ public class ArtifactoryUtils {
     /**
      * Generate a human-readable, length-safe Artifactory repository key from a URL.
      * <p>
-     * Format: {@code {host-slug}-{12-char-md5-of-full-url}}
+     * Format: {@code {project}-{host-slug}-{12-char-md5-of-full-url}}
      * <p>
      * The host slug is the hostname with dots replaced by dashes, trimmed at the last
      * dash word-boundary within 28 characters. The 12-character hex suffix is the first
@@ -98,16 +98,17 @@ public class ArtifactoryUtils {
      * Maximum output length: 41 characters (well within JFrog's 58-char remote repo limit
      * and 64-char local repo limit).
      *
+     * @param project the associated project
      * @param host the URI host string (e.g. {@code "resources.knopflerfish.org"})
      * @param url the full URL string used as hash input
      * @return a repository key safe for both local and remote Artifactory repositories
      */
-    public static String generateRepoIdFromUrl(String host, String url) {
+    public static String generateRepoIdFromUrl(String project, String host, String url) {
         String hostWithDashes = host.replaceAll("\\.", "-");
         String slug = trimAtDashBoundary(hostWithDashes, 28);
         try {
             String shortHash = Md5.digest(url).substring(0, 12);
-            return slug + "-" + shortHash;
+            return project + "-" + slug + "-" + shortHash;
         } catch (NoSuchAlgorithmException | IOException e) {
             // MD5 is mandated by the JVM spec and the input is a validated URI string — cannot happen
             throw new IllegalStateException("Failed to compute MD5 for URL: " + url, e);
