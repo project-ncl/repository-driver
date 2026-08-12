@@ -290,7 +290,7 @@ public class Driver {
 
                 try {
                     downloadedArtifacts = trackingReportProcessor
-                            .collectDownloadedArtifacts(report, artifactFilterDatabase);
+                            .collectDownloadedArtifacts(report, artifactFilterDatabase, promoteRequest.isTempBuild());
                     uploadedArtifacts = trackingReportProcessor.collectUploadedArtifacts(
                             report,
                             promoteRequest.isTempBuild(),
@@ -760,7 +760,7 @@ public class Driver {
         TrackingReport report = retrieveTrackingReport(buildContentId);
         try {
             List<RepositoryArtifact> downloadedArtifacts = trackingReportProcessor
-                    .collectDownloadedArtifacts(report, artifactFilterDatabase);
+                    .collectDownloadedArtifacts(report, artifactFilterDatabase, tempBuild);
             List<RepositoryArtifact> uploadedArtifacts = trackingReportProcessor
                     .collectUploadedArtifacts(report, tempBuild, buildCategory);
 

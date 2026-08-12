@@ -30,6 +30,8 @@ public class RepositoryConstants {
 
     public static final String GENERIC_DOWNLOADS = "gen-downloads";
 
+    public static final String GENERIC_TEMP_DOWNLOADS = "gen-temp-downloads";
+
     /** Store key of gradle-plugins remote repository. */
     public static final String GRADLE_PLUGINS_REPO = "gradle-plugins";
 

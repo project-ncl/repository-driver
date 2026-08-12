@@ -104,7 +104,8 @@ public class TrackingReportProcessor {
     @WithSpan()
     public List<RepositoryArtifact> collectDownloadedArtifacts(
             @SpanAttribute(value = "report") TrackingReport report,
-            @SpanAttribute(value = "filter") ArtifactFilter filter) throws RepositoryDriverException {
+            @SpanAttribute(value = "filter") ArtifactFilter filter,
+            @SpanAttribute(value = "tempBuild") boolean tempBuild) throws RepositoryDriverException {
         Set<TrackedEntry> downloads = report.getDownloads();
         if (downloads == null) {
             return Collections.emptyList();
@@ -122,7 +123,7 @@ public class TrackingReportProcessor {
                     originUrl = download.getLocalUrl();
                 }
 
-                TargetRepository targetRepository = getDownloadsTargetRepository(download);
+                TargetRepository targetRepository = getDownloadsTargetRepository(download, tempBuild);
                 logger.info("### Download target repo: {}", targetRepository);
 
                 // ignored dependency sources for promotion are the internal ones, so those artifacts are built inhouse
@@ -256,7 +257,7 @@ public class TrackingReportProcessor {
         List<ArchiveDownloadEntry> deps = new ArrayList<>(downloads.size());
         for (TrackedEntry download : downloads) {
             if (artifactFilterArchive.accepts(download)) {
-                TargetRepository targetRepository = getDownloadsTargetRepository(download);
+                TargetRepository targetRepository = getDownloadsTargetRepository(download, false);
                 ArchiveDownloadEntry entry = fromTrackedEntry(download, targetRepository);
                 deps.add(entry);
             }
@@ -419,12 +420,14 @@ public class TrackingReportProcessor {
                             // Note: Paths are already transformed by Artifactory plugin in generic-pre-promotion repo
                             filteredGenericDownloads.add(download);
 
-                            // Set generic downloads target
+                            // Set generic downloads target (temp builds promote to a separate temp target)
                             if (genericDownloadsTarget == null) {
                                 genericDownloadsTarget = RepositoryId.builder()
                                         .project(sourceRepoId.getProject())
                                         .packageType(packageType)
-                                        .name(RepositoryConstants.GENERIC_DOWNLOADS)
+                                        .name(
+                                                tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS
+                                                        : RepositoryConstants.GENERIC_DOWNLOADS)
                                         .build();
                             }
                         }
@@ -708,7 +711,7 @@ public class TrackingReportProcessor {
         return purlBuilder.build().toString();
     }
 
-    private TargetRepository getDownloadsTargetRepository(TrackedEntry download)
+    private TargetRepository getDownloadsTargetRepository(TrackedEntry download, boolean tempBuild)
             throws RepositoryDriverException {
         RepositoryId repoId = download.getRepoId();
         PackageType packageType = download.getRepoId().getPackageType();
@@ -733,8 +736,9 @@ public class TrackingReportProcessor {
                 }
             }
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
-            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-"
-                    + RepositoryConstants.GENERIC_DOWNLOADS;
+            String genericTarget = tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS
+                    : RepositoryConstants.GENERIC_DOWNLOADS;
+            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-" + genericTarget;
         } else {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported by Indy repo manager driver.");
@@ -744,7 +748,7 @@ public class TrackingReportProcessor {
                 .identifier(identifier)
                 .repositoryType(repoType)
                 .repositoryPath(repoPath)
-                .temporaryRepo(false)
+                .temporaryRepo(tempBuild)
                 .build();
     }
 
