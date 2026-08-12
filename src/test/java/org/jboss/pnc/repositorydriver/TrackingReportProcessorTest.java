@@ -568,12 +568,12 @@ public class TrackingReportProcessorTest {
                 promotion.artifactsTarget().getPackageType(),
                 "Artifacts target should be Maven package type");
 
-        // Verify generic downloads target
+        // Verify generic downloads target (non-temp build uses GENERIC_DOWNLOADS)
         Assertions.assertNotNull(promotion.genericDownloadsTarget(), "Should have generic downloads target");
         Assertions.assertEquals(
                 RepositoryConstants.GENERIC_DOWNLOADS,
                 promotion.genericDownloadsTarget().getName(),
-                "Generic downloads target should be pnc-gen-downloads");
+                "Generic downloads target should be gen-downloads for a non-temp build");
         Assertions.assertEquals(
                 PackageType.GENERIC,
                 promotion.genericDownloadsTarget().getPackageType(),
@@ -735,7 +735,8 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when
-        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilter);
+        List<RepositoryArtifact> artifacts = trackingReportProcessor
+                .collectDownloadedArtifacts(report, artifactFilter, false);
 
         // then
         Assertions.assertEquals(2, artifacts.size());
@@ -772,7 +773,8 @@ public class TrackingReportProcessorTest {
                 .build();
 
         // when
-        List<RepositoryArtifact> artifacts = trackingReportProcessor.collectDownloadedArtifacts(report, artifactFilter);
+        List<RepositoryArtifact> artifacts = trackingReportProcessor
+                .collectDownloadedArtifacts(report, artifactFilter, false);
 
         // then
         Assertions.assertEquals(1, artifacts.size());
