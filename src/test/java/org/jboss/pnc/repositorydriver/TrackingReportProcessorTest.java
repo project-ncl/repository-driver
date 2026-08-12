@@ -540,7 +540,7 @@ public class TrackingReportProcessorTest {
                 genericBuild.getNumber(),
                 "Generic build should have same tracking ID as primary");
         Assertions.assertTrue(
-                genericBuild.getName().endsWith("-gen-downloads"),
+                genericBuild.getName().endsWith(":" + RepositoryConstants.GENERIC_BUILD_SUFFIX),
                 "Generic build name should have suffix to differentiate from primary, got: " + genericBuild.getName());
         Assertions.assertEquals(
                 1,
@@ -598,8 +598,8 @@ public class TrackingReportProcessorTest {
         org.jfrog.build.api.Module genericModule = genericBuild.getModules().get(0);
         Assertions.assertNotNull(genericModule, "Should have generic downloads module");
         Assertions.assertTrue(
-                genericModule.getId().contains("gen-downloads"),
-                "Generic module ID should contain 'gen-downloads'");
+                genericModule.getId().contains(":" + RepositoryConstants.GENERIC_BUILD_SUFFIX + ":"),
+                "Generic module ID should contain ':" + RepositoryConstants.GENERIC_BUILD_SUFFIX + ":'");
         // Generic downloads are stored as dependencies (consumed artifacts), not artifacts (produced artifacts)
         int genericDepsSize = genericModule.getDependencies() == null ? 0 : genericModule.getDependencies().size();
         Assertions.assertEquals(
