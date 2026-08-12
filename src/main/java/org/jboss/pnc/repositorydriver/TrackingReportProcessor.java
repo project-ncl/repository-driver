@@ -124,7 +124,6 @@ public class TrackingReportProcessor {
                 }
 
                 TargetRepository targetRepository = getDownloadsTargetRepository(download, tempBuild);
-                logger.info("### Download target repo: {}", targetRepository);
 
                 // ignored dependency sources for promotion are the internal ones, so those artifacts are built inhouse
                 ArtifactQuality quality = ignoreDependencySource(repoId) ? ArtifactQuality.NEW
@@ -237,8 +236,6 @@ public class TrackingReportProcessor {
                         .targetRepository(targetRepository)
                         .buildCategory(buildCategory)
                         .build();
-
-                logger.info("### Upload target repo: {}", targetRepository);
 
                 artifacts.add(validateArtifact(artifact));
             }
