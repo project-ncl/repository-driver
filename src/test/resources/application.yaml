@@ -76,6 +76,8 @@ repository-driver:
   artifactory-client:
     url: "http://artifactory-host/api/"
     access-token: "TOKEN"
+    connect-timeout: 5
+    request-timeout: 180
   archive-service:
     enabled: true
     api-url: "http://archive-service/archive/"

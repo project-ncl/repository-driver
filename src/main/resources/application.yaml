@@ -83,13 +83,13 @@ repository-driver:
     # Default category
     default:
       # Note - both these targets will have the deployment prefixed so a target
-      # of mvn-builds could become pnc-devel-mvn-builds
-      build-promotion-target: builds
-      temp-build-promotion-target: temp-builds
+      # of mvn-ibm-builds could become pnc-devel-mvn-ibm-builds
+      build-promotion-target: ibm-builds
+      temp-build-promotion-target: ibm-temp-builds
       # This represents the components of the virtual group.
       build-group-constituents:
         temp-hosted:
-          - temp-builds
+          - ibm-temp-builds
         temp-group:
           builds-imports-public
         hosted: [] # deliberately left empty
@@ -114,6 +114,8 @@ repository-driver:
   artifactory-client:
     url:
     access-token:
+    connect-timeout: 5
+    request-timeout: 180
   indy-sidecar:
     enabled: false
     url:
