@@ -22,11 +22,11 @@ public class ArtifactoryProducer {
             @ConfigProperty(name = "repository-driver.artifactory-client.url") String url,
             @ConfigProperty(name = "repository-driver.artifactory-client.access-token") String accessToken,
             @ConfigProperty(
-                    name = "repository-driver.http-client.connect-timeout",
+                    name = "repository-driver.artifactory-client.connect-timeout",
                     defaultValue = "5") int connectTimeout,
             @ConfigProperty(
-                    name = "repository-driver.http-client.request-timeout",
-                    defaultValue = "15") int socketTimeout)
+                    name = "repository-driver.artifactory-client.request-timeout",
+                    defaultValue = "180") int socketTimeout)
             throws RepositoryDriverException {
         try {
             // TODO: ### Remove the token from the log. Only outputting the last few characters to enable differentiation
