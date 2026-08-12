@@ -32,6 +32,12 @@ public class RepositoryConstants {
 
     public static final String GENERIC_TEMP_DOWNLOADS = "gen-temp-downloads";
 
+    /**
+     * Suffix used to identify generic-downloads Build objects and their modules in JFrog BuildInfo.
+     * Matches ModuleType.GENERIC.name().toLowerCase() so both the type field and the name/ID are consistent.
+     */
+    public static final String GENERIC_BUILD_SUFFIX = "generic";
+
     /** Store key of gradle-plugins remote repository. */
     public static final String GRADLE_PLUGINS_REPO = "gradle-plugins";
 

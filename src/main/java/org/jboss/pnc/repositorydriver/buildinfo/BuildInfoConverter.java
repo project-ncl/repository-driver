@@ -202,8 +202,8 @@ public class BuildInfoConverter {
 
         // Create module for generic downloads
         Module genericModule = new Module();
-        genericModule.setId(buildName + "-" + RepositoryConstants.GENERIC_DOWNLOADS + ":" + buildNumber);
-        genericModule.setType(ModuleType.GENERIC.name().toLowerCase());
+        genericModule.setId(buildName + ":" + RepositoryConstants.GENERIC_BUILD_SUFFIX + ":" + buildNumber);
+        genericModule.setType(RepositoryConstants.GENERIC_BUILD_SUFFIX);
         // Store generic downloads as DEPENDENCIES (not artifacts) - they are consumed artifacts
         genericModule.setDependencies(convertToDependencies(genericDownloads));
 
@@ -211,8 +211,8 @@ public class BuildInfoConverter {
         modules.add(genericModule);
 
         // Use BuildInfoBuilder for cleaner construction
-        // Build name includes "-gen-downloads" suffix to differentiate from primary Build
-        return new BuildInfoBuilder(buildName + "-" + RepositoryConstants.GENERIC_DOWNLOADS).number(buildNumber)
+        // Build name includes ":generic" suffix to differentiate from primary Build
+        return new BuildInfoBuilder(buildName + ":" + RepositoryConstants.GENERIC_BUILD_SUFFIX).number(buildNumber)
                 .version(BUILD_INFO_VERSION)
                 .started(startTime)
                 .buildAgent(buildAgent)
