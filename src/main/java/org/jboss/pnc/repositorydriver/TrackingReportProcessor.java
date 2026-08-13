@@ -473,6 +473,7 @@ public class TrackingReportProcessor {
                     buildAgentName,
                     buildAgentVersion,
                     startTime);
+
         }
 
         logger.info(
