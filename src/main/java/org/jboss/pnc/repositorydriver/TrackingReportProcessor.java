@@ -11,7 +11,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +59,6 @@ import com.github.packageurl.PackageURLBuilder;
 
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import lombok.Builder;
 
 /**
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
@@ -118,7 +116,6 @@ public class TrackingReportProcessor {
             if (filter.accepts(download)) {
                 String path = download.getPath();
                 RepositoryId repoId = download.getRepoId();
-                String identifier = computeIdentifier(download);
                 String originUrl = download.getOriginUrl();
                 if (originUrl == null) {
                     // this is from a hosted repository, either shared-imports or a build, or something like that.
@@ -142,7 +139,7 @@ public class TrackingReportProcessor {
                         : ArtifactQuality.IMPORTED;
 
                 String filename = getDownloadFilename(path, originUrl, targetRepository.getRepositoryType());
-                String purl = computePurl(download, filename);
+                ArtifactIds artifactIds = computeArtifactIds(download, filename);
 
                 RepositoryArtifact.Builder artifactBuilder = RepositoryArtifact.builder()
                         .md5(download.getMd5())
@@ -153,8 +150,8 @@ public class TrackingReportProcessor {
                         .originUrl(originUrl)
                         .importDate(Instant.now())
                         .filename(filename)
-                        .identifier(identifier)
-                        .purl(purl)
+                        .identifier(artifactIds.identifier())
+                        .purl(artifactIds.purl())
                         .artifactQuality(quality)
                         .targetRepository(targetRepository);
 
@@ -227,9 +224,8 @@ public class TrackingReportProcessor {
             PackageType packageType = upload.getRepoId().getPackageType();
 
             if (artifactFilterDatabase.accepts(upload)) {
-                String identifier = computeIdentifier(upload);
                 String filename = new File(path).getName();
-                String purl = computePurl(upload, filename);
+                ArtifactIds artifactIds = computeArtifactIds(upload, filename);
 
                 RepositoryType repoType = TypeConverters.toRepoType(packageType);
                 TargetRepository targetRepository = getUploadsTargetRepository(repoType, buildCategory, tempBuild);
@@ -241,8 +237,8 @@ public class TrackingReportProcessor {
                         .size(upload.getSize())
                         .deployPath(upload.getPath())
                         .filename(filename)
-                        .identifier(identifier)
-                        .purl(purl)
+                        .identifier(artifactIds.identifier())
+                        .purl(artifactIds.purl())
                         .artifactQuality(tempBuild ? ArtifactQuality.TEMPORARY : ArtifactQuality.NEW)
                         .targetRepository(targetRepository)
                         .buildCategory(buildCategory)
@@ -330,50 +326,30 @@ public class TrackingReportProcessor {
             @SpanAttribute(value = "environmentTools") Map<String, String> environmentTools)
             throws RepositoryDriverException {
 
+        BuildMetadata meta = resolveBuildMetadata(
+                buildType,
+                buildStartTime,
+                buildName,
+                buildVersion,
+                environmentTools);
+
+        logger.debug(
+                "Build info for {}: startTime={}, buildAgent={}:{}, moduleName={}",
+                buildContentId,
+                meta.startTime(),
+                meta.buildAgentName(),
+                meta.buildAgentVersion(),
+                meta.moduleName());
+
         Set<TrackedEntry> filteredUploads = new HashSet<>();
         Set<TrackedEntry> filteredDownloads = new HashSet<>();
         Set<TrackedEntry> filteredGenericDownloads = new HashSet<>();
         RepositoryId artifactsTarget = null;
         RepositoryId dependenciesTarget = null;
         RepositoryId genericDownloadsTarget = null;
-        Map<PackageType, RepositoryId> promotionTargetsCache = new HashMap<>();
 
-        // Derive RepositoryType from BuildType
-        RepositoryType repositoryType = buildType.getRepoType();
-
-        // Use BuildType to get agent name (e.g., MVN -> "MAVEN", NPM -> "NPM")
-        String buildAgentName = TypeConverters.toBuildTypeString(buildType);
-        String buildAgentVersion = null;
-        String startTime = null;
-
-        // Determine module name with cascading fallback:
-        // 1. Use buildName + buildVersion from RepositoryPromoteRequest (most reliable)
-        // 2. Extract from first upload artifact
-        String moduleName = null;
-
-        // Extract build information from RepositoryPromoteRequest parameters
-        if (buildStartTime != null) {
-            startTime = buildStartTime.toString();
-        }
-
-        // Extract build agent version from environment tools
-        if (environmentTools != null) {
-            buildAgentVersion = environmentTools.get(buildAgentName);
-        }
-
-        // Extract module name from build name and version
-        if (buildName != null && buildVersion != null) {
-            moduleName = buildName + ":" + versionParser.parse(buildVersion).unsuffixedVersion();
-            logger.debug("Extracted module name from RepositoryPromoteRequest: {}", moduleName);
-        }
-
-        logger.debug(
-                "Build info for {}: startTime={}, buildAgent={}:{}, moduleName={}",
-                buildContentId,
-                startTime,
-                buildAgentName,
-                buildAgentVersion,
-                moduleName);
+        // Module name: prefer value from request params; fall back to first passing upload below.
+        String moduleName = meta.moduleName();
 
         // Process uploads with filtering and determine artifacts target
         // Also extract module name as fallback if PNC Build info is unavailable
@@ -381,7 +357,7 @@ public class TrackingReportProcessor {
 
         if (uploads != null && !uploads.isEmpty()) {
 
-            PackageType uploadsPackageType = TypeConverters.toPackageType(repositoryType);
+            PackageType uploadsPackageType = TypeConverters.toPackageType(meta.repositoryType());
 
             // Determine target for uploads
             artifactsTarget = RepositoryId.builder()
@@ -419,9 +395,13 @@ public class TrackingReportProcessor {
                         case MAVEN, NPM -> {
                             // Determine dependencies target (prefer first Maven/NPM found)
                             if (dependenciesTarget == null) {
-                                dependenciesTarget = getSharedImportsPromotionTarget(
-                                        packageType,
-                                        promotionTargetsCache);
+                                dependenciesTarget = RepositoryId.builder()
+                                        .project(configuration.getArtifactoryProject())
+                                        .packageType(packageType)
+                                        .name(
+                                                packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID
+                                                        : NPM_SHARED_IMPORTS_ID)
+                                        .build();
                             }
                             filteredDownloads.add(download);
                         }
@@ -435,9 +415,7 @@ public class TrackingReportProcessor {
                                 genericDownloadsTarget = RepositoryId.builder()
                                         .project(sourceRepoId.getProject())
                                         .packageType(packageType)
-                                        .name(
-                                                tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS
-                                                        : RepositoryConstants.GENERIC_DOWNLOADS)
+                                        .name(genericDownloadsTargetName(tempBuild))
                                         .build();
                             }
                         }
@@ -470,10 +448,10 @@ public class TrackingReportProcessor {
                         primaryReport,
                         configuration.getArtifactoryProject(),
                         moduleName,
-                        repositoryType,
-                        buildAgentName,
-                        buildAgentVersion,
-                        startTime);
+                        meta.repositoryType(),
+                        meta.buildAgentName(),
+                        meta.buildAgentVersion(),
+                        meta.startTime());
 
         // Create generic downloads Build (if there are generic downloads)
         org.jfrog.build.api.Build genericBuild = null;
@@ -483,10 +461,9 @@ public class TrackingReportProcessor {
                     configuration.getArtifactoryProject(),
                     moduleName,
                     buildContentId,
-                    buildAgentName,
-                    buildAgentVersion,
-                    startTime);
-
+                    meta.buildAgentName(),
+                    meta.buildAgentVersion(),
+                    meta.startTime());
         }
 
         logger.info(
@@ -509,87 +486,34 @@ public class TrackingReportProcessor {
     }
 
     /**
-     * Computes identifier string for an artifact. If the download path is valid for a package-type specific artifact it
-     * creates the identifier accordingly.
+     * Computes both the identifier string and the purl for an artifact in a single pass, parsing the artifact path only
+     * once per package type.
      *
-     * @param transfer the download or upload that we want to generate identifier for
-     * @return generated identifier
+     * @param transfer the download or upload to compute IDs for
+     * @param filename the filename already derived for this transfer (used for the generic purl fallback)
+     * @return an {@link ArtifactIds} record containing the identifier and purl
      */
-    private String computeIdentifier(final TrackedEntry transfer) {
+    private ArtifactIds computeArtifactIds(final TrackedEntry transfer, final String filename) {
         String identifier = null;
-
-        switch (transfer.getRepoId().getPackageType()) {
-            case MAVEN -> {
-                ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
-
-                if (pathInfo == null) {
-                    // NCL-7238: handle cases where url has no file extension. we add the extension
-                    // MAVEN_SUBSTITUTE_EXTENSION and see if that helps to parse the pathInfo. Otherwise this causes
-                    // nasty artifact duplicates
-                    pathInfo = ArtifactPathInfo.parse(transfer.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
-                }
-                if (pathInfo != null) {
-                    ArtifactRef aref = new SimpleArtifactRef(
-                            pathInfo.getProjectId(),
-                            pathInfo.getType(),
-                            pathInfo.getClassifier());
-                    identifier = aref.toString();
-                } else if (transfer.getPath() != null && transfer.getPath().endsWith(".rpm")) {
-                    GAPVQ gapvq = parseRpmPathToGAPVQ(transfer.getPath());
-                    if (gapvq != null) {
-                        identifier = gapvq.identifier();
-                    }
-                }
-            }
-            case NPM -> {
-                NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(transfer.getPath());
-                if (npmPathInfo != null) {
-                    NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
-                    identifier = packageRef.toString();
-                }
-            }
-            case GENERIC -> {
-                // handle generic downloads along with other invalid download paths for other package types
-            }
-            default ->
-                // do not do anything by default
-                logger.warn(
-                        "Package type {} is not handled by repository session.",
-                        transfer.getRepoId().getPackageType());
-        }
-
-        if (identifier == null) {
-            identifier = computeGenericIdentifier(
-                    transfer.getOriginUrl(),
-                    transfer.getLocalUrl(),
-                    transfer.getSha256());
-        }
-
-        return identifier;
-    }
-
-    /**
-     * Computes purl string for an artifact.
-     *
-     * @param transfer the download or upload that we want to generate identifier for
-     * @param filename previously computed filename to avoid computing it again and maybe differently
-     * @return generated purl
-     */
-    private String computePurl(final TrackedEntry transfer, final String filename) {
         String purl = null;
 
         try {
             switch (transfer.getRepoId().getPackageType()) {
                 case MAVEN -> {
-
                     ArtifactPathInfo pathInfo = ArtifactPathInfo.parse(transfer.getPath());
                     if (pathInfo == null) {
                         // NCL-7238: handle cases where url has no file extension. we add the extension
-                        // MAVEN_SUBSTITUTE_EXTENSION and see if that helps to parse the pathInfo. Otherwise this causes
-                        // nasty artifact duplicates
+                        // MAVEN_SUBSTITUTE_EXTENSION and see if that helps to parse the pathInfo. Otherwise this
+                        // causes nasty artifact duplicates
                         pathInfo = ArtifactPathInfo.parse(transfer.getPath() + MAVEN_SUBSTITUTE_EXTENSION);
                     }
                     if (pathInfo != null) {
+                        ArtifactRef aref = new SimpleArtifactRef(
+                                pathInfo.getProjectId(),
+                                pathInfo.getType(),
+                                pathInfo.getClassifier());
+                        identifier = aref.toString();
+
                         // See https://github.com/package-url/purl-spec/blob/master/PURL-TYPES.rst#maven
                         PackageURLBuilder purlBuilder = PackageURLBuilder.aPackageURL()
                                 .withType(PackageURL.StandardTypes.MAVEN)
@@ -599,7 +523,6 @@ public class TrackingReportProcessor {
                                 .withQualifier(
                                         "type",
                                         StringUtils.isEmpty(pathInfo.getType()) ? "jar" : pathInfo.getType());
-
                         if (!StringUtils.isEmpty(pathInfo.getClassifier())) {
                             purlBuilder.withQualifier("classifier", pathInfo.getClassifier());
                         }
@@ -607,12 +530,12 @@ public class TrackingReportProcessor {
                     } else if (transfer.getPath() != null && transfer.getPath().endsWith(".rpm")) {
                         GAPVQ gapvq = parseRpmPathToGAPVQ(transfer.getPath());
                         if (gapvq != null) {
+                            identifier = gapvq.identifier();
                             purl = PackageURLBuilder.aPackageURL()
                                     .withType(PackageURL.StandardTypes.RPM)
                                     .withNamespace(gapvq.groupId)
                                     .withName(gapvq.artifactId)
-                                    .withVersion(gapvq.qualifier) // quarlifier will contain more detailed version of
-                                    // rpm
+                                    .withVersion(gapvq.qualifier) // qualifier contains the detailed rpm version
                                     .withQualifier("type", "rpm")
                                     .build()
                                     .toString();
@@ -620,41 +543,45 @@ public class TrackingReportProcessor {
                     }
                 }
                 case NPM -> {
-
                     NpmPackagePathInfo npmPathInfo = NpmPackagePathInfo.parse(transfer.getPath());
                     if (npmPathInfo != null) {
+                        NpmPackageRef packageRef = new NpmPackageRef(npmPathInfo.getName(), npmPathInfo.getVersion());
+                        identifier = packageRef.toString();
+
                         // See https://github.com/package-url/purl-spec/blob/master/PURL-TYPES.rst#npm
                         PackageURLBuilder purlBuilder = PackageURLBuilder.aPackageURL()
                                 .withType(PackageURL.StandardTypes.NPM)
                                 .withVersion(npmPathInfo.getVersion().toString());
-
                         String[] scopeAndName = npmPathInfo.getName().split("/");
                         if (scopeAndName != null && scopeAndName.length > 0) {
                             if (scopeAndName.length == 1) {
                                 // No scope
                                 purlBuilder.withName(scopeAndName[0]);
-
                                 purl = purlBuilder.build().toString();
                             } else if (scopeAndName.length == 2) {
                                 // Scoped package
                                 purlBuilder.withNamespace(scopeAndName[0]);
                                 purlBuilder.withName(scopeAndName[1]);
-
                                 purl = purlBuilder.build().toString();
                             }
                         }
                     }
                 }
                 case GENERIC -> {
-                    // handle generic downloads along with other invalid download paths for other package types
+                    // handled by the generic fallbacks below
                 }
                 default ->
-                    // do not do anything by default
                     logger.warn(
                             "Package type {} is not handled by repository session.",
                             transfer.getRepoId().getPackageType());
             }
 
+            if (identifier == null) {
+                identifier = computeGenericIdentifier(
+                        transfer.getOriginUrl(),
+                        transfer.getLocalUrl(),
+                        transfer.getSha256());
+            }
             if (purl == null) {
                 purl = computeGenericPurl(
                         filename,
@@ -670,7 +597,18 @@ public class TrackingReportProcessor {
                     ex.getMessage(),
                     ex);
         }
-        return purl;
+        return new ArtifactIds(identifier, purl);
+    }
+
+    /**
+     * Computes the identifier string for an artifact. Delegates to {@link #computeArtifactIds} using a generic
+     * filename fallback; callers that already have the filename should use {@link #computeArtifactIds} directly.
+     *
+     * @param transfer the download or upload to compute the identifier for
+     * @return generated identifier
+     */
+    private String computeIdentifier(final TrackedEntry transfer) {
+        return computeArtifactIds(transfer, null).identifier();
     }
 
     /**
@@ -752,9 +690,7 @@ public class TrackingReportProcessor {
             // repositoryPath includes the per-build folder so that deployPath holds only the
             // artifact-relative portion (/<domain>/<basepath>/filename) after the leading
             // /<buildContentId> prefix is stripped in collectDownloadedArtifacts.
-            String genericTarget = tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS
-                    : RepositoryConstants.GENERIC_DOWNLOADS;
-            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-" + genericTarget
+            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-" + genericDownloadsTargetName(tempBuild)
                     + "/" + buildContentId;
         } else {
             throw new RepositoryDriverException(
@@ -814,18 +750,8 @@ public class TrackingReportProcessor {
                 .build();
     }
 
-    private RepositoryId getSharedImportsPromotionTarget(
-            PackageType packageType,
-            Map<PackageType, RepositoryId> promotionTargetsCache) {
-        if (!promotionTargetsCache.containsKey(packageType)) {
-            RepositoryId repositoryId = RepositoryId.builder()
-                    .project(configuration.getArtifactoryProject())
-                    .packageType(packageType)
-                    .name(packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID : NPM_SHARED_IMPORTS_ID)
-                    .build();
-            promotionTargetsCache.put(packageType, repositoryId);
-        }
-        return promotionTargetsCache.get(packageType);
+    private String genericDownloadsTargetName(boolean tempBuild) {
+        return tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS : RepositoryConstants.GENERIC_DOWNLOADS;
     }
 
     private String getBuildPromotionTarget(PackageType packageType, BuildCategory buildCategory, boolean tempBuild) {
@@ -835,22 +761,35 @@ public class TrackingReportProcessor {
     }
 
     /**
-     * Helper DTO method for parseRpmPathToGAPVQ
+     * Resolves build metadata from the promotion request parameters.
+     *
+     * @param buildType the build type (MVN, NPM, …)
+     * @param buildStartTime the build start time, may be null
+     * @param buildName the build name from PNC, may be null
+     * @param buildVersion the build version from PNC, may be null
+     * @param environmentTools environment map used to look up the build-agent version, may be null
+     * @return a {@link BuildMetadata} record; {@code moduleName} is null when {@code buildName}/{@code buildVersion}
+     *         are absent
      */
-    @Builder
-    static class GAPVQ {
-        String groupId;
-        String artifactId;
-        String packageType;
-        String version;
-        String qualifier;
-
-        public String identifier() {
-            return String.format("%s:%s:%s:%s:%s", groupId, artifactId, packageType, version, qualifier);
+    private BuildMetadata resolveBuildMetadata(
+            BuildType buildType,
+            Instant buildStartTime,
+            String buildName,
+            String buildVersion,
+            Map<String, String> environmentTools) {
+        RepositoryType repositoryType = buildType.getRepoType();
+        String buildAgentName = TypeConverters.toBuildTypeString(buildType);
+        String buildAgentVersion = environmentTools != null ? environmentTools.get(buildAgentName) : null;
+        String startTime = buildStartTime != null ? buildStartTime.toString() : null;
+        String moduleName = null;
+        if (buildName != null && buildVersion != null) {
+            moduleName = buildName + ":" + versionParser.parse(buildVersion).unsuffixedVersion();
+            logger.debug("Extracted module name from RepositoryPromoteRequest: {}", moduleName);
         }
+        return new BuildMetadata(repositoryType, buildAgentName, buildAgentVersion, startTime, moduleName);
     }
 
-    static GAPVQ parseRpmPathToGAPVQ(String path) {
+    private GAPVQ parseRpmPathToGAPVQ(String path) {
 
         // sanity check, the path needs to end with '.rpm'
         if (!path.endsWith(".rpm")) {
@@ -893,12 +832,35 @@ public class TrackingReportProcessor {
         // The limit of 2 ensures the split is performed only once.
         String[] rpmFilenameParts = rpmFilename.split(rpmVersionRegex, 2);
         String qualifier = rpmFilenameParts[1].replace(".rpm", "");
-        return GAPVQ.builder()
-                .groupId(groupId)
-                .artifactId(artifactId)
-                .packageType("rpm")
-                .version(version)
-                .qualifier(qualifier)
-                .build();
+        return new GAPVQ(groupId, artifactId, "rpm", version, qualifier);
+    }
+
+    // -------------------------------------------------------------------------
+    // Inner records
+    // -------------------------------------------------------------------------
+
+    /** Identifier and purl computed together in a single path parse. */
+    private record ArtifactIds(String identifier, String purl) {
+    }
+
+    /**
+     * Eagerly-resolved build metadata derived from the {@code createPromotionBuildInfo} request parameters.
+     * {@code moduleName} is null when neither {@code buildName}/{@code buildVersion} nor a passing upload has been
+     * seen yet — the caller fills it in as a fallback from the first accepted upload.
+     */
+    private record BuildMetadata(
+            RepositoryType repositoryType,
+            String buildAgentName,
+            String buildAgentVersion,
+            String startTime,
+            String moduleName) {
+    }
+
+    /** Group, Artifact, PackageType, Version, Qualifier — parsed from an RPM artifact path. */
+    private record GAPVQ(String groupId, String artifactId, String packageType, String version, String qualifier) {
+
+        public String identifier() {
+            return String.format("%s:%s:%s:%s:%s", groupId, artifactId, packageType, version, qualifier);
+        }
     }
 }
