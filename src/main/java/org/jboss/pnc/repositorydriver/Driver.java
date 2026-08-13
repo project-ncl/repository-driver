@@ -403,8 +403,10 @@ public class Driver {
                                     genericBuild.getNumber());
                             userLog.error(message, e);
                             uploadLogs(message + ": " + e.getMessage(), "promote");
-                            // Don't fail the entire promotion if generic downloads upload fails
-                            logger.warn("Continuing with promotion despite generic downloads upload failure");
+                            notifyInvoker(
+                                    promoteRequest.getCallback(),
+                                    RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
+                            return;
                         }
 
                         // Promote generic downloads (stored as artifacts)
@@ -949,16 +951,36 @@ public class Driver {
                             promotionRequest,
                             configuration.getArtifactoryProject());
 
+            List<PromotionMessage> promotionMessages = response.getMessages() == null
+                    ? Collections.emptyList()
+                    : response.getMessages();
+
             userLog.info(
-                    "Successfully promoted BuildInfo {} #{} to {} with messages {}",
+                    "Promoted BuildInfo {} #{} to {} with messages [{}]",
                     buildName,
                     buildNumber,
                     targetRepoName,
-                    response.getMessages() == null ? "[]"
-                            : response.getMessages()
-                                    .stream()
-                                    .map(PromotionMessage::getMessage)
-                                    .collect(Collectors.joining(", ")));
+                    promotionMessages.stream()
+                            .map(m -> m.getLevel() + ": " + m.getMessage())
+                            .collect(Collectors.joining(", ")));
+
+            List<PromotionMessage> errors = promotionMessages.stream()
+                    .filter(m -> "error".equalsIgnoreCase(m.getLevel()))
+                    .collect(Collectors.toList());
+            if (!errors.isEmpty()) {
+                String errorDetails = errors.stream()
+                        .map(PromotionMessage::getMessage)
+                        .collect(Collectors.joining("; "));
+                String message = String.format(
+                        "Promotion of BuildInfo %s #%s (%s) to repository %s reported errors: %s",
+                        buildName,
+                        buildNumber,
+                        scope,
+                        targetRepoName,
+                        errorDetails);
+                logger.error(message);
+                throw new PromotionValidationException(message);
+            }
         } catch (IOException e) {
             String message = String.format(
                     "Failed to promote BuildInfo %s #%s (%s) to repository %s",
