@@ -231,7 +231,6 @@ public class TrackingReportProcessor {
                 String filename = new File(path).getName();
                 String purl = computePurl(upload, filename);
 
-                logger.info("Recording upload: {}", identifier);
                 RepositoryType repoType = TypeConverters.toRepoType(packageType);
                 TargetRepository targetRepository = getUploadsTargetRepository(repoType, buildCategory, tempBuild);
 
