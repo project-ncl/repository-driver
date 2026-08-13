@@ -258,29 +258,21 @@ public class Driver {
         String buildConfigurationId = promoteRequest.getBuildConfigurationId();
         BuildType buildType = promoteRequest.getBuildType();
         BuildCategory buildCategory = promoteRequest.getBuildCategory();
-        TrackingReport report;
-        try {
-            report = retrieveTrackingReport(buildContentId);
-        } catch (RepositoryDriverException ex) {
-            userLog.error(ex.getMessage());
-            uploadLogs(ex.getMessage(), "promote");
-            throw ex;
-        }
         // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
         // schedule promotion
         executor.runAsync(Context.current().wrap(() -> {
             Request heartBeat = promoteRequest.getHeartBeat();
             Runnable heartBeatSender;
+            logger.warn("### promoteRequest heartbeat {}", heartBeat);
             if (heartBeat != null) {
                 heartBeatSender = heartBeatSender(heartBeat);
             } else {
                 heartBeatSender = () -> {};
             }
 
-            List<RepositoryArtifact> downloadedArtifacts;
-            List<RepositoryArtifact> uploadedArtifacts;
-
+            final List<RepositoryArtifact> downloadedArtifacts;
+            final List<RepositoryArtifact> uploadedArtifacts;
             final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
             try {
@@ -289,6 +281,18 @@ public class Driver {
                         0,
                         configuration.getHeartbeatInterval(),
                         TimeUnit.SECONDS);
+
+                TrackingReport report;
+                try {
+                    report = retrieveTrackingReport(buildContentId);
+                } catch (RepositoryDriverException ex) {
+                    userLog.error(ex.getMessage());
+                    uploadLogs(ex.getMessage(), "promote");
+                    notifyInvoker(
+                            promoteRequest.getCallback(),
+                            RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
+                    return;
+                }
 
                 try {
                     downloadedArtifacts = trackingReportProcessor
