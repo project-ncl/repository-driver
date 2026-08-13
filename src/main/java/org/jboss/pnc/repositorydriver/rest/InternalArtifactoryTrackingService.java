@@ -149,11 +149,6 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
 
             List<AqlItem> allItems = artifactory.searches().artifactsByFileSpec(spec);
 
-            logger.debug(
-                    "Found {} total items with property {} across all repositories",
-                    allItems.size(),
-                    propertyName);
-
             // Split results based on repoKey:
             // - If repoKey contains buildId → upload (build repository)
             // - If repoKey does NOT contain buildId → download (shared-imports repository)
@@ -167,10 +162,8 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     TrackedEntry entry = convertAqlItemToTrackedEntry(item, packageType);
 
                     if (repoKey.contains(buildContentId)) {
-                        logger.debug("Classified as UPLOAD: {} (repoKey contains buildId)", repoKey);
                         uploads.add(entry);
                     } else {
-                        logger.debug("Classified as DOWNLOAD: {} (repoKey does not contain buildId)", repoKey);
                         downloads.add(entry);
                     }
                 } catch (Exception e) {
@@ -181,7 +174,8 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
             }
 
             logger.info(
-                    "Internal tracking: Found {} downloads, {} uploads for build {}",
+                    "Internal tracking: Across all items {} found {} downloads, {} uploads for build {}",
+                    allItems.size(),
                     downloads.size(),
                     uploads.size(),
                     LogSanitizer.clean(buildContentId));
@@ -222,11 +216,11 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                 ? name
                 : directory + "/" + name;
 
-        logger.debug(
-                "Converting AqlItem to TrackedEntry: repo={}, path={}, packageType={}",
-                repoKey,
-                path,
-                packageType);
+        // logger.debug(
+        //         "Converting AqlItem to TrackedEntry: repo={}, path={}, packageType={}",
+        //         repoKey,
+        //         path,
+        //         packageType);
 
         // Strip project prefix from repoKey to get the repository name
         // repoKey format: "pnc-mvn-build-123" -> name should be "mvn-build-123"
@@ -234,7 +228,6 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
         String repoName = repoKey;
         if (repoKey.startsWith(project + "-")) {
             repoName = repoKey.substring(project.length() + 1);
-            logger.debug("Stripped project prefix '{}' from repoKey: {} -> {}", project, repoKey, repoName);
         }
 
         RepositoryId repoId = RepositoryId.builder()
@@ -254,7 +247,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
         String localUrl = configuration.getArtifactoryUrl() + "/" + repoKey + "/" + path;
         String originUrl = extractOriginUrl(item, localUrl);
 
-        logger.debug("URLs for {}/{}: local={}, origin={}", repoKey, path, localUrl, originUrl);
+        // logger.debug("URLs for {}/{}: local={}, origin={}", repoKey, path, localUrl, originUrl);
 
         TrackedEntry entry = TrackedEntry.builder()
                 .repoId(repoId)
@@ -267,7 +260,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                 .originUrl(originUrl)
                 .build();
 
-        logger.debug("Successfully converted {}/{} to TrackedEntry (size={})", repoKey, path, item.getSize());
+        // logger.debug("Successfully converted {}/{} to TrackedEntry (size={})", repoKey, path, item.getSize());
 
         return entry;
     }
