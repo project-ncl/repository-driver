@@ -111,6 +111,8 @@ public class TrackingReportProcessor {
             return Collections.emptyList();
         }
 
+        String buildContentId = report.getTrackingID();
+
         List<RepositoryArtifact> deps = new ArrayList<>(downloads.size());
         for (TrackedEntry download : downloads) {
             if (filter.accepts(download)) {
@@ -123,7 +125,17 @@ public class TrackingReportProcessor {
                     originUrl = download.getLocalUrl();
                 }
 
-                TargetRepository targetRepository = getDownloadsTargetRepository(download, tempBuild);
+                TargetRepository targetRepository = getDownloadsTargetRepository(download, tempBuild, buildContentId);
+
+                // For generic proxy artifacts the Artifactory plugin stores them under /<buildContentId>/...
+                // in the pre-promotion repo. The PNC orch DB needs to have build-XXX in the repo path and the
+                // deploy path needs build-XX removed.
+                if (targetRepository.getRepositoryType() == RepositoryType.GENERIC_PROXY) {
+                    String prefix = "/" + buildContentId;
+                    if (path.startsWith(prefix + "/")) {
+                        path = path.substring(prefix.length());
+                    }
+                }
 
                 // ignored dependency sources for promotion are the internal ones, so those artifacts are built inhouse
                 ArtifactQuality quality = ignoreDependencySource(repoId) ? ArtifactQuality.NEW
@@ -251,10 +263,12 @@ public class TrackingReportProcessor {
             return Collections.emptyList();
         }
 
+        String buildContentId = report.getTrackingID();
+
         List<ArchiveDownloadEntry> deps = new ArrayList<>(downloads.size());
         for (TrackedEntry download : downloads) {
             if (artifactFilterArchive.accepts(download)) {
-                TargetRepository targetRepository = getDownloadsTargetRepository(download, false);
+                TargetRepository targetRepository = getDownloadsTargetRepository(download, false, buildContentId);
                 ArchiveDownloadEntry entry = fromTrackedEntry(download, targetRepository);
                 deps.add(entry);
             }
@@ -709,8 +723,10 @@ public class TrackingReportProcessor {
         return purlBuilder.build().toString();
     }
 
-    private TargetRepository getDownloadsTargetRepository(TrackedEntry download, boolean tempBuild)
-            throws RepositoryDriverException {
+    private TargetRepository getDownloadsTargetRepository(
+            TrackedEntry download,
+            boolean tempBuild,
+            String buildContentId) throws RepositoryDriverException {
         RepositoryId repoId = download.getRepoId();
         PackageType packageType = download.getRepoId().getPackageType();
         RepositoryType repoType = TypeConverters.toRepoType(packageType);
@@ -734,9 +750,13 @@ public class TrackingReportProcessor {
                 }
             }
         } else if (repoType == RepositoryType.GENERIC_PROXY) {
+            // repositoryPath includes the per-build folder so that deployPath holds only the
+            // artifact-relative portion (/<domain>/<basepath>/filename) after the leading
+            // /<buildContentId> prefix is stripped in collectDownloadedArtifacts.
             String genericTarget = tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS
                     : RepositoryConstants.GENERIC_DOWNLOADS;
-            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-" + genericTarget;
+            repoPath = "/artifactory/" + download.getRepoId().getProject() + "-" + genericTarget
+                    + "/" + buildContentId;
         } else {
             throw new RepositoryDriverException(
                     "Repository type " + repoType + " is not supported by Indy repo manager driver.");
