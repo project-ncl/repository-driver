@@ -81,6 +81,7 @@ import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
+import org.jfrog.artifactory.client.model.BuildPromotionResponse;
 import org.jfrog.artifactory.client.model.LocalRepository;
 import org.jfrog.artifactory.client.model.PromotionMessage;
 import org.jfrog.artifactory.client.model.Repository;
@@ -330,25 +331,15 @@ public class Driver {
 
                     }
 
-                    if (promotion.primaryBuild().getModules() != null &&
-                            promotion.primaryBuild().getModules().get(0).getArtifacts() != null &&
-                            !promotion.primaryBuild().getModules().get(0).getArtifacts().isEmpty()) {
-                        // In artifactory the build-info recording only works for uploads if the build name
-                        // and build number are set on the artifacts.
-                        artifactory
-                                .repository(
-                                        promotion.primaryBuild()
-                                                .getModules()
-                                                .get(0)
-                                                .getArtifacts()
-                                                .get(0)
-                                                .getOriginalDeploymentRepo())
-                                .folder(".")
-                                .properties()
-                                .addProperty("build.name", promotion.primaryBuild().getName())
-                                .addProperty("build.number", promotion.primaryBuild().getNumber())
-                                .doSet(true);
-                    }
+                    setBuildProperties(
+                            promotion.primaryBuild(),
+                            promotion.primaryBuild()
+                                    .getModules()
+                                    .get(0)
+                                    .getArtifacts()
+                                    .get(0)
+                                    .getOriginalDeploymentRepo(),
+                            ".");
 
                     // Upload and promote primary Build
                     org.jfrog.build.api.Build primaryBuild = promotion.primaryBuild();
@@ -391,6 +382,12 @@ public class Driver {
 
                     // Upload and promote generic downloads Build (if present)
                     if (promotion.hasGenericDownloads()) {
+
+                        setBuildProperties(
+                                promotion.genericBuild(),
+                                configuration.getArtifactoryProject() + "-gen-pre-promotion",
+                                buildContentId);
+
                         org.jfrog.build.api.Build genericBuild = promotion.genericBuild();
                         try {
                             logger.info(
@@ -410,12 +407,12 @@ public class Driver {
                             logger.warn("Continuing with promotion despite generic downloads upload failure");
                         }
 
-                        // Promote generic downloads (stored as dependencies)
+                        // Promote generic downloads (stored as artifacts)
                         logger.info(
                                 "Promoting generic downloads for BuildInfo {} to {}",
                                 genericBuild.getName(),
                                 promotion.genericDownloadsTarget().getPath());
-                        promoteToRepository(genericBuild, promotion.genericDownloadsTarget(), false);
+                        promoteToRepository(genericBuild, promotion.genericDownloadsTarget(), true);
                     }
 
                     // Setting repositories to readonly. Currently we're using blackedOut which is "Disable Artifact Resolution in Repository" in the UI
@@ -874,6 +871,33 @@ public class Driver {
     }
 
     /**
+     * Sets {@code build.name} and {@code build.number} properties on all artifacts in the given Build's first module.
+     *
+     * <p>
+     * Artifactory build-info recording only works when these properties are present on the artifacts in the source
+     * repository before the build-info is uploaded. The {@code repository} and {@code folder} differ between the
+     * primary build (source repo derived from the artifact's own deployment repo, folder {@code "."}) and the generic
+     * downloads build (a fixed pre-promotion repo, folder scoped to the build content ID).
+     * </p>
+     *
+     * @param build the Build whose name and number to stamp
+     * @param repository the Artifactory repository key containing the artifacts
+     * @param folder the folder path within that repository to apply properties to (recursive)
+     */
+    private void setBuildProperties(Build build, String repository, String folder) {
+        if (build.getModules() == null || build.getModules().get(0).getArtifacts() == null
+                || build.getModules().get(0).getArtifacts().isEmpty()) {
+            return;
+        }
+        artifactory.repository(repository)
+                .folder(folder)
+                .properties()
+                .addProperty("build.name", build.getName())
+                .addProperty("build.number", build.getNumber())
+                .doSet(true);
+    }
+
+    /**
      * Promotes a BuildInfo to a target repository (artifacts or dependencies).
      * Assumes BuildInfo has already been uploaded to Artifactory.
      *
@@ -918,7 +942,7 @@ public class Driver {
                     buildNumber,
                     scope,
                     targetRepoName);
-            var response = artifactory.builds()
+            BuildPromotionResponse response = artifactory.builds()
                     .promoteBuild(
                             buildName,
                             buildNumber,

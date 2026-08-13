@@ -545,7 +545,7 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(
                 1,
                 genericBuild.getModules().size(),
-                "Generic build should have 1 module (generic downloads as dependencies)");
+                "Generic build should have 1 module (generic downloads as artifacts)");
 
         // Verify Maven shared-imports target (dependencies target)
         Assertions.assertEquals(
@@ -594,24 +594,24 @@ public class TrackingReportProcessorTest {
                 primaryDepsSize,
                 "Primary module should have 4 dependencies (indy pom, indy jar, jackson jar, jackson pom)");
 
-        // Verify generic downloads module (contains generic downloads as dependencies, not artifacts)
+        // Verify generic downloads module (contains generic downloads as artifacts)
         org.jfrog.build.api.Module genericModule = genericBuild.getModules().get(0);
         Assertions.assertNotNull(genericModule, "Should have generic downloads module");
         Assertions.assertTrue(
                 genericModule.getId().contains(":" + RepositoryConstants.GENERIC_BUILD_SUFFIX + ":"),
                 "Generic module ID should contain ':" + RepositoryConstants.GENERIC_BUILD_SUFFIX + ":'");
-        // Generic downloads are stored as dependencies (consumed artifacts), not artifacts (produced artifacts)
-        int genericDepsSize = genericModule.getDependencies() == null ? 0 : genericModule.getDependencies().size();
-        Assertions.assertEquals(
-                2,
-                genericDepsSize,
-                "Generic downloads module should have 2 dependencies (from 2 different repos)");
-        // Generic module should have no artifacts (downloads are dependencies, not produced artifacts)
+        // Generic downloads are stored as artifacts so build.name/build.number properties can be set on them
         int genericArtifactsSize = genericModule.getArtifacts() == null ? 0 : genericModule.getArtifacts().size();
         Assertions.assertEquals(
-                0,
+                2,
                 genericArtifactsSize,
-                "Generic downloads module should have no artifacts (downloads stored as dependencies)");
+                "Generic downloads module should have 2 artifacts (from 2 different repos)");
+        // Generic module should have no dependencies
+        int genericDepsSize = genericModule.getDependencies() == null ? 0 : genericModule.getDependencies().size();
+        Assertions.assertEquals(
+                0,
+                genericDepsSize,
+                "Generic downloads module should have no dependencies");
 
     }
 

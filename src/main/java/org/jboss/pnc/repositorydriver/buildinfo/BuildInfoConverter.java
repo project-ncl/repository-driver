@@ -178,7 +178,7 @@ public class BuildInfoConverter {
      * @param buildAgentName the name of the build agent (e.g., "Maven", "Gradle")
      * @param buildAgentVersion the version of the build agent
      * @param startTime the build start time in ISO 8601 format
-     * @return a Build containing the generic downloads as dependencies, or null if genericDownloads is empty
+     * @return a Build containing the generic downloads as artifacts, or null if genericDownloads is empty
      */
     public static Build createGenericDownloadsBuild(
             Set<TrackedEntry> genericDownloads,
@@ -204,8 +204,9 @@ public class BuildInfoConverter {
         Module genericModule = new Module();
         genericModule.setId(buildName + ":" + RepositoryConstants.GENERIC_BUILD_SUFFIX + ":" + buildNumber);
         genericModule.setType(RepositoryConstants.GENERIC_BUILD_SUFFIX);
-        // Store generic downloads as DEPENDENCIES (not artifacts) - they are consumed artifacts
-        genericModule.setDependencies(convertToDependencies(genericDownloads));
+        // Store generic downloads as artifacts so build.name/build.number properties can be set on
+        // them the same way as for primary-build uploads, enabling Artifactory build-info linking.
+        genericModule.setArtifacts(convertToArtifacts(genericDownloads));
 
         List<Module> modules = new ArrayList<>();
         modules.add(genericModule);
