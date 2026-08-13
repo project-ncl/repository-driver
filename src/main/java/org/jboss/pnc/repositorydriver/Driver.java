@@ -29,6 +29,7 @@ import java.net.URI;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -365,20 +366,22 @@ public class Driver {
 
                     // Promote artifacts to their target repository
                     if (promotion.hasArtifactsTarget()) {
-                        logger.info(
-                                "Promoting artifacts for BuildInfo {} to {}",
-                                primaryBuild.getName(),
-                                promotion.artifactsTarget().getPath());
-                        promoteToRepository(primaryBuild, promotion.artifactsTarget(), true);
+                        promoteToRepository(
+                                primaryBuild,
+                                promotion.artifactsTarget(),
+                                "artifacts",
+                                uploadedArtifacts.size(),
+                                true);
                     }
 
                     // Promote dependencies to their target repository
                     if (promotion.hasDependenciesTarget()) {
-                        logger.info(
-                                "Promoting dependencies for BuildInfo {} to {}",
-                                primaryBuild.getName(),
-                                promotion.dependenciesTarget().getPath());
-                        promoteToRepository(primaryBuild, promotion.dependenciesTarget(), false);
+                        promoteToRepository(
+                                primaryBuild,
+                                promotion.dependenciesTarget(),
+                                "dependencies",
+                                downloadedArtifacts.size(),
+                                false);
                     }
 
                     // Upload and promote generic downloads Build (if present)
@@ -411,11 +414,12 @@ public class Driver {
                         }
 
                         // Promote generic downloads (stored as artifacts)
-                        logger.info(
-                                "Promoting generic downloads for BuildInfo {} to {}",
-                                genericBuild.getName(),
-                                promotion.genericDownloadsTarget().getPath());
-                        promoteToRepository(genericBuild, promotion.genericDownloadsTarget(), true);
+                        promoteToRepository(
+                                genericBuild,
+                                promotion.genericDownloadsTarget(),
+                                "generic downloads",
+                                genericBuild.getModules().get(0).getArtifacts().size(),
+                                true);
                     }
 
                     // Setting repositories to readonly. Currently we're using blackedOut which is "Disable Artifact Resolution in Repository" in the UI
@@ -911,18 +915,22 @@ public class Driver {
      *
      * @param buildInfo the BuildInfo object (already uploaded to Artifactory)
      * @param targetRepo the target repository for promotion
+     * @param promotionType label describing what is being promoted
+     * @param promotedCount number of items expected to be promoted
      * @param promoteArtifacts true to promote artifacts (uploads), false to promote dependencies (downloads)
      * @throws PromotionValidationException if promotion fails
      */
     private void promoteToRepository(
             Build buildInfo,
             RepositoryId targetRepo,
+            String promotionType,
+            int promotedCount,
             boolean promoteArtifacts) throws PromotionValidationException {
 
         String buildName = buildInfo.getName();
         String buildNumber = buildInfo.getNumber();
         String targetRepoName = targetRepo.getPath();
-        String scope = promoteArtifacts ? "artifacts" : "dependencies";
+        Instant promotionStart = Instant.now();
 
         try {
             // Create BuildPromotionRequest using concrete implementation
@@ -930,7 +938,7 @@ public class Driver {
 
             promotionRequest.setTargetRepo(targetRepoName);
             promotionRequest.setStatus("promoted");
-            promotionRequest.setComment("Promoted by PNC Repository Driver - " + scope);
+            promotionRequest.setComment("Promoted by PNC Repository Driver - " + promotionType);
             promotionRequest.setCopy(true);
             promotionRequest.setFailFast(true);
 
@@ -939,12 +947,6 @@ public class Driver {
             promotionRequest.setDependencies(!promoteArtifacts);
 
             // Promote the build
-            logger.info(
-                    "Promoting BuildInfo {} #{} ({}) to repository {}",
-                    buildName,
-                    buildNumber,
-                    scope,
-                    targetRepoName);
             BuildPromotionResponse response = artifactory.builds()
                     .promoteBuild(
                             buildName,
@@ -957,10 +959,13 @@ public class Driver {
                     : response.getMessages();
 
             userLog.info(
-                    "Promoted BuildInfo {} #{} to {} with messages [{}]",
+                    "Promoted {} for BuildInfo {} #{} to repository {} with {} items in {} ms. Messages [{}]",
+                    promotionType,
                     buildName,
                     buildNumber,
                     targetRepoName,
+                    promotedCount,
+                    Duration.between(promotionStart, Instant.now()).toMillis(),
                     promotionMessages.stream()
                             .map(m -> m.getLevel() + ": " + m.getMessage())
                             .collect(Collectors.joining(", ")));
@@ -973,10 +978,10 @@ public class Driver {
                         .map(PromotionMessage::getMessage)
                         .collect(Collectors.joining("; "));
                 String message = String.format(
-                        "Promotion of BuildInfo %s #%s (%s) to repository %s reported errors: %s",
+                        "Promotion of %s for BuildInfo %s #%s to repository %s reported errors: %s",
+                        promotionType,
                         buildName,
                         buildNumber,
-                        scope,
                         targetRepoName,
                         errorDetails);
                 logger.error(message);
@@ -984,10 +989,10 @@ public class Driver {
             }
         } catch (IOException e) {
             String message = String.format(
-                    "Failed to promote BuildInfo %s #%s (%s) to repository %s",
+                    "Failed to promote %s for BuildInfo %s #%s to repository %s",
+                    promotionType,
                     buildName,
                     buildNumber,
-                    scope,
                     targetRepoName);
             logger.error(message, e);
             throw new PromotionValidationException(message, e);
