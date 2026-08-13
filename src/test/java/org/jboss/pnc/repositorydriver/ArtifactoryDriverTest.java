@@ -125,7 +125,12 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
 
         // artifactory.builds() - mock for BuildInfo API
-        Mockito.when(artifactory.builds()).thenReturn(Mockito.mock(Builds.class, RETURNS_DEEP_STUBS));
+        Builds builds = Mockito.mock(Builds.class, RETURNS_DEEP_STUBS);
+        org.jfrog.artifactory.client.model.impl.BuildPromotionResponseImpl promotionResponse = new org.jfrog.artifactory.client.model.impl.BuildPromotionResponseImpl();
+        promotionResponse.setMessages(java.util.Collections.emptyList());
+        Mockito.when(builds.promoteBuild(Mockito.anyString(), Mockito.anyString(), Mockito.any(), Mockito.anyString()))
+                .thenReturn(promotionResponse);
+        Mockito.when(artifactory.builds()).thenReturn(builds);
 
         // Replace the cdi ArtifactoryProducer bean with a mocked version
         ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);

@@ -331,15 +331,16 @@ public class Driver {
 
                     }
 
-                    setBuildProperties(
-                            promotion.primaryBuild(),
-                            promotion.primaryBuild()
-                                    .getModules()
-                                    .get(0)
-                                    .getArtifacts()
-                                    .get(0)
-                                    .getOriginalDeploymentRepo(),
-                            ".");
+                    List<org.jfrog.build.api.Artifact> primaryArtifacts = promotion.primaryBuild()
+                            .getModules()
+                            .get(0)
+                            .getArtifacts();
+                    if (!primaryArtifacts.isEmpty()) {
+                        setBuildProperties(
+                                promotion.primaryBuild(),
+                                primaryArtifacts.get(0).getOriginalDeploymentRepo(),
+                                ".");
+                    }
 
                     // Upload and promote primary Build
                     org.jfrog.build.api.Build primaryBuild = promotion.primaryBuild();
@@ -951,7 +952,7 @@ public class Driver {
                             promotionRequest,
                             configuration.getArtifactoryProject());
 
-            List<PromotionMessage> promotionMessages = response.getMessages() == null
+            List<PromotionMessage> promotionMessages = response == null || response.getMessages() == null
                     ? Collections.emptyList()
                     : response.getMessages();
 
