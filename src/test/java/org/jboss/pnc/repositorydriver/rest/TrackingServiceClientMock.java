@@ -48,6 +48,7 @@ public class TrackingServiceClientMock implements TrackingServiceClient {
         // Add some mock uploads if needed
 
         return TrackingReport.builder()
+                .trackingID(id)
                 .downloads(downloads)
                 .uploads(uploads)
                 .build();
