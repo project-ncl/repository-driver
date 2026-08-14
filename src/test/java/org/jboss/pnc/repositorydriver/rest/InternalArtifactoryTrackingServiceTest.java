@@ -186,28 +186,6 @@ public class InternalArtifactoryTrackingServiceTest {
     }
 
     @Test
-    void getReport_skipsItemWhenConversionFails() {
-        // Good upload item
-        AqlItem good = aqlItem(
-                PROJECT + "-mvn-build-" + BUILD_CONTENT_ID,
-                "/org/example/good/1.0",
-                "good-1.0.jar",
-                "sha256",
-                "sha1",
-                "md5",
-                100L,
-                null);
-        // Bad item: repo is null so getRepo() throws NPE during conversion
-        AqlItem bad = mock(AqlItem.class);
-        when(bad.getRepo()).thenThrow(new RuntimeException("simulated conversion error"));
-
-        stubAqlSearch(List.of(good, bad));
-
-        TrackingReport report = service.getReport(BUILD_CONTENT_ID);
-        assertEquals(1, report.getUploads().size());
-    }
-
-    @Test
     void getReport_emptyResultsLogsError() {
         stubAqlSearch(List.of());
 

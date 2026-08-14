@@ -156,20 +156,13 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
             Set<TrackedEntry> uploads = new HashSet<>();
 
             for (AqlItem item : allItems) {
-                try {
-                    String repoKey = item.getRepo();
-                    PackageType packageType = detectPackageType(repoKey);
-                    TrackedEntry entry = convertAqlItemToTrackedEntry(item, packageType);
+                String repoKey = item.getRepo();
+                TrackedEntry entry = convertAqlItemToTrackedEntry(item, detectPackageType(repoKey));
 
-                    if (repoKey.contains(buildContentId)) {
-                        uploads.add(entry);
-                    } else {
-                        downloads.add(entry);
-                    }
-                } catch (Exception e) {
-                    logger.warn(
-                            "Failed to convert item: {}",
-                            e.getMessage());
+                if (repoKey.contains(buildContentId)) {
+                    uploads.add(entry);
+                } else {
+                    downloads.add(entry);
                 }
             }
 
