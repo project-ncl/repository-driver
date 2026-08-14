@@ -373,7 +373,7 @@ public class Driver {
                         promoteToRepository(
                                 primaryBuild,
                                 promotion.artifactsTarget(),
-                                "artifacts",
+                                PromotionType.ARTIFACTS,
                                 uploadedArtifacts.size(),
                                 true);
                     }
@@ -383,7 +383,7 @@ public class Driver {
                         promoteToRepository(
                                 primaryBuild,
                                 promotion.dependenciesTarget(),
-                                "dependencies",
+                                PromotionType.DEPENDENCIES,
                                 downloadedArtifacts.size(),
                                 false);
                     }
@@ -421,7 +421,7 @@ public class Driver {
                         promoteToRepository(
                                 genericBuild,
                                 promotion.genericDownloadsTarget(),
-                                "generic downloads",
+                                PromotionType.GENERIC_DOWNLOADS,
                                 genericBuild.getModules().get(0).getArtifacts().size(),
                                 true);
                     }
@@ -919,7 +919,7 @@ public class Driver {
      *
      * @param buildInfo the BuildInfo object (already uploaded to Artifactory)
      * @param targetRepo the target repository for promotion
-     * @param promotionType label describing what is being promoted
+     * @param promotionType the type of content being promoted
      * @param promotedCount number of items expected to be promoted
      * @param promoteArtifacts true to promote artifacts (uploads), false to promote dependencies (downloads)
      * @throws PromotionValidationException if promotion fails
@@ -927,7 +927,7 @@ public class Driver {
     private void promoteToRepository(
             Build buildInfo,
             RepositoryId targetRepo,
-            String promotionType,
+            PromotionType promotionType,
             int promotedCount,
             boolean promoteArtifacts) throws PromotionValidationException {
 
@@ -942,8 +942,10 @@ public class Driver {
 
             promotionRequest.setTargetRepo(targetRepoName);
             promotionRequest.setStatus("promoted");
-            promotionRequest.setComment("Promoted by PNC Repository Driver - " + promotionType);
-            promotionRequest.setCopy(true);
+            promotionRequest.setComment("Promoted by PNC Repository Driver - " + promotionType.label());
+            // Generic downloads are already present in the target repository (pre-promotion repo);
+            // use move semantics (copy=false). All other promotion types copy artifacts to the target.
+            promotionRequest.setCopy(promotionType != PromotionType.GENERIC_DOWNLOADS);
             promotionRequest.setFailFast(true);
 
             // Set flags for what to promote: artifacts (uploads) or dependencies (downloads)
@@ -964,7 +966,7 @@ public class Driver {
 
             userLog.info(
                     "Promoted {} for BuildInfo {} #{} to repository {} with {} items in {} ms. Messages [{}]",
-                    promotionType,
+                    promotionType.label(),
                     buildName,
                     buildNumber,
                     targetRepoName,
@@ -983,7 +985,7 @@ public class Driver {
                         .collect(Collectors.joining("; "));
                 String message = String.format(
                         "Promotion of %s for BuildInfo %s #%s to repository %s reported errors: %s",
-                        promotionType,
+                        promotionType.label(),
                         buildName,
                         buildNumber,
                         targetRepoName,
@@ -994,7 +996,7 @@ public class Driver {
         } catch (IOException e) {
             String message = String.format(
                     "Failed to promote %s for BuildInfo %s #%s to repository %s",
-                    promotionType,
+                    promotionType.label(),
                     buildName,
                     buildNumber,
                     targetRepoName);
@@ -1083,5 +1085,22 @@ public class Driver {
                 throw new FailedResponseException("Response status code: " + response.statusCode());
             }
         };
+    }
+
+    /** Identifies the category of content being promoted to a target repository. */
+    private enum PromotionType {
+        ARTIFACTS("artifacts"),
+        DEPENDENCIES("dependencies"),
+        GENERIC_DOWNLOADS("generic downloads");
+
+        private final String label;
+
+        PromotionType(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
     }
 }
