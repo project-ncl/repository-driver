@@ -4,6 +4,7 @@ import org.jboss.pnc.api.constants.RepositoryIdentifier;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.RepositoryType;
 import org.jboss.pnc.api.tracker.dto.PackageType;
+import org.jfrog.artifactory.client.model.impl.PackageTypeImpl;
 import org.jfrog.build.api.builder.ModuleType;
 
 /**
@@ -88,5 +89,23 @@ public class TypeConverters {
     public static String toBuildTypeString(BuildType buildType) {
         // MVN -> MAVEN, others use their enum name
         return buildType == BuildType.MVN ? "MAVEN" : buildType.name();
+    }
+
+    /**
+     * Convert a JFrog {@link org.jfrog.artifactory.client.model.PackageType} to the PNC {@link PackageType}.
+     * Maven-family types (gradle, ivy, sbt) are mapped to {@link PackageType#MAVEN};
+     * everything else falls back to {@link PackageType#GENERIC}.
+     */
+    public static PackageType toPackageType(org.jfrog.artifactory.client.model.PackageType jfrogPackageType) {
+        if (jfrogPackageType == PackageTypeImpl.maven
+                || jfrogPackageType == PackageTypeImpl.gradle
+                || jfrogPackageType == PackageTypeImpl.ivy
+                || jfrogPackageType == PackageTypeImpl.sbt) {
+            return PackageType.MAVEN;
+        } else if (jfrogPackageType == PackageTypeImpl.npm) {
+            return PackageType.NPM;
+        } else {
+            return PackageType.GENERIC;
+        }
     }
 }

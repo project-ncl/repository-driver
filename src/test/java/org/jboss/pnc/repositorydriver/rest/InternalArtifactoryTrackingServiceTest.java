@@ -25,11 +25,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -41,8 +44,12 @@ import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.repositorydriver.Configuration;
 import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.Searches;
 import org.jfrog.artifactory.client.model.AqlItem;
+import org.jfrog.artifactory.client.model.Repository;
+import org.jfrog.artifactory.client.model.impl.PackageTypeImpl;
+import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
 import org.jfrog.filespecs.FileSpec;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -400,6 +407,90 @@ public class InternalArtifactoryTrackingServiceTest {
     }
 
     // -------------------------------------------------------------------------
+    // resolveRepoPackageTypes — heuristic + API fallback
+    // -------------------------------------------------------------------------
+
+    @Test
+    void resolveRepoPackageTypes_mavenByName_noApiCall() {
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of("pnc-mvn-build-123"));
+
+        assertEquals(PackageType.MAVEN, result.get("pnc-mvn-build-123"));
+        verify(artifactory, never()).repository(any());
+    }
+
+    @Test
+    void resolveRepoPackageTypes_npmByName_noApiCall() {
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of("pnc-npm-build-123"));
+
+        assertEquals(PackageType.NPM, result.get("pnc-npm-build-123"));
+        verify(artifactory, never()).repository(any());
+    }
+
+    @Test
+    void resolveRepoPackageTypes_unknownName_fallsBackToApiMaven() {
+        stubRepoPackageType("pnc-custom-proxy", PackageTypeImpl.maven);
+
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of("pnc-custom-proxy"));
+
+        assertEquals(PackageType.MAVEN, result.get("pnc-custom-proxy"));
+        verify(artifactory, times(1)).repository("pnc-custom-proxy");
+    }
+
+    @Test
+    void resolveRepoPackageTypes_unknownName_fallsBackToApiNpm() {
+        stubRepoPackageType("pnc-custom-proxy", PackageTypeImpl.npm);
+
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of("pnc-custom-proxy"));
+
+        assertEquals(PackageType.NPM, result.get("pnc-custom-proxy"));
+    }
+
+    @Test
+    void resolveRepoPackageTypes_unknownName_fallsBackToApiGeneric() {
+        stubRepoPackageType("pnc-custom-proxy", PackageTypeImpl.generic);
+
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of("pnc-custom-proxy"));
+
+        assertEquals(PackageType.GENERIC, result.get("pnc-custom-proxy"));
+    }
+
+    @Test
+    void resolveRepoPackageTypes_mixedSet_onlyUnknownNamesCallApi() {
+        String gradleRepo = "pnc-devel-repo-gradle-org-f31137e9bffc";
+        stubRepoPackageType(gradleRepo, PackageTypeImpl.gradle);
+
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(
+                Set.of("pnc-mvn-build-123", "pnc-npm-build-123", gradleRepo));
+
+        assertEquals(PackageType.MAVEN, result.get("pnc-mvn-build-123"));
+        assertEquals(PackageType.NPM, result.get("pnc-npm-build-123"));
+        assertEquals(PackageType.MAVEN, result.get(gradleRepo));
+        // Only the unrecognised repo triggered an API call
+        verify(artifactory, times(1)).repository(any());
+        verify(artifactory, times(1)).repository(gradleRepo);
+    }
+
+    @Test
+    void resolveRepoPackageTypes_apiThrowsException_defaultsToGenericAndLogsWarning() {
+        RepositoryHandle handle = mock(RepositoryHandle.class);
+        when(artifactory.repository("pnc-unknown-repo")).thenReturn(handle);
+        when(handle.get()).thenThrow(new RuntimeException("connection refused"));
+
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of("pnc-unknown-repo"));
+
+        assertEquals(PackageType.GENERIC, result.get("pnc-unknown-repo"));
+        assertTrue(logCapture.warningMessages().stream().anyMatch(m -> m.contains("pnc-unknown-repo")));
+    }
+
+    @Test
+    void resolveRepoPackageTypes_emptySet_returnsEmptyMap() {
+        Map<String, PackageType> result = service.resolveRepoPackageTypes(Set.of());
+
+        assertTrue(result.isEmpty());
+        verify(artifactory, never()).repository(any());
+    }
+
+    // -------------------------------------------------------------------------
     // No-op / stub interface methods
     // -------------------------------------------------------------------------
 
@@ -547,5 +638,27 @@ public class InternalArtifactoryTrackingServiceTest {
                     .map(LogRecord::getMessage)
                     .toList();
         }
+
+        /** Returns the formatted messages of all records at WARN level (intValue == 900). */
+        List<String> warningMessages() {
+            return records.stream()
+                    .filter(r -> r.getLevel().intValue() == Level.WARNING.intValue())
+                    .map(LogRecord::getMessage)
+                    .toList();
+        }
+    }
+
+    /**
+     * Stubs {@code artifactory.repository(repoKey).get().getRepositorySettings().getPackageType()}
+     * to return the given JFrog {@link PackageTypeImpl}.
+     */
+    private void stubRepoPackageType(String repoKey, PackageTypeImpl packageType) {
+        RepositorySettings settings = mock(RepositorySettings.class);
+        when(settings.getPackageType()).thenReturn(packageType);
+        Repository repo = mock(Repository.class);
+        when(repo.getRepositorySettings()).thenReturn(settings);
+        RepositoryHandle handle = mock(RepositoryHandle.class);
+        when(handle.get()).thenReturn(repo);
+        when(artifactory.repository(repoKey)).thenReturn(handle);
     }
 }

@@ -17,9 +17,12 @@
  */
 package org.jboss.pnc.repositorydriver.rest;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Priority;
@@ -37,9 +40,12 @@ import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Configuration;
+import org.jboss.pnc.repositorydriver.TypeConverters;
 import org.jfrog.artifactory.client.Artifactory;
+import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.aql.FileSpecBuilder;
 import org.jfrog.artifactory.client.model.AqlItem;
+import org.jfrog.artifactory.client.model.Repository;
 import org.jfrog.filespecs.FileSpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -155,11 +161,15 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
             Set<TrackedEntry> downloads = new HashSet<>();
             Set<TrackedEntry> uploads = new HashSet<>();
 
-            for (AqlItem item : allItems) {
-                String repoKey = item.getRepo();
-                TrackedEntry entry = convertAqlItemToTrackedEntry(item, detectPackageType(repoKey));
+            Set<String> repoKeys = allItems.stream().map(AqlItem::getRepo).collect(Collectors.toSet());
+            Map<String, PackageType> packageTypeByRepo = resolveRepoPackageTypes(repoKeys);
 
-                if (repoKey.contains(buildContentId)) {
+            for (AqlItem item : allItems) {
+                TrackedEntry entry = convertAqlItemToTrackedEntry(
+                        item,
+                        packageTypeByRepo.getOrDefault(item.getRepo(), PackageType.GENERIC));
+
+                if (item.getRepo().contains(buildContentId)) {
                     uploads.add(entry);
                 } else {
                     downloads.add(entry);
@@ -274,6 +284,40 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                 .filter(v -> v != null && !v.isEmpty())
                 .findFirst()
                 .orElse(fallbackUrl);
+    }
+
+    /**
+     * Builds a {@code repoKey → PackageType} map for all distinct repo keys found in the AQL results.
+     * <p>
+     * Fast path: name-based heuristic ({@link #detectPackageType}) is tried first.
+     * Only repos whose name yields {@link PackageType#GENERIC} (i.e. the heuristic was inconclusive)
+     * fall back to an Artifactory {@code GET /api/repositories/{repoKey}} call via
+     * {@link TypeConverters#toPackageType(org.jfrog.artifactory.client.model.PackageType)}.
+     */
+    Map<String, PackageType> resolveRepoPackageTypes(Set<String> repoKeys) {
+        Map<String, PackageType> result = new HashMap<>();
+        for (String repoKey : repoKeys) {
+            PackageType heuristic = detectPackageType(repoKey);
+            if (heuristic != PackageType.GENERIC) {
+                result.put(repoKey, heuristic);
+                continue;
+            }
+            // Heuristic was inconclusive — ask Artifactory for the real package type.
+            try {
+                RepositoryHandle handle = artifactory.repository(repoKey);
+                Repository repo = handle.get();
+                PackageType resolved = TypeConverters.toPackageType(repo.getRepositorySettings().getPackageType());
+                result.put(repoKey, resolved);
+                logger.debug("Resolved package type for {} via API: {}", repoKey, resolved);
+            } catch (Exception e) {
+                logger.warn(
+                        "Could not determine package type for repo {}, defaulting to GENERIC: {}",
+                        repoKey,
+                        e.getMessage());
+                result.put(repoKey, PackageType.GENERIC);
+            }
+        }
+        return result;
     }
 
     private PackageType detectPackageType(String repoKey) {
