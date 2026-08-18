@@ -137,6 +137,23 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                     // TODO: Handle pagination
                     .limit(AQL_RESULT_LIMIT)
                     .addToFileSpec(spec);
+            // Adding this search to find those artifacts that were imported from RH without a
+            // jf.origin.remote.path property.
+            spec = new FileSpecBuilder()
+                    .item("type", "file")
+                    .match("repo", configuration.getArtifactoryProject() + "-*")
+                    .eq("property.key", propertyName)
+                    .include(
+                            "name",
+                            "repo",
+                            "path",
+                            "size",
+                            "actual_sha1",
+                            "actual_md5",
+                            "sha256")
+                    // TODO: Handle pagination
+                    .limit(AQL_RESULT_LIMIT)
+                    .addToFileSpec(spec);
             spec = new FileSpecBuilder()
                     .item("type", "file")
                     .match("repo", configuration.getArtifactoryProject() + "-*-" + buildContentId)

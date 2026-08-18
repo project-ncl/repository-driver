@@ -189,7 +189,10 @@ public class ArtifactoryBuildGroupBuilder {
                                 .key(artifactRepository.id)
                                 .build();
 
-                        artifactory.repositories().create(REPO_UI_POSITION, r);
+                        var result = artifactory.repositories().create(REPO_UI_POSITION, r);
+                        logger.debug("Created repository: {}", result);
+                    } else {
+                        logger.debug("Extra repository {} already exists", artifactRepository.id);
                     }
                     includedRepositories.add(artifactRepository.id);
                 }
