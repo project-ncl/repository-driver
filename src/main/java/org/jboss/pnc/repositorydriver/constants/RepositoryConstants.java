@@ -41,6 +41,9 @@ public class RepositoryConstants {
     /** Store key of gradle-plugins remote repository. */
     public static final String GRADLE_PLUGINS_REPO = "gradle-plugins";
 
+    /** Prefix for extra remote proxy repositories created for builds */
+    public static final String PROXY_REPO = "-prx-";
+
     /**
      * Repository display position in Artifactory UI (?pos= query param).
      * Value of 1 places repository at top of list. Has no functional impact on repository behavior.

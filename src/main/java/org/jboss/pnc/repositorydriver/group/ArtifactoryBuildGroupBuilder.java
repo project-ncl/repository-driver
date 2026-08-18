@@ -222,7 +222,6 @@ public class ArtifactoryBuildGroupBuilder {
 
                 result = ArtifactRepository.builder()
                         .id(id)
-                        .name(id)
                         .url(url)
                         .releases(true)
                         .snapshots(false)
@@ -251,10 +250,7 @@ public class ArtifactoryBuildGroupBuilder {
     @Getter
     @Builder(builderClassName = "Builder")
     public static class ArtifactRepository {
-
         String id;
-
-        String name;
 
         String url;
 

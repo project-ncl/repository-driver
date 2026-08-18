@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.common.security.Md5;
+import org.jboss.pnc.repositorydriver.constants.RepositoryConstants;
 
 public class ArtifactoryUtils {
 
@@ -108,7 +109,7 @@ public class ArtifactoryUtils {
         String slug = trimAtDashBoundary(hostWithDashes, 28);
         try {
             String shortHash = Md5.digest(url).substring(0, 12);
-            return project + "-" + slug + "-" + shortHash;
+            return project + RepositoryConstants.PROXY_REPO + slug + "-" + shortHash;
         } catch (NoSuchAlgorithmException | IOException e) {
             // MD5 is mandated by the JVM spec and the input is a validated URI string — cannot happen
             throw new IllegalStateException("Failed to compute MD5 for URL: " + url, e);
