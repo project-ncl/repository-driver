@@ -10,6 +10,7 @@ quarkus:
     tracking-service:
       url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
       scope: jakarta.inject.Singleton
+      read-timeout: 300000
   otel:
     enabled: true
     traces:
