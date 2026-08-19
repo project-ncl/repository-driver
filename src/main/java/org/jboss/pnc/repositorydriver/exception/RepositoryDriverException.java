@@ -24,7 +24,7 @@ public class RepositoryDriverException extends Exception {
 
     private static final long serialVersionUID = 1L;
 
-    private Object[] params;
+    private final Object[] params;
 
     private transient String formatted;
 
@@ -53,21 +53,17 @@ public class RepositoryDriverException extends Exception {
                     }
                 }
             }
+
+            // If a cause was set and its message is not already included (e.g. when the format
+            // string contained no placeholders for it), append it so callers receive the full
+            // error detail rather than just the wrapper message.
+            Throwable cause = getCause();
+            if (cause != null && cause.getMessage() != null && !formatted.contains(cause.getMessage())) {
+                formatted = formatted + ": " + cause.getMessage();
+            }
         }
 
         return formatted;
-    }
-
-    private Object writeReplace() {
-        final Object[] newParams = new Object[params.length];
-        int i = 0;
-        for (final Object object : params) {
-            newParams[i] = String.valueOf(object);
-            i++;
-        }
-
-        this.params = newParams;
-        return this;
     }
 
 }

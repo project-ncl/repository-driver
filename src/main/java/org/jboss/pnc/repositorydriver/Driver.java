@@ -1063,11 +1063,7 @@ public class Driver {
             userLog.info("Getting tracking report for build: {}", LogSanitizer.clean(buildContentId));
             report = trackingServiceClient.getReport(buildContentId);
         } catch (Exception e) {
-            throw new RepositoryDriverException(
-                    "Failed to retrieve tracking report for: %s. Reason: %s",
-                    e,
-                    buildContentId,
-                    e.getMessage());
+            throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", e, buildContentId);
         }
 
         if (report == null) {
