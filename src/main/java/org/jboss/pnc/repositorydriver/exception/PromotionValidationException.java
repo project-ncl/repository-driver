@@ -53,6 +53,14 @@ public class PromotionValidationException extends Exception {
                     }
                 }
             }
+
+            // If a cause was set and its message is not already included (e.g. when the format
+            // string contained no placeholders for it), append it so callers like uploadLogs
+            // receive the full error detail rather than just the wrapper message.
+            Throwable cause = getCause();
+            if (cause != null && cause.getMessage() != null && !formatted.contains(cause.getMessage())) {
+                formatted = formatted + ": " + cause.getMessage();
+            }
         }
 
         return formatted;
