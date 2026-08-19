@@ -68,10 +68,8 @@ repository-driver:
     connect-timeout: 1
     request-timeout: 3
   ignored-repo-patterns:
-    promotion: [ "pnc-ignored", "pnc-tobeigno.+" ]
-#    promotion: [ "maven:.*:ignored", "maven:.+:tobeigno.+" ]
+    promotion: [ "ignored", "tobeigno.+" ]
     archive: [ ".*-build-yyyyy", ".*-build-xxxxx" ]
-#    archive: [ "maven:.*:build-yyyyy", "maven:hosted:build-xxxxx" ]
   self-base-url: "http://localhost:8081/"
   artifactory-client:
     url: "http://artifactory-host/api/"
