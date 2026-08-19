@@ -247,7 +247,7 @@ public class BuildInfoConverter {
             artifact.setSha256(entry.getSha256());
             artifact.setSha1(entry.getSha1());
             artifact.setMd5(entry.getMd5());
-            artifact.setOriginalDeploymentRepo(entry.getRepoId().getPath());
+            artifact.setOriginalDeploymentRepo(entry.getRepoId().getRepoKey());
             // Use setRemotePath for the path (will be serialized as "path" in JSON)
             artifact.setRemotePath(StringUtils.stripStart(entry.getPath(), "/"));
             artifacts.add(artifact);

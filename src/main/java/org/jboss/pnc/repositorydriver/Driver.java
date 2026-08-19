@@ -428,7 +428,7 @@ public class Driver {
 
                     // Setting repositories to readonly. Currently we're using blackedOut which is "Disable Artifact Resolution in Repository" in the UI
                     report.getUploads().stream().findAny().ifPresent(u -> {
-                        String id = u.getRepoId().getPath();
+                        String id = u.getRepoId().getRepoKey();
                         Repository repo = artifactory.repository(id).get();
                         if (repo instanceof LocalRepository) {
                             logger.debug("Setting repository id {} with repo {} to blackedOut.", id, repo);
@@ -933,7 +933,7 @@ public class Driver {
 
         String buildName = buildInfo.getName();
         String buildNumber = buildInfo.getNumber();
-        String targetRepoName = targetRepo.getPath();
+        String targetRepoName = targetRepo.getRepoKey();
         Instant promotionStart = Instant.now();
 
         try {
