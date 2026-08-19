@@ -130,33 +130,17 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
                             "actual_sha1",
                             "actual_md5",
                             "sha256",
-                            // Note that searching for a property also acts as a filter and excludes those
-                            // without this property hence the second FileGroup search below to find the
-                            // uploads that don't have this property.
+                            // Including @jf.origin.remote.path fetches its value when present but does NOT
+                            // exclude artifacts that lack it — those are picked up by the second group below.
                             "@jf.origin.remote.path")
                     // TODO: Handle pagination
                     .limit(AQL_RESULT_LIMIT)
                     .addToFileSpec(spec);
-            // Adding this search to find those artifacts that were imported from RH without a
-            // jf.origin.remote.path property.
+            // Also find artifacts imported from RH that lack a jf.origin.remote.path property.
+            // repo pattern project-* already covers the narrower project-*-buildContentId case.
             spec = new FileSpecBuilder()
                     .item("type", "file")
                     .match("repo", configuration.getArtifactoryProject() + "-*")
-                    .eq("property.key", propertyName)
-                    .include(
-                            "name",
-                            "repo",
-                            "path",
-                            "size",
-                            "actual_sha1",
-                            "actual_md5",
-                            "sha256")
-                    // TODO: Handle pagination
-                    .limit(AQL_RESULT_LIMIT)
-                    .addToFileSpec(spec);
-            spec = new FileSpecBuilder()
-                    .item("type", "file")
-                    .match("repo", configuration.getArtifactoryProject() + "-*-" + buildContentId)
                     .eq("property.key", propertyName)
                     .include(
                             "name",
