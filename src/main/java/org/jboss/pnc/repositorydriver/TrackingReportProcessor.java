@@ -473,9 +473,9 @@ public class TrackingReportProcessor {
                 filteredUploads.size(),
                 filteredDownloads.size(),
                 filteredGenericDownloads.size(),
-                artifactsTarget != null ? artifactsTarget.getPath() : "none",
-                dependenciesTarget != null ? dependenciesTarget.getPath() : "none",
-                genericDownloadsTarget != null ? genericDownloadsTarget.getPath() : "none");
+                artifactsTarget != null ? artifactsTarget.getRepoKey() : "none",
+                dependenciesTarget != null ? dependenciesTarget.getRepoKey() : "none",
+                genericDownloadsTarget != null ? genericDownloadsTarget.getRepoKey() : "none");
 
         return new BuildInfoPromotion(
                 primaryBuild,
@@ -672,11 +672,11 @@ public class TrackingReportProcessor {
 
         if (repoType == RepositoryType.MAVEN || repoType == RepositoryType.NPM) {
             if (ignoreDependencySource(repoId)) {
-                logger.debug("Ignoring repository for downloads {}", repoId.getPath());
+                logger.debug("Ignoring repository for downloads {}", repoId.getRepoKey());
                 switch (repoType) {
                     case MAVEN ->
-                        repoPath = "/artifactory/" + download.getRepoId().getPath();
-                    case NPM -> repoPath = "/artifactory/api/npm/" + download.getRepoId().getPath();
+                        repoPath = "/artifactory/" + download.getRepoId().getRepoKey();
+                    case NPM -> repoPath = "/artifactory/api/npm/" + download.getRepoId().getRepoKey();
                 }
             } else {
                 switch (repoType) {
