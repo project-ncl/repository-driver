@@ -197,7 +197,7 @@ public class TrackingReportProcessor {
      * @return true if the given repository is ignored, false otherwise
      */
     private boolean ignoreDependencySource(RepositoryId repoId) {
-        String repoPath = repoId.getPath();
+        String repoPath = repoId.getName();
         return ignoredRepoPatterns.matchesOne(repoPath);
     }
 
