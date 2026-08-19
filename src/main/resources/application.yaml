@@ -39,6 +39,9 @@ quarkus:
       identity-mapping:
         search-base-dn: ou=company.com
 
+  swagger-ui:
+    always-include: true
+
   shutdown:
     timeout: 300
   log:
@@ -69,6 +72,13 @@ quarkus:
     client-id: my-app
     credentials:
       secret: secret
+
+mp:
+  openapi:
+    scan:
+      exclude:
+        classes: >-
+          org.jboss.pnc.repositorydriver.rest.TrackingServiceClient,org.jboss.pnc.api.tracker.rest.ReportEndpoint
 
 pnc_client_auth:
   type: OIDC # or LDAP
