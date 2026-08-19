@@ -869,7 +869,7 @@ public class TrackingReportProcessorTest {
              *
              */
             Assertions.assertEquals(PackageType.MAVEN, entry.getRepositoryId().getPackageType());
-            Assertions.assertEquals("pnc-mvn-imports", entry.getRepositoryId().getPath());
+            Assertions.assertEquals("pnc-mvn-imports", entry.getRepositoryId().getRepoKey());
         }
     }
 

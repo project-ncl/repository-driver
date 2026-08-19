@@ -57,7 +57,7 @@ public class ArtifactFilterArchive implements ArtifactFilter {
     public boolean accepts(TrackedEntry artifact) {
         String path = artifact.getPath();
         PackageType packageType = artifact.getRepoId().getPackageType();
-        String repoId = artifact.getRepoId().getPath();
+        String repoId = artifact.getRepoId().getRepoKey();
         return !ignoreContent(ignoredPathPatterns, packageType, path)
                 && !ignoredRepoPatterns.matchesOne(repoId);
     }
