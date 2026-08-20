@@ -102,7 +102,7 @@ repository-driver:
         temp-hosted:
           - ibm-temp-builds
         temp-group:
-          builds-imports-public
+          - builds-imports-public
         hosted: [] # deliberately left empty
         # Indy allows same name for group/hosted but Artifactory doesn't
         group:
