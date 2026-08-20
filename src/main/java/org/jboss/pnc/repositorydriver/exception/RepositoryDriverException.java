@@ -15,25 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jboss.pnc.repositorydriver;
+package org.jboss.pnc.repositorydriver.exception;
 
 import java.text.MessageFormat;
 import java.util.IllegalFormatException;
 
-public class PromotionValidationException extends Exception {
+public class RepositoryDriverException extends Exception {
 
-    private static final long serialVersionUID = 8236842740038103177L;
+    private static final long serialVersionUID = 1L;
 
-    private Object[] params;
+    private final Object[] params;
 
     private transient String formatted;
 
-    public PromotionValidationException(String format, Object... params) {
+    public RepositoryDriverException(final String format, final Object... params) {
         super(format);
         this.params = params;
     }
 
-    public PromotionValidationException(String format, Throwable error, Object... params) {
+    public RepositoryDriverException(final String format, final Throwable error, final Object... params) {
         super(format, error);
         this.params = params;
     }
@@ -52,6 +52,14 @@ public class PromotionValidationException extends Exception {
                     } catch (final IllegalArgumentException iae) {
                     }
                 }
+            }
+
+            // If a cause was set and its message is not already included (e.g. when the format
+            // string contained no placeholders for it), append it so callers receive the full
+            // error detail rather than just the wrapper message.
+            Throwable cause = getCause();
+            if (cause != null && cause.getMessage() != null && !formatted.contains(cause.getMessage())) {
+                formatted = formatted + ": " + cause.getMessage();
             }
         }
 
