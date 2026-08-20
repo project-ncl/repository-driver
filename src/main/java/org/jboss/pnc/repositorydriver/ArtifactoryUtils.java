@@ -1,6 +1,5 @@
 package org.jboss.pnc.repositorydriver;
 
-import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
@@ -110,7 +109,7 @@ public class ArtifactoryUtils {
         try {
             String shortHash = Md5.digest(url).substring(0, 12);
             return project + RepositoryConstants.PROXY_REPO + slug + "-" + shortHash;
-        } catch (NoSuchAlgorithmException | IOException e) {
+        } catch (NoSuchAlgorithmException e) {
             // MD5 is mandated by the JVM spec and the input is a validated URI string — cannot happen
             throw new IllegalStateException("Failed to compute MD5 for URL: " + url, e);
         }
