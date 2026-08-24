@@ -49,7 +49,7 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.artifactory-client.url")
     String artifactoryUrl;
 
-    @ConfigProperty(name = "repository-driver.artifactory-client.access-token")
+    @ConfigProperty(name = "repository-driver.artifactory-client.tokens.admin")
     String accessToken;
 
     @ConfigProperty(name = "repository-driver.archive-service.api-url")

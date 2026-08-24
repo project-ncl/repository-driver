@@ -73,6 +73,9 @@ import org.jboss.pnc.common.otel.OtelUtils;
 import org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuth;
 import org.jboss.pnc.repositorydriver.artifactfilter.ArtifactFilterDatabase;
 import org.jboss.pnc.repositorydriver.buildinfo.BuildInfoPromotion;
+import org.jboss.pnc.repositorydriver.cdi.Admin;
+import org.jboss.pnc.repositorydriver.cdi.GenericPromotion;
+import org.jboss.pnc.repositorydriver.cdi.PackagePromotion;
 import org.jboss.pnc.repositorydriver.exception.FailedResponseException;
 import org.jboss.pnc.repositorydriver.exception.PromotionValidationException;
 import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
@@ -149,7 +152,16 @@ public class Driver {
     BifrostLogUploader bifrostLogUploader;
 
     @Inject
-    Artifactory artifactory;
+    @Admin
+    Artifactory artifactoryAdmin;
+
+    @Inject
+    @PackagePromotion
+    Artifactory promotePackageClient;
+
+    @Inject
+    @GenericPromotion
+    Artifactory promoteGenericsClient;
 
     @Inject
     @RestClient
@@ -356,7 +368,7 @@ public class Driver {
                                 "Uploading primary BuildInfo {} #{} to Artifactory",
                                 primaryBuild.getName(),
                                 primaryBuild.getNumber());
-                        artifactory.builds().uploadBuild(primaryBuild, configuration.getArtifactoryProject());
+                        artifactoryAdmin.builds().uploadBuild(primaryBuild, configuration.getArtifactoryProject());
                     } catch (Exception e) {
                         String message = String.format(
                                 "Failed to upload primary BuildInfo %s #%s to Artifactory",
@@ -373,6 +385,7 @@ public class Driver {
                     // Promote artifacts to their target repository
                     if (promotion.hasArtifactsTarget()) {
                         promoteToRepository(
+                                promotePackageClient,
                                 primaryBuild,
                                 promotion.artifactsTarget(),
                                 PromotionType.ARTIFACTS,
@@ -383,6 +396,7 @@ public class Driver {
                     // Promote dependencies to their target repository
                     if (promotion.hasDependenciesTarget()) {
                         promoteToRepository(
+                                promotePackageClient,
                                 primaryBuild,
                                 promotion.dependenciesTarget(),
                                 PromotionType.DEPENDENCIES,
@@ -404,7 +418,7 @@ public class Driver {
                                     "Uploading generic downloads BuildInfo {} #{} to Artifactory",
                                     genericBuild.getName(),
                                     genericBuild.getNumber());
-                            artifactory.builds()
+                            artifactoryAdmin.builds()
                                     .uploadBuild(genericBuild, configuration.getArtifactoryProject());
                         } catch (Exception e) {
                             String message = String.format(
@@ -421,6 +435,7 @@ public class Driver {
 
                         // Promote generic downloads (stored as artifacts)
                         promoteToRepository(
+                                promoteGenericsClient,
                                 genericBuild,
                                 promotion.genericDownloadsTarget(),
                                 PromotionType.GENERIC_DOWNLOADS,
@@ -431,10 +446,10 @@ public class Driver {
                     // Setting repositories to readonly. Currently we're using blackedOut which is "Disable Artifact Resolution in Repository" in the UI
                     report.getUploads().stream().findAny().ifPresent(u -> {
                         String id = u.getRepoId().getRepoKey();
-                        Repository repo = artifactory.repository(id).get();
+                        Repository repo = artifactoryAdmin.repository(id).get();
                         if (repo instanceof LocalRepository) {
                             logger.debug("Setting repository id {} with repo {} to blackedOut.", id, repo);
-                            artifactory.repositories()
+                            artifactoryAdmin.repositories()
                                     .update(
                                             RepositoryBuildersImpl.create()
                                                     .builderFrom((LocalRepository) repo)
@@ -494,7 +509,7 @@ public class Driver {
                 logger.info(
                         "Deleting virtual repository {}",
                         virtualRepoName);
-                String message = artifactory.repository(virtualRepoName).delete();
+                String message = artifactoryAdmin.repository(virtualRepoName).delete();
                 logger.debug("Deletion message: {}", message);
             } catch (Throwable e) {
                 logger.error("Failed to delete build group.", e);
@@ -824,8 +839,8 @@ public class Driver {
             boolean tempBuild,
             List<String> extraDependencyRepositories) throws RepositoryDriverException {
         // Check repositories exist and delete if they do
-        RepositoryHandle hostedRepository = artifactory.repository(hostedName);
-        RepositoryHandle virtualRepository = artifactory.repository(virtualName);
+        RepositoryHandle hostedRepository = artifactoryAdmin.repository(hostedName);
+        RepositoryHandle virtualRepository = artifactoryAdmin.repository(virtualName);
         // Under the hood this uses https://jfrog.com/help/r/jfrog-rest-apis/get-repository-configuration
         // which will fail with "This REST API is available only in Artifactory Pro" if we're using OSS version.
         if (hostedRepository.exists()) {
@@ -861,7 +876,7 @@ public class Driver {
                     packageType);
         };
 
-        var repository = artifactory.repositories()
+        var repository = artifactoryAdmin.repositories()
                 .builders()
                 .localRepositoryBuilder()
                 .archiveBrowsingEnabled(true)
@@ -871,10 +886,10 @@ public class Driver {
                 .repositorySettings(settings)
                 .key(hostedName)
                 .build();
-        String r = artifactory.repositories().create(REPO_UI_POSITION, repository);
+        String r = artifactoryAdmin.repositories().create(REPO_UI_POSITION, repository);
 
         Repository group = ArtifactoryBuildGroupBuilder
-                .builder(configuration, artifactory, settings, virtualName)
+                .builder(configuration, artifactoryAdmin, settings, virtualName)
                 .withDescription(
                         String.format(
                                 "Aggregation group for PNC %s build #%s",
@@ -887,7 +902,7 @@ public class Driver {
                 // build-specific repos
                 .addExtraConstituents(extraDependencyRepositories)
                 .build();
-        String v = artifactory.repositories().create(REPO_UI_POSITION, group);
+        String v = artifactoryAdmin.repositories().create(REPO_UI_POSITION, group);
 
         logger.info("Created local repository {} and virtual repository {}", r, v);
     }
@@ -911,7 +926,7 @@ public class Driver {
                 || build.getModules().get(0).getArtifacts().isEmpty()) {
             return;
         }
-        artifactory.repository(repository)
+        artifactoryAdmin.repository(repository)
                 .folder(folder)
                 .properties()
                 .addProperty("build.name", build.getName())
@@ -928,6 +943,7 @@ public class Driver {
      * this method (potentially multiple times for different targets).
      * </p>
      *
+     * @param promotionClient Artifactory client used for promotion
      * @param buildInfo the BuildInfo object (already uploaded to Artifactory)
      * @param targetRepo the target repository for promotion
      * @param promotionType the type of content being promoted
@@ -936,6 +952,7 @@ public class Driver {
      * @throws PromotionValidationException if promotion fails
      */
     private void promoteToRepository(
+            Artifactory promotionClient,
             Build buildInfo,
             RepositoryId targetRepo,
             PromotionType promotionType,
@@ -964,7 +981,7 @@ public class Driver {
             promotionRequest.setDependencies(!promoteArtifacts);
 
             // Promote the build
-            BuildPromotionResponse response = artifactory.builds()
+            BuildPromotionResponse response = promotionClient.builds()
                     .promoteBuild(
                             buildName,
                             buildNumber,

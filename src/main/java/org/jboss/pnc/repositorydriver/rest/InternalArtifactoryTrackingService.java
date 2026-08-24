@@ -41,6 +41,7 @@ import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Configuration;
 import org.jboss.pnc.repositorydriver.TypeConverters;
+import org.jboss.pnc.repositorydriver.cdi.Admin;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
 import org.jfrog.artifactory.client.aql.FileSpecBuilder;
@@ -80,6 +81,7 @@ public class InternalArtifactoryTrackingService implements TrackingServiceClient
     private static final int AQL_RESULT_LIMIT = 50000;
 
     @Inject
+    @Admin
     Artifactory artifactory;
 
     @Inject
