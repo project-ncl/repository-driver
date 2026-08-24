@@ -51,7 +51,9 @@ public class ArchiveTest implements QuarkusTestProfile {
         Artifactory artifactory = Mockito.mock(Artifactory.class);
         // Replace the cdi ArtifactoryProducer bean with a mocked version
         ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
-        Mockito.when(artifactoryProducer.produce()).thenReturn(artifactory);
+        Mockito.when(artifactoryProducer.produceAdmin()).thenReturn(artifactory);
+        Mockito.when(artifactoryProducer.produceGenericClient()).thenReturn(artifactory);
+        Mockito.when(artifactoryProducer.producePackageClient()).thenReturn(artifactory);
         QuarkusMock.installMockForType(artifactoryProducer, ArtifactoryProducer.class);
 
         given().contentType(MediaType.APPLICATION_JSON)

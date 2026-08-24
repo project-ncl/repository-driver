@@ -64,7 +64,9 @@ public class WithSidecarTest {
         Mockito.when(artifactory.builds()).thenReturn(Mockito.mock(Builds.class, RETURNS_DEEP_STUBS));
 
         ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
-        Mockito.when(artifactoryProducer.produce()).thenReturn(artifactory);
+        Mockito.when(artifactoryProducer.produceAdmin()).thenReturn(artifactory);
+        Mockito.when(artifactoryProducer.produceGenericClient()).thenReturn(artifactory);
+        Mockito.when(artifactoryProducer.producePackageClient()).thenReturn(artifactory);
         QuarkusMock.installMockForType(artifactoryProducer, ArtifactoryProducer.class);
     }
 

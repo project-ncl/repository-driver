@@ -124,7 +124,10 @@ repository-driver:
   self-base-url:
   artifactory-client:
     url:
-    access-token:
+    tokens:
+      admin:
+      package-promotion:
+      generic-promotion:
     connect-timeout: 5
     request-timeout: 180
   indy-sidecar:

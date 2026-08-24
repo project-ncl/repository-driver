@@ -73,7 +73,10 @@ repository-driver:
   self-base-url: "http://localhost:8081/"
   artifactory-client:
     url: "http://artifactory-host/api/"
-    access-token: "TOKEN"
+    tokens:
+      admin: "TOKEN"
+      package-promotion: "TOKEN"
+      generic-promotion: "TOKEN"
     connect-timeout: 5
     request-timeout: 180
   archive-service:
