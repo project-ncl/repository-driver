@@ -27,9 +27,9 @@ public class ArtifactoryProducer {
             @ConfigProperty(name = "repository-driver.artifactory-client.url") String url,
             @ConfigProperty(name = "repository-driver.artifactory-client.tokens.admin") String adminToken,
             @ConfigProperty(
-                    name = "repository-driver.artifactory-client.tokens.generic-promotion") String packageAccessToken,
+                    name = "repository-driver.artifactory-client.tokens.package-promotion") String packageAccessToken,
             @ConfigProperty(
-                    name = "repository-driver.artifactory-client.tokens.package-promotion") String genericAccessToken,
+                    name = "repository-driver.artifactory-client.tokens.generic-promotion") String genericAccessToken,
             @ConfigProperty(
                     name = "repository-driver.artifactory-client.connect-timeout",
                     defaultValue = "5") int connectTimeout,
