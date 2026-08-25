@@ -733,7 +733,7 @@ public class TrackingReportProcessor {
         return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
-                .repositoryPath(repoPath)
+                .repositoryPath(ensureTrailingSlash(repoPath))
                 .temporaryRepo(tempBuild)
                 .build();
     }
@@ -778,9 +778,13 @@ public class TrackingReportProcessor {
         return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
-                .repositoryPath(repoPath)
+                .repositoryPath(ensureTrailingSlash(repoPath))
                 .temporaryRepo(tempBuild)
                 .build();
+    }
+
+    private static String ensureTrailingSlash(String path) {
+        return path.endsWith("/") ? path : path + "/";
     }
 
     private String genericDownloadsTargetName(boolean tempBuild) {
