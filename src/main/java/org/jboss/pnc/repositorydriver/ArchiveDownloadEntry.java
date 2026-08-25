@@ -43,7 +43,7 @@ public class ArchiveDownloadEntry {
         }
 
         String project = repositoryPath.substring(0, firstHyphen);
-        String name = repositoryPath.substring(firstHyphen + 1);
+        String name = repositoryPath.substring(firstHyphen + 1).replaceAll("/$", "");
 
         RepositoryId newId = RepositoryId.builder()
                 .project(project)
