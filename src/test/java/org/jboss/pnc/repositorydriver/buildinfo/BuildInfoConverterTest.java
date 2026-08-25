@@ -259,6 +259,81 @@ public class BuildInfoConverterTest {
         assertNotNull(module.getDependencies());
         assertEquals(0, module.getDependencies().size());
     }
-}
 
-// Made with Bob
+    @Test
+    public void testCreateDependenciesBuild_StoresDownloadsAsDependencies() {
+        // Given
+        Set<TrackedEntry> downloads = new HashSet<>();
+        RepositoryId repoId = RepositoryId.builder()
+                .project("pnc")
+                .packageType(PackageType.MAVEN)
+                .name("central")
+                .build();
+        downloads.add(
+                TrackedEntry.builder()
+                        .path("/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar")
+                        .repoId(repoId)
+                        .sha256("dep256")
+                        .sha1("dep1")
+                        .md5("depm")
+                        .build());
+        downloads.add(
+                TrackedEntry.builder()
+                        .path("/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.pom")
+                        .repoId(repoId)
+                        .sha256("pom256")
+                        .sha1("pom1")
+                        .md5("pomm")
+                        .build());
+
+        // When
+        Build build = BuildInfoConverter.createDependenciesBuild(
+                downloads,
+                "pnc",
+                "com.github.akridl:empty:1.0.6",
+                "build-content-id-123",
+                "Maven",
+                "3.8.1",
+                org.jfrog.build.api.Build.formatBuildStarted(System.currentTimeMillis()));
+
+        // Then
+        assertNotNull(build);
+        assertEquals(
+                "com.github.akridl:empty:1.0.6:"
+                        + org.jboss.pnc.repositorydriver.constants.RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX,
+                build.getName());
+        assertEquals("build-content-id-123", build.getNumber());
+        assertEquals("pnc", build.getProject());
+
+        assertNotNull(build.getModules());
+        assertEquals(1, build.getModules().size());
+
+        Module module = build.getModules().get(0);
+        assertEquals(
+                "com.github.akridl:empty:1.0.6:"
+                        + org.jboss.pnc.repositorydriver.constants.RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX
+                        + ":build-content-id-123",
+                module.getId());
+        assertEquals(
+                org.jboss.pnc.repositorydriver.constants.RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX,
+                module.getType());
+
+        // No artifacts — only dependencies
+        assertNotNull(module.getDependencies());
+        assertEquals(2, module.getDependencies().size());
+        assertEquals(0, module.getArtifacts() == null ? 0 : module.getArtifacts().size());
+    }
+
+    @Test
+    public void testCreateDependenciesBuild_ReturnsNullForEmpty() {
+        Build build = BuildInfoConverter.createDependenciesBuild(
+                new HashSet<>(),
+                "pnc",
+                "some:build:1.0",
+                "num",
+                "Maven",
+                "3.8",
+                "now");
+        assertEquals(null, build);
+    }
+}

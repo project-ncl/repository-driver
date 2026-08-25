@@ -393,14 +393,34 @@ public class Driver {
                                 true);
                     }
 
-                    // Promote dependencies to their target repository
-                    if (promotion.hasDependenciesTarget()) {
+                    // Upload and promote dependencies Build (promotable Maven/NPM downloads)
+                    if (promotion.hasDependenciesBuild()) {
+                        org.jfrog.build.api.Build dependenciesBuild = promotion.dependenciesBuild();
+                        try {
+                            logger.info(
+                                    "Uploading dependencies BuildInfo {} #{} to Artifactory",
+                                    dependenciesBuild.getName(),
+                                    dependenciesBuild.getNumber());
+                            artifactoryAdmin.builds()
+                                    .uploadBuild(dependenciesBuild, configuration.getArtifactoryProject());
+                        } catch (Exception e) {
+                            String message = String.format(
+                                    "Failed to upload dependencies BuildInfo %s #%s to Artifactory",
+                                    dependenciesBuild.getName(),
+                                    dependenciesBuild.getNumber());
+                            userLog.error(message, e);
+                            uploadLogs(message + ": " + e.getMessage(), "promote");
+                            notifyInvoker(
+                                    promoteRequest.getCallback(),
+                                    RepositoryPromoteResult.failed(buildContentId, ResultStatus.SYSTEM_ERROR));
+                            return;
+                        }
                         promoteToRepository(
                                 promotePackageClient,
-                                primaryBuild,
+                                dependenciesBuild,
                                 promotion.dependenciesTarget(),
                                 PromotionType.DEPENDENCIES,
-                                downloadedArtifacts.size(),
+                                dependenciesBuild.getModules().get(0).getDependencies().size(),
                                 false);
                     }
 

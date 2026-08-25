@@ -21,46 +21,41 @@ import org.jboss.pnc.api.dto.RepositoryId;
 import org.jfrog.build.api.Build;
 
 /**
- * Wrapper containing TWO Build objects with their respective target repositories.
+ * Wrapper containing THREE Build objects with their respective target repositories.
  *
  * <p>
  * Artifactory cannot differentiate between modules during promotion, so we use separate Build objects instead of
  * multiple modules in one Build:
  * </p>
  * <ul>
- * <li>Primary Build: Contains artifacts (uploads) and dependencies (non-generic downloads)</li>
- * <li>Generic Build: Contains generic downloads as dependencies (may be null)</li>
+ * <li>Primary Build: Contains artifacts (uploads) and ALL filtered Maven/NPM downloads as dependencies (audit only,
+ * not promoted)</li>
+ * <li>Dependencies Build: Contains only the promotable Maven/NPM downloads as dependencies (promoted to imports
+ * repository)</li>
+ * <li>Generic Build: Contains generic downloads as artifacts (may be null)</li>
  * </ul>
  *
  * <p>
- * Each Build is uploaded separately and promoted to its respective target repositories:
+ * Each Build is uploaded separately and promoted to its respective target repository:
  * </p>
  * <ul>
- * <li>Primary Build promoted to: artifacts target (e.g., pnc-mvn-builds) and dependencies target (e.g.,
- * pnc-mvn-imports)</li>
- * <li>Generic Build promoted to: generic downloads target (e.g., pnc-generic-downloads)</li>
+ * <li>Primary Build promoted to: artifacts target (e.g., pnc-mvn-ibm-builds) — artifacts only</li>
+ * <li>Dependencies Build promoted to: dependencies target (e.g., pnc-mvn-imports) — dependencies only</li>
+ * <li>Generic Build promoted to: generic downloads target (e.g., pnc-gen-downloads)</li>
  * </ul>
  *
- * <p>
- * This design ensures:
- * </p>
- * <ul>
- * <li>Correct Artifactory semantics - each Build promoted independently</li>
- * <li>Proper isolation - generic downloads don't interfere with primary promotion</li>
- * <li>Semantic correctness - generic downloads stored as dependencies (consumed artifacts)</li>
- * <li>Clear separation - distinct purposes for each Build</li>
- * </ul>
- *
- * @param primaryBuild Build containing artifacts and non-generic dependencies (required)
+ * @param primaryBuild Build containing artifacts and all filtered downloads as deps (required)
  * @param artifactsTarget target repository for artifact promotion (may be null if no artifacts)
- * @param dependenciesTarget target repository for dependency promotion (may be null if no dependencies)
- * @param genericBuild Build containing generic downloads as dependencies (may be null)
+ * @param dependenciesBuild Build containing only promotable Maven/NPM downloads (may be null)
+ * @param dependenciesTarget target repository for dependency promotion (may be null if no promotable downloads)
+ * @param genericBuild Build containing generic downloads as artifacts (may be null)
  * @param genericDownloadsTarget target repository for generic downloads promotion (may be null)
  * @author <a href="mailto:ncross@redhat.com">Nick Cross</a>
  */
 public record BuildInfoPromotion(
         Build primaryBuild,
         RepositoryId artifactsTarget,
+        Build dependenciesBuild,
         RepositoryId dependenciesTarget,
         Build genericBuild,
         RepositoryId genericDownloadsTarget) {
@@ -68,14 +63,17 @@ public record BuildInfoPromotion(
     /**
      * Compact constructor with validation.
      *
-     * @throws IllegalArgumentException if primaryBuild is null, or if genericBuild is provided without
-     *         genericDownloadsTarget
+     * @throws IllegalArgumentException if primaryBuild is null, or if dependenciesBuild/genericBuild is provided
+     *         without its corresponding target
      */
     public BuildInfoPromotion {
         if (primaryBuild == null) {
             throw new IllegalArgumentException("Primary Build cannot be null");
         }
-        // genericBuild can be null if there are no generic downloads
+        if (dependenciesBuild != null && dependenciesTarget == null) {
+            throw new IllegalArgumentException(
+                    "If dependenciesBuild is provided, dependenciesTarget must also be provided");
+        }
         if (genericBuild != null && genericDownloadsTarget == null) {
             throw new IllegalArgumentException(
                     "If genericBuild is provided, genericDownloadsTarget must also be provided");
@@ -92,12 +90,12 @@ public record BuildInfoPromotion(
     }
 
     /**
-     * Checks if this promotion has a dependencies target repository.
+     * Checks if this promotion has a dependencies Build ready to promote.
      *
-     * @return true if dependenciesTarget is not null
+     * @return true if both dependenciesBuild and dependenciesTarget are not null
      */
-    public boolean hasDependenciesTarget() {
-        return dependenciesTarget != null;
+    public boolean hasDependenciesBuild() {
+        return dependenciesBuild != null && dependenciesTarget != null;
     }
 
     /**
@@ -109,5 +107,3 @@ public record BuildInfoPromotion(
         return genericBuild != null && genericDownloadsTarget != null;
     }
 }
-
-// Made with Bob

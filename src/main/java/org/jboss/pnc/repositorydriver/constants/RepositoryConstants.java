@@ -38,6 +38,12 @@ public class RepositoryConstants {
      */
     public static final String GENERIC_BUILD_SUFFIX = "generic";
 
+    /**
+     * Suffix used to identify dependencies-promotion Build objects and their modules in JFrog BuildInfo.
+     * A dependencies Build carries the promotable Maven/NPM downloads for a given PNC build.
+     */
+    public static final String DEPENDENCIES_BUILD_SUFFIX = "dependencies";
+
     /** Store key of gradle-plugins remote repository. */
     public static final String GRADLE_PLUGINS_REPO = "gradle-plugins";
 
