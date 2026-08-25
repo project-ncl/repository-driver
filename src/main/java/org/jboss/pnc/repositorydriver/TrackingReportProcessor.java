@@ -202,6 +202,16 @@ public class TrackingReportProcessor {
     }
 
     /**
+     * Returns true if the given repository is a shared-imports repo (Maven or NPM). Downloads already residing in
+     * shared-imports must not be re-promoted there; they belong in {@code primaryBuild} for audit but are excluded from
+     * {@code dependenciesBuild}.
+     */
+    private boolean isSharedImportsRepo(RepositoryId repoId) {
+        String name = repoId.getName();
+        return MVN_SHARED_IMPORTS_ID.equals(name) || NPM_SHARED_IMPORTS_ID.equals(name);
+    }
+
+    /**
      * Return list of output artifacts for promotion.
      *
      * @return List of output artifacts meta data
@@ -342,7 +352,8 @@ public class TrackingReportProcessor {
                 meta.moduleName());
 
         Set<TrackedEntry> filteredUploads = new HashSet<>();
-        Set<TrackedEntry> filteredDownloads = new HashSet<>();
+        Set<TrackedEntry> allFilteredDownloads = new HashSet<>();
+        Set<TrackedEntry> promotableDownloads = new HashSet<>();
         Set<TrackedEntry> filteredGenericDownloads = new HashSet<>();
         RepositoryId artifactsTarget = null;
         RepositoryId dependenciesTarget = null;
@@ -388,9 +399,13 @@ public class TrackingReportProcessor {
                 RepositoryId sourceRepoId = download.getRepoId();
                 PackageType packageType = download.getRepoId().getPackageType();
 
+                logger.debug(
+                        "### Found dependency with repository {} and name {} and checksum {}",
+                        sourceRepoId,
+                        download.getPath(),
+                        download.getSha256());
                 // Apply both filters for downloads
                 if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
-
                     switch (packageType) {
                         case MAVEN, NPM -> {
                             // Determine dependencies target (prefer first Maven/NPM found)
@@ -403,7 +418,12 @@ public class TrackingReportProcessor {
                                                         : NPM_SHARED_IMPORTS_ID)
                                         .build();
                             }
-                            filteredDownloads.add(download);
+                            // ALL passing Maven/NPM downloads → primaryBuild (audit, not promoted)
+                            allFilteredDownloads.add(download);
+                            // Only non-shared-imports downloads → dependenciesBuild (will be promoted)
+                            if (!isSharedImportsRepo(sourceRepoId)) {
+                                promotableDownloads.add(download);
+                            }
                         }
                         case GENERIC -> {
                             // Generic downloads will be added as a separate module
@@ -435,20 +455,31 @@ public class TrackingReportProcessor {
                     buildContentId);
         }
 
-        // Create primary TrackingReport with filtered uploads and non-generic downloads
+        // Create primary TrackingReport with filtered uploads and ALL filtered Maven/NPM downloads
         TrackingReport primaryReport = TrackingReport.builder()
                 .uploads(filteredUploads)
-                .downloads(filteredDownloads)
+                .downloads(allFilteredDownloads)
                 .trackingID(buildContentId)
                 .build();
 
-        // Create primary Build object containing artifacts and non-generic dependencies
+        // Create primary Build object containing artifacts and all non-generic dependencies (audit only)
         org.jfrog.build.api.Build primaryBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
                 .fromTrackingReport(
                         primaryReport,
                         configuration.getArtifactoryProject(),
                         moduleName,
                         meta.repositoryType(),
+                        meta.buildAgentName(),
+                        meta.buildAgentVersion(),
+                        meta.startTime());
+
+        // Create dependencies Build for promotable Maven/NPM downloads (excludes shared-imports sources)
+        org.jfrog.build.api.Build dependenciesBuild = org.jboss.pnc.repositorydriver.buildinfo.BuildInfoConverter
+                .createDependenciesBuild(
+                        promotableDownloads,
+                        configuration.getArtifactoryProject(),
+                        moduleName,
+                        buildContentId,
                         meta.buildAgentName(),
                         meta.buildAgentVersion(),
                         meta.startTime());
@@ -467,11 +498,12 @@ public class TrackingReportProcessor {
         }
 
         logger.info(
-                "Created BuildInfo {} with {} artifacts, {} dependencies, and {} generic downloads. "
+                "Created BuildInfo {} with {} artifacts, {} dependencies ({} promotable), and {} generic downloads. "
                         + "Artifacts target: {}, Dependencies target: {}, Generic downloads target: {}",
                 moduleName,
                 filteredUploads.size(),
-                filteredDownloads.size(),
+                allFilteredDownloads.size(),
+                promotableDownloads.size(),
                 filteredGenericDownloads.size(),
                 artifactsTarget != null ? artifactsTarget.getRepoKey() : "none",
                 dependenciesTarget != null ? dependenciesTarget.getRepoKey() : "none",
@@ -480,6 +512,7 @@ public class TrackingReportProcessor {
         return new BuildInfoPromotion(
                 primaryBuild,
                 artifactsTarget,
+                dependenciesBuild,
                 dependenciesTarget,
                 genericBuild,
                 genericDownloadsTarget);

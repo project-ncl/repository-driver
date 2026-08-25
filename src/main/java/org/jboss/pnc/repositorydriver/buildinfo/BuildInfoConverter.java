@@ -224,6 +224,66 @@ public class BuildInfoConverter {
     }
 
     /**
+     * Creates a separate Build for promotable Maven/NPM dependencies.
+     *
+     * <p>
+     * The build name is {@code buildName + ":" + RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX} (e.g.
+     * {@code "com.github.akridl:empty:1.0.6:dependencies"}) and the module ID is
+     * {@code buildName + ":" + DEPENDENCIES_BUILD_SUFFIX + ":" + buildNumber}.
+     * </p>
+     *
+     * <p>
+     * Downloads are stored as {@code dependencies} (not artifacts) because they are consumed content; Artifactory's
+     * {@code promoteBuild} with {@code dependencies=true} copies them to the target imports repository.
+     * </p>
+     *
+     * @param promotableDownloads the set of Maven/NPM entries to promote
+     * @param projectName the project name to set on the Build
+     * @param buildName the base name (same value used for primaryBuild)
+     * @param buildNumber the build number (= buildContentId)
+     * @param buildAgentName the build agent name
+     * @param buildAgentVersion the build agent version
+     * @param startTime the build start time in ISO 8601 format
+     * @return a Build whose single module contains the promotable downloads as dependencies, or null if
+     *         promotableDownloads is empty
+     */
+    public static Build createDependenciesBuild(
+            Set<TrackedEntry> promotableDownloads,
+            String projectName,
+            String buildName,
+            String buildNumber,
+            String buildAgentName,
+            String buildAgentVersion,
+            String startTime) {
+        if (promotableDownloads == null || promotableDownloads.isEmpty()) {
+            return null;
+        }
+
+        logger.info("Creating dependencies Build with {} promotable downloads", promotableDownloads.size());
+
+        BuildAgent buildAgent = new BuildAgent(buildAgentName, buildAgentVersion);
+        Agent agent = new Agent("PNC-Repository-Driver", BuildInformationConstants.VERSION);
+
+        Module depsModule = new Module();
+        depsModule.setId(buildName + ":" + RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX + ":" + buildNumber);
+        depsModule.setType(RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX);
+        depsModule.setDependencies(convertToDependencies(promotableDownloads));
+
+        List<Module> modules = new ArrayList<>();
+        modules.add(depsModule);
+
+        return new BuildInfoBuilder(buildName + ":" + RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX)
+                .number(buildNumber)
+                .version(BUILD_INFO_VERSION)
+                .started(startTime)
+                .buildAgent(buildAgent)
+                .agent(agent)
+                .modules(modules)
+                .project(projectName)
+                .build();
+    }
+
+    /**
      * Converts TrackedEntry objects to Build Artifact objects.
      *
      * @param entries the tracked entries representing uploads

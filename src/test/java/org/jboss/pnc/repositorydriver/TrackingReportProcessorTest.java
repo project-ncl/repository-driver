@@ -85,12 +85,12 @@ public class TrackingReportProcessorTest {
 
         // then: Only non-ignored downloads matching filter patterns are included
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
-        Assertions.assertTrue(promotion.hasDependenciesTarget(), "Should have dependencies target");
+        Assertions.assertTrue(promotion.hasDependenciesBuild(), "Should have dependencies build");
 
         var buildInfo = promotion.primaryBuild();
         var module = buildInfo.getModules().get(0);
 
-        // Should have 2 dependencies (pom and jar from central, not the ignored one)
+        // Should have 2 dependencies in primaryBuild (pom and jar from central, not the ignored one)
         Assertions.assertEquals(
                 2,
                 module.getDependencies().size(),
@@ -99,6 +99,17 @@ public class TrackingReportProcessorTest {
                 0,
                 module.getArtifacts().size(),
                 "Should have no artifacts (only downloads)");
+
+        // dependenciesBuild should also have 2 promotable downloads (central is not shared-imports)
+        Assertions.assertNotNull(promotion.dependenciesBuild(), "Should have dependencies Build");
+        var depModule = promotion.dependenciesBuild().getModules().get(0);
+        Assertions.assertEquals(
+                2,
+                depModule.getDependencies().size(),
+                "dependenciesBuild should have 2 promotable dependencies");
+        Assertions.assertTrue(
+                promotion.dependenciesBuild().getName().endsWith(":" + RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX),
+                "dependenciesBuild name should have :" + RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX + " suffix");
     }
 
     @Test
@@ -401,8 +412,9 @@ public class TrackingReportProcessorTest {
         // then: Should have no targets for empty report
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion even for empty report");
         Assertions.assertFalse(promotion.hasArtifactsTarget(), "Should have no artifacts target for empty report");
-        Assertions
-                .assertFalse(promotion.hasDependenciesTarget(), "Should have no dependencies target for empty report");
+        Assertions.assertFalse(
+                promotion.hasDependenciesBuild(),
+                "Should have no dependencies build for empty report");
     }
 
     @Test
@@ -516,10 +528,10 @@ public class TrackingReportProcessorTest {
                 "1.0.0",
                 Map.of("MAVEN", "3.6.3"));
 
-        // then: Should have two separate Build objects (primary and generic) with multiple targets
+        // then: Should have three separate Build objects (primary, dependencies, generic)
         Assertions.assertNotNull(promotion, "Should have BuildInfoPromotion");
         Assertions.assertTrue(promotion.hasArtifactsTarget(), "Should have artifacts target");
-        Assertions.assertTrue(promotion.hasDependenciesTarget(), "Should have dependencies target");
+        Assertions.assertTrue(promotion.hasDependenciesBuild(), "Should have dependencies build");
         Assertions.assertTrue(promotion.hasGenericDownloads(), "Should have generic downloads target");
 
         var primaryBuild = promotion.primaryBuild();
@@ -531,7 +543,22 @@ public class TrackingReportProcessorTest {
         Assertions.assertEquals(
                 1,
                 primaryBuild.getModules().size(),
-                "Primary build should have 1 module (artifacts + non-generic dependencies)");
+                "Primary build should have 1 module (artifacts + all non-generic dependencies)");
+
+        // Verify dependenciesBuild
+        var dependenciesBuild = promotion.dependenciesBuild();
+        Assertions.assertNotNull(dependenciesBuild, "Should have dependencies Build object");
+        Assertions.assertEquals(
+                "test-build-id",
+                dependenciesBuild.getNumber(),
+                "Dependencies build should have same tracking ID as primary");
+        Assertions.assertTrue(
+                dependenciesBuild.getName().endsWith(":" + RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX),
+                "Dependencies build name should have suffix, got: " + dependenciesBuild.getName());
+        Assertions.assertEquals(
+                1,
+                dependenciesBuild.getModules().size(),
+                "Dependencies build should have 1 module");
 
         var genericBuild = promotion.genericBuild();
         Assertions.assertNotNull(genericBuild, "Should have generic Build object");
