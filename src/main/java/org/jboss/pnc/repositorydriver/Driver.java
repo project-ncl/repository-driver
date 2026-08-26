@@ -382,17 +382,6 @@ public class Driver {
                         return;
                     }
 
-                    // Promote artifacts to their target repository
-                    if (promotion.hasArtifactsTarget()) {
-                        promoteToRepository(
-                                promotePackageClient,
-                                primaryBuild,
-                                promotion.artifactsTarget(),
-                                PromotionType.ARTIFACTS,
-                                uploadedArtifacts.size(),
-                                true);
-                    }
-
                     // Upload and promote dependencies Build (promotable Maven/NPM downloads)
                     if (promotion.hasDependenciesBuild()) {
                         org.jfrog.build.api.Build dependenciesBuild = promotion.dependenciesBuild();
@@ -460,6 +449,18 @@ public class Driver {
                                 promotion.genericDownloadsTarget(),
                                 PromotionType.GENERIC_DOWNLOADS,
                                 genericBuild.getModules().get(0).getArtifacts().size(),
+                                true);
+                    }
+
+                    // Promote artifacts to their target repository (last, so dependency/generic
+                    // failures surface first)
+                    if (promotion.hasArtifactsTarget()) {
+                        promoteToRepository(
+                                promotePackageClient,
+                                primaryBuild,
+                                promotion.artifactsTarget(),
+                                PromotionType.ARTIFACTS,
+                                uploadedArtifacts.size(),
                                 true);
                     }
 
