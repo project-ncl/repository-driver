@@ -730,11 +730,15 @@ public class TrackingReportProcessor {
                     "Repository type " + repoType + " is not supported by Indy repo manager driver.");
         }
 
+        // MAVEN and NPM downloads always land in permanent shared-imports repos (pnc-mvn-imports /
+        // pnc-npm-imports), regardless of whether the build itself is temporary. Only GENERIC_PROXY
+        // has separate temp/non-temp target repos, so tempBuild only applies there.
+        boolean temporaryRepo = (repoType == RepositoryType.GENERIC_PROXY && tempBuild);
         return TargetRepository.builder()
                 .identifier(identifier)
                 .repositoryType(repoType)
                 .repositoryPath(ensureTrailingSlash(repoPath))
-                .temporaryRepo(tempBuild)
+                .temporaryRepo(temporaryRepo)
                 .build();
     }
 
