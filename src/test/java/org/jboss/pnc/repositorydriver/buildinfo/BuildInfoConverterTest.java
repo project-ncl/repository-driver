@@ -141,10 +141,15 @@ public class BuildInfoConverterTest {
         assertEquals(1, module.getDependencies().size());
         Dependency dependency = module.getDependencies().get(0);
         assertEquals("jar", dependency.getType());
-        assertEquals("org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar", dependency.getId());
+        assertEquals(
+                "pnc-central/org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar",
+                dependency.getId());
         assertEquals("dep123", dependency.getSha256());
         assertEquals("dep456", dependency.getSha1());
         assertEquals("dep789", dependency.getMd5());
+        assertEquals(
+                "org/apache/commons/commons-lang3/3.12.0/commons-lang3-3.12.0.jar",
+                dependency.getRemotePath());
     }
 
     @Test
