@@ -307,7 +307,8 @@ public class BuildInfoConverter {
             artifact.setSha256(entry.getSha256());
             artifact.setSha1(entry.getSha1());
             artifact.setMd5(entry.getMd5());
-            artifact.setOriginalDeploymentRepo(entry.getRepoId().getRepoKey());
+            String artifactRepoKey = entry.getRepoId().getRepoKey();
+            artifact.setOriginalDeploymentRepo(artifactRepoKey);
             // Use setRemotePath for the path (will be serialized as "path" in JSON)
             artifact.setRemotePath(StringUtils.stripStart(entry.getPath(), "/"));
             artifacts.add(artifact);
@@ -336,11 +337,16 @@ public class BuildInfoConverter {
             // Set type using JFrog's getTypeString algorithm for Maven artifacts
             dependency.setType(getArtifactType(entry));
 
-            // Use path as ID for dependencies
-            dependency.setId(StringUtils.stripStart(entry.getPath(), "/"));
+            String depPath = StringUtils.stripStart(entry.getPath(), "/");
+            String depRepoKey = entry.getRepoId().getRepoKey();
+            // Use repoKey/path as ID for dependencies to disambiguate same-path artifacts across repos
+            dependency.setId(depRepoKey + "/" + depPath);
             dependency.setSha256(entry.getSha256());
             dependency.setSha1(entry.getSha1());
             dependency.setMd5(entry.getMd5());
+            // Set remotePath (serialized as "path" in JSON) for per-artifact
+            // disambiguation during build promotion
+            dependency.setRemotePath(depPath);
             dependencies.add(dependency);
         }
 
