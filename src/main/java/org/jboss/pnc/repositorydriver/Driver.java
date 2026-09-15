@@ -40,7 +40,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -85,11 +84,10 @@ import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
-import org.jfrog.artifactory.client.model.BuildPromotionResponse;
 import org.jfrog.artifactory.client.model.LocalRepository;
-import org.jfrog.artifactory.client.model.PromotionMessage;
+import org.jfrog.artifactory.client.model.PncPromotionResponse;
 import org.jfrog.artifactory.client.model.Repository;
-import org.jfrog.artifactory.client.model.impl.BuildPromotionRequestImpl;
+import org.jfrog.artifactory.client.model.impl.PncPromotionRequestImpl;
 import org.jfrog.artifactory.client.model.impl.RepositoryBuildersImpl;
 import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
@@ -986,62 +984,40 @@ public class Driver {
         Instant promotionStart = Instant.now();
 
         try {
-            // Create BuildPromotionRequest using concrete implementation
-            BuildPromotionRequestImpl promotionRequest = new BuildPromotionRequestImpl();
+            // Create PncPromotionRequest using the PNC-specific plugin endpoint
+            PncPromotionRequestImpl promotionRequest = new PncPromotionRequestImpl();
 
-            promotionRequest.setTargetRepo(targetRepoName);
+            promotionRequest.setTargetRepository(targetRepoName);
+            promotionRequest.setBuildInfoRepo(configuration.getArtifactoryProject() + "-build-info");
             promotionRequest.setStatus("promoted");
             promotionRequest.setComment("Promoted by PNC Repository Driver - " + promotionType.label());
             // Generic downloads are already present in the target repository (pre-promotion repo);
             // use move semantics (copy=false). All other promotion types copy artifacts to the target.
             promotionRequest.setCopy(promotionType != PromotionType.GENERIC_DOWNLOADS);
-            promotionRequest.setFailFast(true);
 
             // Set flags for what to promote: artifacts (uploads) or dependencies (downloads)
             promotionRequest.setArtifacts(promoteArtifacts);
             promotionRequest.setDependencies(!promoteArtifacts);
 
-            // Promote the build
-            BuildPromotionResponse response = promotionClient.builds()
-                    .promoteBuild(
+            // Promote the build via the PNC user-plugin endpoint
+            PncPromotionResponse response = promotionClient.builds()
+                    .promotePNCBuild(
                             buildName,
                             buildNumber,
                             promotionRequest,
                             configuration.getArtifactoryProject());
 
-            List<PromotionMessage> promotionMessages = response == null || response.getMessages() == null
-                    ? Collections.emptyList()
-                    : response.getMessages();
-
             userLog.info(
-                    "Promoted {} for BuildInfo {} #{} to repository {} with {} items in {} ms. Messages [{}]",
+                    "Promoted {} for BuildInfo {} #{} to repository {} in {} ms."
+                            + " Plugin response: {} (artifacts: {}, dependencies: {})",
                     promotionType.label(),
                     buildName,
                     buildNumber,
                     targetRepoName,
-                    promotedCount,
                     Duration.between(promotionStart, Instant.now()).toMillis(),
-                    promotionMessages.stream()
-                            .map(m -> m.getLevel() + ": " + m.getMessage())
-                            .collect(Collectors.joining(", ")));
-
-            List<PromotionMessage> errors = promotionMessages.stream()
-                    .filter(m -> "error".equalsIgnoreCase(m.getLevel()))
-                    .collect(Collectors.toList());
-            if (!errors.isEmpty()) {
-                String errorDetails = errors.stream()
-                        .map(PromotionMessage::getMessage)
-                        .collect(Collectors.joining("; "));
-                String message = String.format(
-                        "Promotion of %s for BuildInfo %s #%s to repository %s reported errors: %s",
-                        promotionType.label(),
-                        buildName,
-                        buildNumber,
-                        targetRepoName,
-                        errorDetails);
-                logger.error(message);
-                throw new PromotionValidationException(message);
-            }
+                    response.getMessage(),
+                    response.getPromotedArts(),
+                    response.getPromotedDeps());
         } catch (IOException e) {
             String message = String.format(
                     "Failed to promote %s for BuildInfo %s #%s to repository %s",

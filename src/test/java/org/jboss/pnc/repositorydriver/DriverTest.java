@@ -115,9 +115,12 @@ public class DriverTest {
 
         // artifactory.builds() - mock for BuildInfo API
         Builds builds = Mockito.mock(Builds.class, RETURNS_DEEP_STUBS);
-        org.jfrog.artifactory.client.model.impl.BuildPromotionResponseImpl promotionResponse = new org.jfrog.artifactory.client.model.impl.BuildPromotionResponseImpl();
-        promotionResponse.setMessages(java.util.Collections.emptyList());
-        Mockito.when(builds.promoteBuild(Mockito.anyString(), Mockito.anyString(), Mockito.any(), Mockito.anyString()))
+        org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl promotionResponse = new org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl();
+        promotionResponse.setMessage("Build successfully promoted");
+        promotionResponse.setPromotedArts(5);
+        promotionResponse.setPromotedDeps(0);
+        Mockito.when(
+                builds.promotePNCBuild(Mockito.anyString(), Mockito.anyString(), Mockito.any(), Mockito.anyString()))
                 .thenReturn(promotionResponse);
         Mockito.when(artifactory.builds()).thenReturn(builds);
 
