@@ -1,5 +1,6 @@
 package org.jboss.pnc.repositorydriver;
 
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.pnc.api.dto.RepositoryId;
 import org.jboss.pnc.api.repositorydriver.dto.TargetRepository;
 import org.jboss.pnc.api.tracker.dto.TrackedEntry;
@@ -43,7 +44,7 @@ public class ArchiveDownloadEntry {
         }
 
         String project = repositoryPath.substring(0, firstHyphen);
-        String name = repositoryPath.substring(firstHyphen + 1).replaceAll("/$", "");
+        String name = StringUtils.stripEnd(repositoryPath.substring(firstHyphen + 1), "/");
 
         RepositoryId newId = RepositoryId.builder()
                 .project(project)

@@ -163,8 +163,8 @@ public class BuildInfoConverter {
     }
 
     /**
-     * Creates a separate Build for generic downloads. Generic downloads are stored as dependencies (not artifacts)
-     * because they are consumed artifacts, semantically similar to Maven/NPM dependencies.
+     * Creates a separate Build for generic downloads. Generic downloads are stored as artifacts so build.name and
+     * build.number properties can be attached to enable Artifactory build-info linking and move promotion.
      *
      * <p>
      * This Build is uploaded and promoted separately from the primary Build to allow independent promotion to the

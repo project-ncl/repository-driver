@@ -398,12 +398,6 @@ public class TrackingReportProcessor {
             for (TrackedEntry download : downloads) {
                 RepositoryId sourceRepoId = download.getRepoId();
                 PackageType packageType = download.getRepoId().getPackageType();
-
-                logger.debug(
-                        "### Found dependency with repository {} and name {} and checksum {}",
-                        sourceRepoId,
-                        download.getPath(),
-                        download.getSha256());
                 // Apply both filters for downloads
                 if (!ignoreDependencySource(sourceRepoId) && artifactFilterPromotion.accepts(download)) {
                     switch (packageType) {
