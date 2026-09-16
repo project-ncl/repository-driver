@@ -276,7 +276,6 @@ public class Driver {
         executor.runAsync(Context.current().wrap(() -> {
             Request heartBeat = promoteRequest.getHeartBeat();
             Runnable heartBeatSender;
-            logger.warn("### promoteRequest heartbeat {}", heartBeat);
             if (heartBeat != null) {
                 heartBeatSender = heartBeatSender(heartBeat);
             } else {
