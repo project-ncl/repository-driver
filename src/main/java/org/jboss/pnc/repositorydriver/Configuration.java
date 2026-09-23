@@ -40,9 +40,6 @@ public class Configuration {
     @ConfigProperty(name = "repository-driver.artifactory-project", defaultValue = "pnc")
     String artifactoryProject;
 
-    @ConfigProperty(name = "repository-driver.environment", defaultValue = "DEV")
-    String environment;
-
     @ConfigProperty(name = "repository-driver.self-base-url")
     String selfBaseUrl;
 

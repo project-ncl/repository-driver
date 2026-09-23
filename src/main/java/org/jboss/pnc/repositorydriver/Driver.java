@@ -21,6 +21,7 @@ import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpClient.Version.HTTP_2;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.ARTIFACTORY_ENVIRONMENTS;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.REPO_UI_POSITION;
 
 import java.io.IOException;
@@ -899,7 +900,7 @@ public class Driver {
                 .localRepositoryBuilder()
                 .archiveBrowsingEnabled(true)
                 .projectKey(configuration.getArtifactoryProject())
-                .environments(Collections.singletonList(configuration.getEnvironment()))
+                .environments(ARTIFACTORY_ENVIRONMENTS)
                 .description("PNC Build repository for " + hostedName)
                 .repositorySettings(settings)
                 .key(hostedName)

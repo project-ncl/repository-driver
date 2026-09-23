@@ -1,12 +1,12 @@
 package org.jboss.pnc.repositorydriver.group;
 
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.ARTIFACTORY_ENVIRONMENTS;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.GRADLE_PLUGINS_REPO;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.REPO_UI_POSITION;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -181,7 +181,7 @@ public class ArtifactoryBuildGroupBuilder {
                                 .remoteRepositoryBuilder()
                                 .projectKey(configuration.getArtifactoryProject())
                                 .listRemoteFolderItems(false)
-                                .environments(Collections.singletonList(configuration.getEnvironment()))
+                                .environments(ARTIFACTORY_ENVIRONMENTS)
                                 .archiveBrowsingEnabled(true)
                                 .description("Remote repository for " + artifactRepository.url)
                                 .repositorySettings(settings)
@@ -238,7 +238,7 @@ public class ArtifactoryBuildGroupBuilder {
                 .virtualRepositoryBuilder()
                 .artifactoryRequestsCanRetrieveRemoteArtifacts(true)
                 .projectKey(configuration.getArtifactoryProject())
-                .environments(Collections.singletonList(configuration.getEnvironment()))
+                .environments(ARTIFACTORY_ENVIRONMENTS)
                 .defaultDeploymentRepo(deploymentRepository)
                 .repositorySettings(settings)
                 .description(description)

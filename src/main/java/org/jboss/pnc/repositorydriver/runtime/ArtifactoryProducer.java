@@ -66,12 +66,10 @@ public class ArtifactoryProducer {
             int connectTimeout,
             int socketTimeout,
             String alias) {
-        // TODO: ### Remove the token from the log. Only outputting the last few characters to enable differentiation
         logger.info(
-                "Creating artifactory {} connection with url {} and token {}",
+                "Creating artifactory {} connection with url {}",
                 alias,
-                url,
-                accessToken.substring(accessToken.length() - 8));
+                url);
         return ArtifactoryClientBuilder.create()
                 .setAccessToken(accessToken)
                 .setUrl(url)

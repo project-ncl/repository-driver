@@ -17,6 +17,8 @@
  */
 package org.jboss.pnc.repositorydriver.constants;
 
+import java.util.List;
+
 /**
  * Constants used by the maven repository driver.
  */
@@ -55,4 +57,10 @@ public class RepositoryConstants {
      * Value of 1 places repository at top of list. Has no functional impact on repository behavior.
      */
     public static final int REPO_UI_POSITION = 1;
+
+    /**
+     * Artifactory environment list applied to all Build objects. This value is fixed — it is never configured
+     * per-deployment, so it is hardcoded here rather than driven by a config property.
+     */
+    public static final List<String> ARTIFACTORY_ENVIRONMENTS = List.of("DEV");
 }

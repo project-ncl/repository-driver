@@ -27,7 +27,6 @@ quarkus:
         enabled: false
 repository-driver:
   artifactory-project: pnc-stage # pnc / pnc-stage / pnc-devel
-  environment: DEV # Artifactory environment (e.g., DEV, PROD)
   # Build Category Configuration
   build-categories:
     # Standard category

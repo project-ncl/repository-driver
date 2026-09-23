@@ -88,7 +88,6 @@ pnc_client_auth:
 
 repository-driver:
   artifactory-project: pnc # pnc / pnc-stage / pnc-devel
-  environment: DEV # Artifactory environment (e.g., DEV, PROD)
   # Build Category Configuration
   build-categories:
     # Default category
@@ -102,11 +101,11 @@ repository-driver:
         temp-hosted:
           - ibm-temp-builds
         temp-group:
-          - builds-imports-public
+          - product-builds-imports-public
         hosted: [] # deliberately left empty
         # Indy allows same name for group/hosted but Artifactory doesn't
         group:
-          - builds-imports-public
+          - product-builds-imports-public
   ignored-path-patterns:
     archive:
       maven:

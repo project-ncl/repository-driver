@@ -62,7 +62,7 @@ public class ConfigurationTest {
 
         // not defined in 'standard'; should use default from main config
         assertEquals(
-                Optional.of(List.of("builds-imports-public")),
+                Optional.of(List.of("product-builds-imports-public")),
                 configuration.getBuildGroupConstituentsGroup(BuildCategory.STANDARD));
     }
 

@@ -131,14 +131,14 @@ public class ArtifactoryBuildGroupBuilderTest {
         // Constituent repos use simple project-prefix naming: pnc-<constituent-name>
         var repos = result.getRepositories();
 
-        // Expected: {deployment}-central (hosted) + {deployment}-builds-imports-public (group from main config default)
+        // Expected: {deployment}-central (hosted) + {deployment}-mvn-product-builds-imports-public (group from main config default)
         assertEquals(2, repos.size(), "Should have 2 constituents for non-temp build");
         assertTrue(
                 repos.contains(configuration.getArtifactoryProject() + "-mvn-central"),
                 "Should contain " + configuration.getArtifactoryProject() + "-mvn-central");
         assertTrue(
-                repos.contains(configuration.getArtifactoryProject() + "-mvn-builds-imports-public"),
-                "Should contain " + configuration.getArtifactoryProject() + "-mvn-builds-imports-public");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-product-builds-imports-public"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-product-builds-imports-public");
     }
 
     @Test
@@ -204,8 +204,8 @@ public class ArtifactoryBuildGroupBuilderTest {
                 "Should contain " + configuration.getArtifactoryProject()
                         + "-gradle-plugins repository for Gradle builds");
         assertTrue(
-                repos.contains(configuration.getArtifactoryProject() + "-mvn-builds-imports-public"),
-                "Should contain " + configuration.getArtifactoryProject() + "-mvn-builds-imports-public");
+                repos.contains(configuration.getArtifactoryProject() + "-mvn-product-builds-imports-public"),
+                "Should contain " + configuration.getArtifactoryProject() + "-mvn-product-builds-imports-public");
     }
 
     @Test
