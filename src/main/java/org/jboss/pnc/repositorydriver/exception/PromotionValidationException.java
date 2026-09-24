@@ -15,25 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.jboss.pnc.repositorydriver;
+package org.jboss.pnc.repositorydriver.exception;
 
 import java.text.MessageFormat;
 import java.util.IllegalFormatException;
 
-public class RepositoryDriverException extends Exception {
+public class PromotionValidationException extends Exception {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 8236842740038103177L;
 
-    private Object[] params;
+    private final Object[] params;
 
     private transient String formatted;
 
-    public RepositoryDriverException(final String format, final Object... params) {
+    public PromotionValidationException(String format, Object... params) {
         super(format);
         this.params = params;
     }
 
-    public RepositoryDriverException(final String format, final Throwable error, final Object... params) {
+    public PromotionValidationException(String format, Throwable error, Object... params) {
         super(format, error);
         this.params = params;
     }
@@ -53,21 +53,17 @@ public class RepositoryDriverException extends Exception {
                     }
                 }
             }
+
+            // If a cause was set and its message is not already included (e.g. when the format
+            // string contained no placeholders for it), append it so callers like uploadLogs
+            // receive the full error detail rather than just the wrapper message.
+            Throwable cause = getCause();
+            if (cause != null && cause.getMessage() != null && !formatted.contains(cause.getMessage())) {
+                formatted = formatted + ": " + cause.getMessage();
+            }
         }
 
         return formatted;
-    }
-
-    private Object writeReplace() {
-        final Object[] newParams = new Object[params.length];
-        int i = 0;
-        for (final Object object : params) {
-            newParams[i] = String.valueOf(object);
-            i++;
-        }
-
-        this.params = newParams;
-        return this;
     }
 
 }

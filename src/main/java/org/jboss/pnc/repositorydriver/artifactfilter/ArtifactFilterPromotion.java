@@ -17,16 +17,12 @@
  */
 package org.jboss.pnc.repositorydriver.artifactfilter;
 
-import static org.commonjava.indy.model.core.GenericPackageTypeDescriptor.GENERIC_PKG_KEY;
-import static org.commonjava.indy.pkg.maven.model.MavenPackageTypeDescriptor.MAVEN_PKG_KEY;
-import static org.commonjava.indy.pkg.npm.model.NPMPackageTypeDescriptor.NPM_PKG_KEY;
-
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import org.commonjava.indy.folo.dto.TrackedContentEntryDTO;
-import org.commonjava.indy.model.core.StoreKey;
+import org.jboss.pnc.api.tracker.dto.PackageType;
+import org.jboss.pnc.api.tracker.dto.TrackedEntry;
 import org.jboss.pnc.repositorydriver.Configuration;
 
 /**
@@ -53,22 +49,22 @@ public class ArtifactFilterPromotion implements ArtifactFilter {
     }
 
     @Override
-    public boolean accepts(TrackedContentEntryDTO artifact) {
+    public boolean accepts(TrackedEntry artifact) {
         String path = artifact.getPath();
-        StoreKey storeKey = artifact.getStoreKey();
-        return !ignoreContent(ignoredPathPatternsPromotion, storeKey.getPackageType(), path);
+        PackageType packageType = artifact.getRepoId().getPackageType();
+        return !ignoreContent(ignoredPathPatternsPromotion, packageType, path);
     }
 
-    private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, String packageType, String path) {
+    private boolean ignoreContent(IgnoredPatterns ignoredPathPatterns, PackageType packageType, String path) {
         PatternsList patterns;
         switch (packageType) {
-            case MAVEN_PKG_KEY:
+            case MAVEN:
                 patterns = ignoredPathPatterns.getMaven();
                 break;
-            case NPM_PKG_KEY:
+            case NPM:
                 patterns = ignoredPathPatterns.getNpm();
                 break;
-            case GENERIC_PKG_KEY:
+            case GENERIC:
                 patterns = ignoredPathPatterns.getGeneric();
                 break;
             default:

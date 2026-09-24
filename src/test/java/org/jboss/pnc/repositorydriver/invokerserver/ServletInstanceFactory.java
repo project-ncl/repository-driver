@@ -29,7 +29,7 @@ import io.undertow.servlet.util.ImmediateInstanceHandle;
  */
 public class ServletInstanceFactory implements InstanceFactory<HttpServlet> {
 
-    private HttpServlet servlet;
+    private final HttpServlet servlet;
 
     public ServletInstanceFactory(HttpServlet servlet) {
         this.servlet = servlet;
