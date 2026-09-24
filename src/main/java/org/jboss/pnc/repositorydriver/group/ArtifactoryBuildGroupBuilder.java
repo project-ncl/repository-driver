@@ -24,7 +24,6 @@ import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import lombok.Builder;
 import lombok.Getter;
 
 /**
@@ -248,7 +247,7 @@ public class ArtifactoryBuildGroupBuilder {
     }
 
     @Getter
-    @Builder(builderClassName = "Builder")
+    @lombok.Builder(builderClassName = "Builder")
     public static class ArtifactRepository {
         String id;
 
