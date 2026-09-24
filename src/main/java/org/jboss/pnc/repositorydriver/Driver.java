@@ -462,18 +462,35 @@ public class Driver {
                                 true);
                     }
 
-                    // Setting repositories to readonly. Currently we're using blackedOut which is "Disable Artifact Resolution in Repository" in the UI
+                    // Setting repositories to readonly. Currently we're using blackedOut which is
+                    // "Disable Artifact Resolution in Repository" in the UI.
                     report.getUploads().stream().findAny().ifPresent(u -> {
                         String id = u.getRepoId().getRepoKey();
-                        Repository repo = artifactoryAdmin.repository(id).get();
-                        if (repo instanceof LocalRepository) {
-                            logger.debug("Setting repository id {} with repo {} to blackedOut.", id, repo);
-                            artifactoryAdmin.repositories()
-                                    .update(
-                                            RepositoryBuildersImpl.create()
-                                                    .builderFrom((LocalRepository) repo)
-                                                    .blackedOut(true)
-                                                    .build());
+                        try {
+                            Repository repo = artifactoryAdmin.repository(id).get();
+                            if (repo instanceof LocalRepository) {
+                                logger.debug("Setting repository id {} with repo {} to blackedOut.", id, repo);
+                                artifactoryAdmin.repositories()
+                                        .update(
+                                                RepositoryBuildersImpl.create()
+                                                        .builderFrom((LocalRepository) repo)
+                                                        .blackedOut(true)
+                                                        .build());
+                            }
+                            // catch(Exception) rather than catch(IOException): the Groovy-compiled client
+                            // methods (RepositoryHandleImpl.get, RepositoriesImpl.update) throw IOException
+                            // at runtime via invokedynamic/MethodHandle dispatch, but their interfaces
+                            // declare no checked exceptions, so javac considers IOException unreachable and
+                            // rejects catch(IOException) here. catch(Exception) accepts it at compile time
+                            // and catches the IOException (and subclasses) at runtime.
+                        } catch (Exception e) {
+                            // Best-effort: promotion already succeeded at this point, so treat
+                            // this as non-fatal. The repository simply remains writable.
+                            logger.warn(
+                                    "Failed to set repository blackedOut for build {}: {}",
+                                    buildContentId,
+                                    e.getMessage(),
+                                    e);
                         }
                     });
                 } catch (RepositoryDriverException e) {
