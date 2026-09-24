@@ -100,8 +100,7 @@ If no configuration is found for a specific category, the `default` category val
 
 | Property | Description |
 |---|---|
-| `repository-driver.tracking-service.api-url` | URL of the external PNC tracking service |
-| `repository-driver.tracking-service.use-internal-tracking` | If `true`, use internal Artifactory AQL queries instead of the external tracking service (temporary flag, default: `false`) |
+| `repository-driver.tracking-service.api-url` | URL of the external [pnc-tracker](https://github.com/project-ncl/pnc-tracker) service |
 
 ### Artifact Filtering
 
@@ -126,7 +125,7 @@ For each PNC build, the driver creates a dedicated **virtual repository group** 
 
 At the end of a build, the driver:
 1. Seals the tracking report.
-2. Queries the tracking service (or Artifactory AQL directly) to obtain upload/download lists.
+2. Queries the [pnc-tracker](https://github.com/project-ncl/pnc-tracker) tracking service to obtain upload/download lists.
 3. Converts the tracking data to **JFrog BuildInfo** and publishes it to Artifactory.
 4. Promotes artifacts and dependencies to the shared permanent repositories via Artifactory's build-promotion API.
 5. Marks the local build repository read-only.
@@ -154,18 +153,6 @@ Two separate Artifactory client tokens are used for promotion to prevent cross-c
 - **`@GenericPromotion`** — used exclusively for generic artifact promotion.
 
 This ensures generic artifact promotions cannot inadvertently operate on Maven/NPM repositories and vice-versa.
-
-### Internal Tracking Service
-
-While the external PNC tracking service is being deployed, the driver can fall back to querying Artifactory directly using AQL (`InternalArtifactoryTrackingService`). This is controlled by:
-
-```yaml
-repository-driver:
-  tracking-service:
-    use-internal-tracking: false   # set to true to enable fallback
-```
-
-When enabled, the service is activated via `@IfBuildProperty` / `@Alternative` CDI qualifiers and queries Artifactory with a dual AQL search (by `build.name`/`build.number` properties).
 
 ## REST API
 

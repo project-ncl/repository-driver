@@ -8,7 +8,6 @@ quarkus:
     # to use the injected Mock instead
     exclude-types:
       - org.jboss.pnc.quarkus.client.auth.runtime.PNCClientAuthImpl
-      - org.jboss.pnc.repositorydriver.rest.InternalArtifactoryTrackingService
   oidc:
     enabled: false
   otel:
