@@ -129,7 +129,10 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
         org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl promotionResponse = new org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl();
         promotionResponse.setMessage("Build successfully promoted");
         promotionResponse.setPromotedArts(5);
-        promotionResponse.setPromotedDeps(0);
+        // The mock tracking report has 2 Maven downloads (pom + jar from central), both promotable.
+        // This must match dependenciesBuild.getModules().get(0).getDependencies().size() to pass the
+        // new count-validation check in promoteToRepository.
+        promotionResponse.setPromotedDeps(2);
         Mockito.when(
                 builds.promotePNCBuild(Mockito.anyString(), Mockito.anyString(), Mockito.any(), Mockito.anyString()))
                 .thenReturn(promotionResponse);
