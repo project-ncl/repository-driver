@@ -192,6 +192,66 @@ public class ArtifactoryDriverTest implements QuarkusTestProfile {
                 "build-ABCDEF",
                 ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP);
         assertEquals(configuration.getArtifactoryProject() + "-mvn-temp-build-ABCDEF-virt", name);
+
+        // Test placeholder interpolation
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getArtifactoryProject(),
+                BuildType.MVN,
+                "{project}-maven-central",
+                ArtifactoryUtils.RepositoryType.LOCAL);
+        assertEquals(configuration.getArtifactoryProject() + "-maven-central", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getArtifactoryProject(),
+                BuildType.MVN,
+                "{project}-maven-central",
+                ArtifactoryUtils.RepositoryType.LOCAL_TEMP);
+        assertEquals(configuration.getArtifactoryProject() + "-temp-maven-central", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getArtifactoryProject(),
+                BuildType.MVN,
+                "{project}-maven-central",
+                ArtifactoryUtils.RepositoryType.VIRTUAL);
+        assertEquals(configuration.getArtifactoryProject() + "-maven-central-virt", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getArtifactoryProject(),
+                BuildType.MVN,
+                "{project}-{type}-custom",
+                ArtifactoryUtils.RepositoryType.LOCAL);
+        assertEquals(configuration.getArtifactoryProject() + "-mvn-custom", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getArtifactoryProject(),
+                BuildType.NPM,
+                "{project}-{type}-custom",
+                ArtifactoryUtils.RepositoryType.LOCAL_TEMP);
+        assertEquals(configuration.getArtifactoryProject() + "-npm-temp-custom", name);
+
+        name = ArtifactoryUtils.createRepositoryName(
+                configuration.getArtifactoryProject(),
+                BuildType.MVN,
+                "{project}-{type}-custom",
+                ArtifactoryUtils.RepositoryType.VIRTUAL_TEMP);
+        assertEquals(configuration.getArtifactoryProject() + "-mvn-temp-custom-virt", name);
+
+        // Test exception on unrecognized or invalid placeholders
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ArtifactoryUtils.createRepositoryName(
+                        configuration.getArtifactoryProject(),
+                        BuildType.MVN,
+                        "{unknown}-custom",
+                        ArtifactoryUtils.RepositoryType.LOCAL));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ArtifactoryUtils.createRepositoryName(
+                        configuration.getArtifactoryProject(),
+                        BuildType.MVN,
+                        "{project}",
+                        ArtifactoryUtils.RepositoryType.LOCAL));
     }
 
     @Test

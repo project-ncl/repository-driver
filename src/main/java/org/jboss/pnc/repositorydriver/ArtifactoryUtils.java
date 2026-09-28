@@ -47,20 +47,30 @@ public class ArtifactoryUtils {
     /**
      * Builds the repository name for Artifactory based repositories.
      * <p>
-     * Format: {project}-{type}-[temp-]{buildId}[-virt]
+     * The naming structure follows the order:
+     * {@code [<project>-][<type>-][temp-]<name>[-virt]}
+     * <p>
+     * If {@code buildContentId} contains explicit placeholders ({@code {project}} or {@code {type}}),
+     * only the specified elements are included, with the remaining text used as the repository {@code <name>}.
+     * If no placeholders are present, both {@code project} and {@code type} are included by default.
+     * <p>
      * Examples:
-     *
+     * 
      * <pre>{@code
-     *     LOCAL:        pnc-mvn-build-ABCDEF
-     *     LOCAL_TEMP:   pnc-mvn-temp-build-ABCDEF
-     *     VIRTUAL:      pnc-mvn-build-ABCDEF-virt
-     *     VIRTUAL_TEMP: pnc-mvn-temp-build-ABCDEF-virt
-     *     }</pre>
+     *     Standard LOCAL:                     pnc-mvn-build-ABCDEF
+     *     Standard LOCAL_TEMP:                pnc-mvn-temp-build-ABCDEF
+     *     Standard VIRTUAL:                   pnc-mvn-build-ABCDEF-virt
+     *     Standard VIRTUAL_TEMP:              pnc-mvn-temp-build-ABCDEF-virt
+     *     Placeholder "{project}-central":    pnc-central
+     *     Placeholder "{project}-central" (LOCAL_TEMP): pnc-temp-central
+     *     Placeholder "{project}-{type}-custom": pnc-mvn-custom
+     *     Placeholder "{project}-{type}-custom" (LOCAL_TEMP): pnc-mvn-temp-custom
+     * }</pre>
      * </p>
      *
      * @param project The project/deployment type name
      * @param buildType Type of the build (e.g. maven)
-     * @param buildContentId The BuildId
+     * @param buildContentId The BuildId or repository identifier/template
      * @param repoType The repository type configuration
      * @return formatted repository name
      */
@@ -70,14 +80,36 @@ public class ArtifactoryUtils {
             String buildContentId,
             RepositoryType repoType) {
 
+        boolean hasProjectPlaceholder = buildContentId != null && buildContentId.contains("{project}");
+        boolean hasTypePlaceholder = buildContentId != null && buildContentId.contains("{type}");
+        boolean hasAnyPlaceholder = hasProjectPlaceholder || hasTypePlaceholder;
+
+        boolean includeProject = !hasAnyPlaceholder || hasProjectPlaceholder;
+        boolean includeType = !hasAnyPlaceholder || hasTypePlaceholder;
+
+        String name = buildContentId != null ? buildContentId : "";
+        if (hasAnyPlaceholder) {
+            name = name.replace("{project}-", "")
+                    .replace("{type}-", "");
+        }
+        if (name.contains("{") || name.contains("}")) {
+            throw new IllegalArgumentException(
+                    "Invalid or unrecognized placeholder in repository identifier: " + buildContentId);
+        }
+
         List<String> parts = new ArrayList<>();
-        // Add parts in order: project, type, temporary (if applicable), build, virtual (if applicable)
-        parts.add(project);
-        parts.add(TypeConverters.toRepositoryTypeString(buildType.getRepoType()));
+        if (includeProject) {
+            parts.add(project);
+        }
+        if (includeType) {
+            parts.add(TypeConverters.toRepositoryTypeString(buildType.getRepoType()));
+        }
         if (repoType.includesTemp()) {
             parts.add("temp");
         }
-        parts.add(buildContentId);
+        if (!name.isEmpty()) {
+            parts.add(name);
+        }
         if (repoType.includesVirtual()) {
             parts.add("virt");
         }

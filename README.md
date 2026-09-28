@@ -96,6 +96,22 @@ Each category has the following configurable sub-keys under `repository-driver.b
 
 If no configuration is found for a specific category, the `default` category values are used.
 
+#### Build Group Constituents Placeholders
+Constituents in `build-group-constituents` support template placeholders:
+- `{project}`: Replaced with the configured `repository-driver.artifactory-project` (e.g. `pnc`, `pnc-stage`, `pnc-devel`).
+- `{type}`: Replaced with the build package type (e.g. `mvn`, `npm`).
+
+Repository type behavior (`temp` and `virt`) still applies consistently to templated options based on the repository lifecycle (`LOCAL`, `LOCAL_TEMP`, `VIRTUAL`, `VIRTUAL_TEMP`), following the standard naming order `[<project>-][<type>-][temp-]<name>[-virt]`.
+
+Examples:
+- `{project}-maven-central` (LOCAL) &rarr; `pnc-maven-central`
+- `{project}-maven-central` (LOCAL_TEMP) &rarr; `pnc-temp-maven-central`
+- `{project}-maven-central` (VIRTUAL) &rarr; `pnc-maven-central-virt`
+- `{project}-{type}-custom` (LOCAL) &rarr; `pnc-mvn-custom`
+- `{project}-{type}-custom` (LOCAL_TEMP) &rarr; `pnc-mvn-temp-custom`
+- `{project}-{type}-custom` (VIRTUAL_TEMP) &rarr; `pnc-mvn-temp-custom-virt`
+- `central` (no placeholders, LOCAL) &rarr; `pnc-mvn-central` (standard formatting: `{project}-{type}-[temp-]<name>[-virt]`)
+
 ### Tracking Service
 
 | Property | Description |

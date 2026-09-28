@@ -232,6 +232,10 @@ public class ArtifactoryBuildGroupBuilder {
     }
 
     public VirtualRepository build() {
+        logger.debug(
+                "Creating virtual Artifactory repository ({}) with contents {}",
+                name,
+                includedRepositories);
         return artifactory.repositories()
                 .builders()
                 .virtualRepositoryBuilder()
