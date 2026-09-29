@@ -44,10 +44,12 @@ repository-driver:
       build-group-constituents:
         temp-hosted:
           - central
-        temp-group: []
+        temp-group:
+          - "{project}-maven-central"
         hosted:
           - central
-        group: []
+        group:
+          - "{project}-maven-central"
   ignored-path-patterns:
     archive:
       maven: [ ".*/maven-metadata\\.xml(\\..+)?$" ]
