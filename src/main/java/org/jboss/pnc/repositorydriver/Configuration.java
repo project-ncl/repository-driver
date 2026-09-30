@@ -155,6 +155,36 @@ public class Configuration {
     }
 
     /**
+     * get the config boolean value for buildcategory. if no value specified for that buildcategory, use the 'default'
+     * one; if not specified in default either, use the provided defaultValue
+     *
+     * @param buildCategory
+     * @param leafConfig
+     * @param defaultValue
+     * @return
+     */
+    private boolean getConfigBoolean(BuildCategory buildCategory, String leafConfig, boolean defaultValue) {
+
+        if (buildCategory == null) {
+            // fallback if buildCategory is null
+            buildCategory = BuildCategory.STANDARD;
+        }
+
+        String buildCategoryConfig = getBuildCategoryConfig(buildCategory.name().toLowerCase(), leafConfig);
+        String defaultBuildCategoryConfig = getBuildCategoryConfig("default", leafConfig);
+
+        ConfigValue configValue = CONFIG_READ.getConfigValue(buildCategoryConfig);
+
+        if (configValue.getValue() == null) {
+            // if the raw value is null, assume that that config was never specified
+            // get the default value instead
+            return CONFIG_READ.getOptionalValue(defaultBuildCategoryConfig, Boolean.class).orElse(defaultValue);
+        } else {
+            return CONFIG_READ.getOptionalValue(buildCategoryConfig, Boolean.class).orElse(defaultValue);
+        }
+    }
+
+    /**
      * get the config value list for buildcategory. if no values specified for that buildcategory, use the 'default' one
      *
      * @param buildCategory
@@ -204,6 +234,10 @@ public class Configuration {
 
     public Optional<List<String>> getBuildGroupConstituentsGroup(BuildCategory buildCategory) {
         return getConfigListString(buildCategory, "build-group-constituents.group");
+    }
+
+    public boolean getPromoteDependencies(BuildCategory buildCategory) {
+        return getConfigBoolean(buildCategory, "promote-dependencies", true);
     }
 
     @ConfigProperty(name = "repository-driver.bifrost-uploader.enabled", defaultValue = "true")

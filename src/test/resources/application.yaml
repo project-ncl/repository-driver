@@ -37,6 +37,21 @@ repository-driver:
         hosted:
           - central
 
+    # Lightwell category - promote-dependencies disabled
+    lightwell:
+      promote-dependencies: false
+      build-promotion-target: lw-remediated-builds
+      temp-build-promotion-target: lw-temp-remediated-builds
+      build-group-constituents:
+        temp-hosted:
+          - lw-temp-remediated-builds
+        temp-group:
+          - "{project}-maven-central"
+        hosted:
+          - lw-remediated-builds
+        group:
+          - "{project}-maven-central"
+
     # Service category
     service:
       build-promotion-target: service-builds

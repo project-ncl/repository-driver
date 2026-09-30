@@ -51,6 +51,19 @@ public class ConfigurationTest {
     }
 
     @Test
+    @DisplayName("Should return true for promote-dependencies by default, false when explicitly set")
+    void testPromoteDependenciesFlag() {
+        // STANDARD has no explicit config -> falls back to default -> true
+        assertTrue(configuration.getPromoteDependencies(BuildCategory.STANDARD));
+
+        // null treated as STANDARD -> falls back to default -> true
+        assertTrue(configuration.getPromoteDependencies(null));
+
+        // LIGHTWELL has explicit promote-dependencies: false in test config
+        assertFalse(configuration.getPromoteDependencies(BuildCategory.LIGHTWELL));
+    }
+
+    @Test
     void testBuildGroupConstituents() {
         // defined in standard as empty list
         assertEquals(Optional.empty(), configuration.getBuildGroupConstituentsTempGroup(BuildCategory.STANDARD));

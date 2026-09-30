@@ -70,6 +70,9 @@ public class DriverTest {
 
     private static final Logger logger = LoggerFactory.getLogger(DriverTest.class);
 
+    // Captured in beforeClass() for Mockito.verify() in individual tests
+    private static Builds mockBuilds;
+
     @Inject
     ObjectMapper mapper;
 
@@ -114,7 +117,8 @@ public class DriverTest {
         Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
 
         // artifactory.builds() - mock for BuildInfo API
-        Builds builds = Mockito.mock(Builds.class, RETURNS_DEEP_STUBS);
+        mockBuilds = Mockito.mock(Builds.class, RETURNS_DEEP_STUBS);
+        Builds builds = mockBuilds;
         org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl promotionResponse = new org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl();
         promotionResponse.setMessage("Build successfully promoted");
         promotionResponse.setPromotedArts(5);
@@ -266,6 +270,73 @@ public class DriverTest {
                 1,
                 postRequestedFor(urlEqualTo("/archive"))
                         .withRequestBody(matchingJsonPath("buildConfigId", containing("10"))));
+    }
+
+    @Test
+    @Timeout(15)
+    public void testPromote_SkipsDependenciesUploadAndPromotionWhenFlagFalse()
+            throws URISyntaxException, InterruptedException, java.io.IOException {
+        // given: a promote request for LIGHTWELL, which has promote-dependencies: false in test config.
+        //
+        // The mock is configured with promotedDeps=99, which would cause a count-mismatch FAILED
+        // result if the dependencies build promotion actually ran (the tracking report has 2 downloads).
+        // SUCCESS therefore proves the dependencies promotion was skipped entirely.
+        Request callbackRequest = new Request(
+                Request.Method.POST,
+                new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
+                Collections.singletonList(
+                        new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
+        RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
+                .buildContentId("build-lightwell")
+                .buildType(BuildType.MVN)
+                .tempBuild(false)
+                .buildCategory(BuildCategory.LIGHTWELL)
+                .callback(callbackRequest)
+                .rtBuildStartTime(java.time.Instant.now())
+                .rtBuildName("com.example:lightwell-artifact")
+                .rtBuildVersion("1.0.0")
+                .rtEnvironmentTools(java.util.Map.of("MAVEN", "3.6.3"))
+                .build();
+
+        // Reconfigure the shared mock so promotedDeps returns a mismatched count.
+        // If deps promotion runs, promoteToRepository will detect the mismatch and return FAILED.
+        Mockito.when(
+                mockBuilds.promotePNCBuild(
+                        Mockito.anyString(),
+                        Mockito.anyString(),
+                        Mockito.any(),
+                        Mockito.anyString()))
+                .thenAnswer(invocation -> {
+                    org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl r = new org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl();
+                    r.setMessage("Build successfully promoted");
+                    r.setPromotedArts(5);
+                    r.setPromotedDeps(99); // mismatch: tracking report has 2 deps
+                    return r;
+                });
+
+        // when
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
+                .put("/seal")
+                .then()
+                .statusCode(204);
+
+        given().contentType(MediaType.APPLICATION_JSON)
+                .headers(requestHeaders())
+                .body(request)
+                .when()
+                .put("/promote")
+                .then()
+                .statusCode(204);
+
+        // then: callback arrives with SUCCESS — proves deps promotion was skipped (a mismatch would
+        // have produced FAILED)
+        Request callback = callbackRequests.take();
+        RepositoryPromoteResult promoteResult = mapper
+                .convertValue(callback.getAttachment(), RepositoryPromoteResult.class);
+        Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
     }
 
     public static Map<String, String> requestHeaders() {

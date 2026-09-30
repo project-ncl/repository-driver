@@ -96,6 +96,7 @@ repository-driver:
       # of mvn-ibm-builds could become pnc-devel-mvn-ibm-builds
       build-promotion-target: ibm-builds
       temp-build-promotion-target: ibm-temp-builds
+      promote-dependencies: true
       # This represents the components of the virtual group.
       build-group-constituents:
         temp-hosted:

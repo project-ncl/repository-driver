@@ -984,6 +984,43 @@ public class TrackingReportProcessorTest {
                 .sha256("edeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb")
                 .build();
     }
+
+    @Test
+    public void testCreatePromotionBuildInfo_LightwellStillProducesDependenciesBuild()
+            throws RepositoryDriverException {
+        // given: downloads from Central (as in a Lightwell build)
+        Set<TrackedEntry> downloads = new HashSet<>();
+        downloads.add(TrackingReportMocks.indyPomFromCentral);
+        downloads.add(TrackingReportMocks.indyJarFromCentral);
+
+        TrackingReport report = TrackingReport.builder()
+                .trackingID("lightwell-tracking-id")
+                .downloads(downloads)
+                .uploads(new HashSet<>())
+                .build();
+
+        // when: createPromotionBuildInfo is called with LIGHTWELL category
+        BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
+                report,
+                false,
+                "lightwell-build-id",
+                BuildCategory.LIGHTWELL,
+                BuildType.MVN,
+                Instant.now(),
+                "com.example:lightwell-artifact",
+                "1.0.0",
+                Map.of("MAVEN", "3.6.3"));
+
+        // then: processor is flag-agnostic; dependenciesBuild is always produced regardless of
+        // promote-dependencies config. The skip decision is made later by Driver.promote().
+        Assertions.assertTrue(
+                promotion.hasDependenciesBuild(),
+                "createPromotionBuildInfo should always produce a dependenciesBuild for LIGHTWELL");
+        Assertions.assertEquals(
+                2,
+                promotion.dependenciesBuild().getModules().get(0).getDependencies().size(),
+                "dependenciesBuild should contain 2 promotable dependencies");
+    }
 }
 
 // Made with Bob
