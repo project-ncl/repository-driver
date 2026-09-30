@@ -337,17 +337,6 @@ public class Driver {
                             promoteRequest.getRtBuildVersion(),
                             promoteRequest.getRtEnvironmentTools());
 
-                    // Some basic verification
-                    if (uploadedArtifacts
-                            .size() != promotion.primaryBuild().getModules().get(0).getArtifacts().size()) {
-                        logger.warn(
-                                "### collectUploadedArtifacts size is different to createPromotionBuildInfo {} : {} ",
-                                uploadedArtifacts.size(),
-                                promotion.primaryBuild().getModules().get(0).getArtifacts().size());
-                        // TODO: ### This should never happen ... what should we do here?
-
-                    }
-
                     List<org.jfrog.build.api.Artifact> primaryArtifacts = promotion.primaryBuild()
                             .getModules()
                             .get(0)
@@ -458,7 +447,7 @@ public class Driver {
                                 primaryBuild,
                                 promotion.artifactsTarget(),
                                 PromotionType.ARTIFACTS,
-                                uploadedArtifacts.size(),
+                                primaryBuild.getModules().get(0).getArtifacts().size(),
                                 true);
                     }
 
@@ -1023,6 +1012,19 @@ public class Driver {
                             buildNumber,
                             promotionRequest,
                             configuration.getArtifactoryProject());
+
+            int returned = promoteArtifacts ? response.getPromotedArts() : response.getPromotedDeps();
+            if (returned != promotedCount) {
+                throw new PromotionValidationException(
+                        String.format(
+                                "Promotion count mismatch for %s %s #%s → %s: expected %d, plugin reported %d",
+                                promotionType.label(),
+                                buildName,
+                                buildNumber,
+                                targetRepoName,
+                                promotedCount,
+                                returned));
+            }
 
             userLog.info(
                     "Promoted {} for BuildInfo {} #{} to repository {} in {} ms."

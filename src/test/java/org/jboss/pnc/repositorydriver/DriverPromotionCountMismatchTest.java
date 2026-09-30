@@ -1,6 +1,5 @@
 package org.jboss.pnc.repositorydriver;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static io.restassured.RestAssured.given;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -9,24 +8,17 @@ import static org.mockito.Mockito.any;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.api.constants.HttpHeaders;
-import org.jboss.pnc.api.constants.MDCHeaderKeys;
 import org.jboss.pnc.api.dto.Request;
 import org.jboss.pnc.api.enums.BuildCategory;
 import org.jboss.pnc.api.enums.BuildType;
 import org.jboss.pnc.api.enums.ResultStatus;
-import org.jboss.pnc.api.repositorydriver.dto.ArchiveRequest;
-import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
-import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
@@ -56,19 +48,22 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
-import io.restassured.RestAssured;
 
 /**
- * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
+ * Verifies that a mismatch between the expected promotion count and the count reported by the
+ * Artifactory plugin causes the build promotion to be reported as {@link ResultStatus#FAILED}.
+ *
+ * <p>
+ * Kept in a separate class to avoid shared-mock lifecycle issues with {@link DriverTest}.
  */
 @QuarkusTest
 @TestSecurity(authorizationEnabled = false)
 @QuarkusTestResource(WiremockTestServer.class)
-public class DriverTest {
+public class DriverPromotionCountMismatchTest {
 
     private static final String BIND_HOST = "127.0.0.1";
 
-    private static final Logger logger = LoggerFactory.getLogger(DriverTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(DriverPromotionCountMismatchTest.class);
 
     @Inject
     ObjectMapper mapper;
@@ -77,21 +72,13 @@ public class DriverTest {
 
     private static final BlockingQueue<Request> callbackRequests = new ArrayBlockingQueue<>(100);
 
-    @ConfigProperty(name = "test.wiremock.url")
-    String wiremockUrl;
-
     @BeforeAll
     public static void beforeClass() throws Exception {
-        // uncomment to log all requests
-        // RestAssured.filters(new RequestLoggingFilter(), new ResponseLoggingFilter());
-        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
-
         callbackServer = new HttpServer();
-
         callbackServer.addServlet(
                 CallbackHandler.class,
                 new ServletInstanceFactory(new CallbackHandler(callbackRequests::add)));
-        callbackServer.start(8082, BIND_HOST);
+        callbackServer.start(8083, BIND_HOST);
 
         BifrostLogUploader bifrostLogUploader = Mockito.mock(BifrostLogUploader.class);
         Mockito.doNothing().when(bifrostLogUploader).uploadString(any(), any());
@@ -100,34 +87,25 @@ public class DriverTest {
         QuarkusMock.installMockForType(bifrostLogUploaderProducer, BifrostLogUploaderProducer.class);
 
         Artifactory artifactory = Mockito.mock(Artifactory.class);
-        // artifactory.repository("xxx")
         RepositoryHandle repositoryHandle = Mockito.mock(RepositoryHandle.class);
         Mockito.when(artifactory.repository(Mockito.anyString())).thenReturn(repositoryHandle);
-        // artifactory.repository("xxx")
         ItemHandle itemHandle = Mockito.mock(ItemHandle.class);
         Mockito.when(repositoryHandle.folder(Mockito.anyString())).thenReturn(itemHandle);
-
-        // artifactory.repository("xxx").exists
         Mockito.when(repositoryHandle.exists()).thenReturn(true);
-        // artifactory.repositories
-        // Use RETURNS_DEEP_STUBS to mock 'all the way down'.
         Mockito.when(artifactory.repositories()).thenReturn(Mockito.mock(Repositories.class, RETURNS_DEEP_STUBS));
 
-        // artifactory.builds() - mock for BuildInfo API
+        // The mock tracking report has 2 Maven downloads (pom + jar), both promotable dependencies.
+        // Return 99 deps — intentional mismatch vs the 2 expected — to trigger the count-validation check.
         Builds builds = Mockito.mock(Builds.class, RETURNS_DEEP_STUBS);
         org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl promotionResponse = new org.jfrog.artifactory.client.model.impl.PncPromotionResponseImpl();
         promotionResponse.setMessage("Build successfully promoted");
         promotionResponse.setPromotedArts(5);
-        // The mock tracking report has 2 Maven downloads (pom + jar from central), both promotable.
-        // This must match dependenciesBuild.getModules().get(0).getDependencies().size() to pass the
-        // new count-validation check in promoteToRepository.
-        promotionResponse.setPromotedDeps(2);
+        promotionResponse.setPromotedDeps(99);
         Mockito.when(
                 builds.promotePNCBuild(Mockito.anyString(), Mockito.anyString(), Mockito.any(), Mockito.anyString()))
                 .thenReturn(promotionResponse);
         Mockito.when(artifactory.builds()).thenReturn(builds);
 
-        // Replace the cdi ArtifactoryProducer bean with a mocked version
         ArtifactoryProducer artifactoryProducer = Mockito.mock(ArtifactoryProducer.class);
         Mockito.when(artifactoryProducer.produceAdmin()).thenReturn(artifactory);
         Mockito.when(artifactoryProducer.produceGenericClient()).thenReturn(artifactory);
@@ -141,46 +119,16 @@ public class DriverTest {
     }
 
     @Test
-    public void shouldCreateRepository() {
-        // given
-        RepositoryCreateRequest request = RepositoryCreateRequest.builder()
-                .buildContentId("build-X")
-                .buildType(BuildType.MVN)
-                .buildCategory(BuildCategory.STANDARD)
-                .tempBuild(false)
-                .build();
-        // when
-        RepositoryCreateResponse repositoryCreateResponse = given().contentType(MediaType.APPLICATION_JSON)
-                .headers(requestHeaders())
-                .body(request)
-                .when()
-                .post("/create")
-                .then()
-                .statusCode(200)
-                .extract()
-                .body()
-                .as(RepositoryCreateResponse.class);
-
-        // then
-        Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-stage-mvn-build-X-virt",
-                repositoryCreateResponse.getRepositoryDependencyUrl());
-        Assertions.assertEquals(
-                "http://artifactory-host/api/pnc-stage-mvn-build-X",
-                repositoryCreateResponse.getRepositoryDeployUrl());
-    }
-
-    @Test
     @Timeout(15)
-    public void shouldPromoteRepository() throws URISyntaxException, InterruptedException {
+    public void shouldFailPromotionOnCountMismatch() throws URISyntaxException, InterruptedException {
         // given
         Request callbackRequest = new Request(
                 Request.Method.POST,
-                new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
+                new URI("http://localhost:8083/" + CallbackHandler.class.getSimpleName()),
                 Collections.singletonList(
                         new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
         RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
-                .buildContentId("build-X")
+                .buildContentId("build-Y")
                 .buildType(BuildType.MVN)
                 .tempBuild(false)
                 .buildCategory(BuildCategory.STANDARD)
@@ -193,87 +141,18 @@ public class DriverTest {
 
         // when
         given().contentType(MediaType.APPLICATION_JSON)
-                .headers(requestHeaders())
-                .body(request)
-                .when()
-                .put("/seal")
-                .then()
-                .statusCode(204);
-
-        given().contentType(MediaType.APPLICATION_JSON)
-                .headers(requestHeaders())
+                .headers(DriverTest.requestHeaders())
                 .body(request)
                 .when()
                 .put("/promote")
                 .then()
                 .statusCode(204);
 
-        // then
+        // then — the plugin returned 99 deps but only 2 were expected → PromotionValidationException → FAILED
         Request callback = callbackRequests.take();
         RepositoryPromoteResult promoteResult = mapper
                 .convertValue(callback.getAttachment(), RepositoryPromoteResult.class);
         logger.info("Promotion completed with status: {}", promoteResult.getStatus());
-        Assertions.assertEquals(ResultStatus.SUCCESS, promoteResult.getStatus());
-    }
-
-    @Test
-    public void testPromoteHeartBeat() throws URISyntaxException, InterruptedException {
-        // given
-        Request callbackRequest = new Request(
-                Request.Method.POST,
-                new URI("http://localhost:8082/" + CallbackHandler.class.getSimpleName()),
-                Collections.singletonList(
-                        new Request.Header(HttpHeaders.CONTENT_TYPE_STRING, MediaType.APPLICATION_JSON)));
-        Request heartbeatRequest = new Request(Request.Method.POST, new URI(wiremockUrl + "/heartbeat"));
-        RepositoryPromoteRequest request = RepositoryPromoteRequest.builder()
-                .buildContentId("build-X")
-                .buildType(BuildType.MVN)
-                .tempBuild(false)
-                .buildCategory(BuildCategory.STANDARD)
-                .callback(callbackRequest)
-                .heartBeat(heartbeatRequest)
-                .rtBuildStartTime(java.time.Instant.now())
-                .rtBuildName("com.example:test-artifact")
-                .rtBuildVersion("1.0.0")
-                .rtEnvironmentTools(java.util.Map.of("MAVEN", "3.6.3"))
-                .build();
-
-        // when
-        given().contentType(MediaType.APPLICATION_JSON)
-                .headers(requestHeaders())
-                .body(request)
-                .when()
-                .put("/promote")
-                .then()
-                .statusCode(204);
-        Thread.sleep(1500);
-
-        // then
-        verify(postRequestedFor(urlEqualTo("/heartbeat")));
-    }
-
-    @Test
-    public void testArchiveRequest() {
-        given().contentType(MediaType.APPLICATION_JSON)
-                .headers(requestHeaders())
-                .body(ArchiveRequest.builder().buildConfigId("10").buildContentId("100").build())
-                .when()
-                .post("/archive")
-                .then()
-                .statusCode(204);
-
-        verify(
-                1,
-                postRequestedFor(urlEqualTo("/archive"))
-                        .withRequestBody(matchingJsonPath("buildConfigId", containing("10"))));
-    }
-
-    public static Map<String, String> requestHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put(MDCHeaderKeys.PROCESS_CONTEXT.getHeaderName(), "A");
-        headers.put(MDCHeaderKeys.TMP.getHeaderName(), "false");
-        headers.put(MDCHeaderKeys.EXP.getHeaderName(), "0");
-        headers.put(MDCHeaderKeys.USER_ID.getHeaderName(), "1");
-        return headers;
+        Assertions.assertEquals(ResultStatus.FAILED, promoteResult.getStatus());
     }
 }
