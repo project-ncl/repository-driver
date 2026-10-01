@@ -51,16 +51,18 @@ public class ConfigurationTest {
     }
 
     @Test
-    @DisplayName("Should return true for promote-dependencies by default, false when explicitly set")
-    void testPromoteDependenciesFlag() {
-        // STANDARD has no explicit config -> falls back to default -> true
-        assertTrue(configuration.getPromoteDependencies(BuildCategory.STANDARD));
+    @DisplayName("Should return default {type}-imports when not set, empty when disabled")
+    void testDependenciesPromotionTarget() {
+        // STANDARD has no explicit config -> falls back to default -> {type}-imports
+        assertEquals(
+                Optional.of("{type}-imports"),
+                configuration.getDependenciesPromotionTarget(BuildCategory.STANDARD));
 
-        // null treated as STANDARD -> falls back to default -> true
-        assertTrue(configuration.getPromoteDependencies(null));
+        // null treated as STANDARD -> falls back to default -> {type}-imports
+        assertEquals(Optional.of("{type}-imports"), configuration.getDependenciesPromotionTarget(null));
 
-        // LIGHTWELL has explicit promote-dependencies: false in test config
-        assertFalse(configuration.getPromoteDependencies(BuildCategory.LIGHTWELL));
+        // LIGHTWELL has explicit dependencies-promotion-target: "" in test config -> Optional.empty()
+        assertEquals(Optional.empty(), configuration.getDependenciesPromotionTarget(BuildCategory.LIGHTWELL));
     }
 
     @Test

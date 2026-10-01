@@ -206,9 +206,10 @@ public class TrackingReportProcessor {
      * shared-imports must not be re-promoted there; they belong in {@code primaryBuild} for audit but are excluded from
      * {@code dependenciesBuild}.
      */
-    private boolean isSharedImportsRepo(RepositoryId repoId) {
+    private boolean isSharedImportsRepo(RepositoryId repoId, String configuredDepsTargetName) {
         String name = repoId.getName();
-        return MVN_SHARED_IMPORTS_ID.equals(name) || NPM_SHARED_IMPORTS_ID.equals(name);
+        return MVN_SHARED_IMPORTS_ID.equals(name) || NPM_SHARED_IMPORTS_ID.equals(name)
+                || (configuredDepsTargetName != null && configuredDepsTargetName.equals(name));
     }
 
     /**
@@ -403,19 +404,18 @@ public class TrackingReportProcessor {
                     switch (packageType) {
                         case MAVEN, NPM -> {
                             // Determine dependencies target (prefer first Maven/NPM found)
-                            if (dependenciesTarget == null) {
+                            String depsTargetName = resolveDependenciesPromotionTarget(packageType, buildCategory);
+                            if (depsTargetName != null && dependenciesTarget == null) {
                                 dependenciesTarget = RepositoryId.builder()
                                         .project(configuration.getArtifactoryProject())
                                         .packageType(packageType)
-                                        .name(
-                                                packageType == PackageType.MAVEN ? MVN_SHARED_IMPORTS_ID
-                                                        : NPM_SHARED_IMPORTS_ID)
+                                        .name(depsTargetName)
                                         .build();
                             }
                             // ALL passing Maven/NPM downloads → primaryBuild (audit, not promoted)
                             allFilteredDownloads.add(download);
                             // Only non-shared-imports downloads → dependenciesBuild (will be promoted)
-                            if (!isSharedImportsRepo(sourceRepoId)) {
+                            if (depsTargetName != null && !isSharedImportsRepo(sourceRepoId, depsTargetName)) {
                                 promotableDownloads.add(download);
                             }
                         }
@@ -787,6 +787,12 @@ public class TrackingReportProcessor {
 
     private String genericDownloadsTargetName(boolean tempBuild) {
         return tempBuild ? RepositoryConstants.GENERIC_TEMP_DOWNLOADS : RepositoryConstants.GENERIC_DOWNLOADS;
+    }
+
+    private String resolveDependenciesPromotionTarget(PackageType packageType, BuildCategory buildCategory) {
+        return configuration.getDependenciesPromotionTarget(buildCategory)
+                .map(target -> target.replace("{type}", packageType.getCode()))
+                .orElse(null);
     }
 
     private String getBuildPromotionTarget(PackageType packageType, BuildCategory buildCategory, boolean tempBuild) {

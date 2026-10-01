@@ -395,59 +395,34 @@ if (genericBuild != null) {
 }
 ```
 
-## Configuration: Skipping Dependencies Promotion
+## Configuration: Dependencies Promotion Target
 
-Certain build categories (e.g. Lightwell) source their dependencies from Maven Central via a
-per-project `{project}-maven-central` repository rather than from PNC-managed hosted repositories.
-Promoting those dependencies into the shared-imports repository (`{project}-mvn-imports` /
-`{project}-npm-imports`) can cause overwrite conflicts.
-
-### Config flag: `promote-dependencies`
-
-Each build category can declare whether its dependencies build should be uploaded and promoted:
+Dependencies promotion targets can be configured per build category via `dependencies-promotion-target`:
 
 ```yaml
 repository-driver:
   build-categories:
     default:
-      promote-dependencies: true   # default; all categories inherit this unless overridden
+      dependencies-promotion-target: "{type}-imports"   # default; resolves to mvn-imports, npm-imports
 
     lightwell:
-      promote-dependencies: false  # skip deps upload+promotion for Lightwell builds
+      dependencies-promotion-target: ""  # empty string skips dependencies promotion
 
     lightwell_novel:
-      promote-dependencies: false
+      dependencies-promotion-target: ""
 
     lightwell_upstream:
-      promote-dependencies: false
+      dependencies-promotion-target: ""
 ```
 
-**Full config key:** `repository-driver.build-categories.{category}.promote-dependencies`
+**Full config key:** `repository-driver.build-categories.{category}.dependencies-promotion-target`
 
-The flag follows the standard per-category fallback: if not set for a category, the value under
-`default` is used. The built-in default is `true`, preserving existing behaviour for all
-categories that do not override it.
-
-### Effect on `Driver.promote()`
-
-When `promote-dependencies` is `false` for the active build category, `Driver.promote()` skips
-**both** the `uploadBuild` call and the `promotePNCBuild` call for `dependenciesBuild`. Uploading
-without promoting would leave orphaned build metadata in Artifactory.
-
-An INFO-level log line is emitted when the skip occurs:
-
-```
-Skipping dependencies build upload and promotion for build category LIGHTWELL: promote-dependencies=false
-```
-
-The primary build upload and promotion, as well as the generic-downloads build, are unaffected.
-
-### `createPromotionBuildInfo()` is flag-agnostic
-
-`TrackingReportProcessor.createPromotionBuildInfo()` always produces a `BuildInfoPromotion`
-record containing a `dependenciesBuild` when promotable downloads are present — it has no
-knowledge of the `promote-dependencies` flag. The skip decision is made exclusively by the
-caller, `Driver.promote()`, after `createPromotionBuildInfo()` returns.
+The configuration property follows standard per-category fallback:
+- `{type}` placeholder is replaced by the package type code (e.g. `mvn`, `npm`).
+- The default value is `"{type}-imports"`.
+- If set to an empty/blank string (or unset without default), dependency promotion is disabled for that category.
+- When disabled, `TrackingReportProcessor.createPromotionBuildInfo()` does not create a `dependenciesBuild` (`hasDependenciesBuild()` returns `false`).
+- `Driver.promote()` detects that no `dependenciesBuild` was created and skips both build upload and promotion.
 
 ## References
 

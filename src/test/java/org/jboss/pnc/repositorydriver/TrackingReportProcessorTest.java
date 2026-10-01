@@ -999,7 +999,7 @@ public class TrackingReportProcessorTest {
                 .uploads(new HashSet<>())
                 .build();
 
-        // when: createPromotionBuildInfo is called with LIGHTWELL category
+        // when: createPromotionBuildInfo is called with LIGHTWELL category (which has dependencies-promotion-target: "")
         BuildInfoPromotion promotion = trackingReportProcessor.createPromotionBuildInfo(
                 report,
                 false,
@@ -1011,15 +1011,19 @@ public class TrackingReportProcessorTest {
                 "1.0.0",
                 Map.of("MAVEN", "3.6.3"));
 
-        // then: processor is flag-agnostic; dependenciesBuild is always produced regardless of
-        // promote-dependencies config. The skip decision is made later by Driver.promote().
-        Assertions.assertTrue(
+        // then: when dependencies-promotion-target is empty, no dependenciesBuild is created
+        Assertions.assertFalse(
                 promotion.hasDependenciesBuild(),
-                "createPromotionBuildInfo should always produce a dependenciesBuild for LIGHTWELL");
-        Assertions.assertEquals(
-                2,
-                promotion.dependenciesBuild().getModules().get(0).getDependencies().size(),
-                "dependenciesBuild should contain 2 promotable dependencies");
+                "createPromotionBuildInfo should not produce a dependenciesBuild for LIGHTWELL because target is empty");
+        Assertions.assertNull(
+                promotion.dependenciesBuild(),
+                "dependenciesBuild should be null when target is empty");
+        Assertions.assertNull(
+                promotion.dependenciesTarget(),
+                "dependenciesTarget should be null when target is empty");
+        Assertions.assertNotNull(
+                promotion.primaryBuild(),
+                "primaryBuild should still be produced for audit purposes");
     }
 }
 

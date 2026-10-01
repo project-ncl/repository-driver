@@ -37,9 +37,9 @@ repository-driver:
         hosted:
           - central
 
-    # Lightwell category - promote-dependencies disabled
+    # Lightwell category - dependencies promotion disabled
     lightwell:
-      promote-dependencies: false
+      dependencies-promotion-target: ""
       build-promotion-target: lw-remediated-builds
       temp-build-promotion-target: lw-temp-remediated-builds
       build-group-constituents:
@@ -54,6 +54,7 @@ repository-driver:
 
     # Service category
     service:
+      dependencies-promotion-target: "{type}-imports"
       build-promotion-target: service-builds
       temp-build-promotion-target: temporary-service-builds
       build-group-constituents:

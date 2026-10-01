@@ -276,7 +276,7 @@ public class DriverTest {
     @Timeout(15)
     public void testPromote_SkipsDependenciesUploadAndPromotionWhenFlagFalse()
             throws URISyntaxException, InterruptedException, java.io.IOException {
-        // given: a promote request for LIGHTWELL, which has promote-dependencies: false in test config.
+        // given: a promote request for LIGHTWELL, which has dependencies-promotion-target: "" in test config.
         //
         // The mock is configured with promotedDeps=99, which would cause a count-mismatch FAILED
         // result if the dependencies build promotion actually ran (the tracking report has 2 downloads).

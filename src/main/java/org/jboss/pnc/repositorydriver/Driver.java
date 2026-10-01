@@ -370,8 +370,7 @@ public class Driver {
                     }
 
                     // Upload and promote dependencies Build (promotable Maven/NPM downloads)
-                    boolean promoteDependencies = configuration.getPromoteDependencies(buildCategory);
-                    if (promoteDependencies && promotion.hasDependenciesBuild()) {
+                    if (promotion.hasDependenciesBuild()) {
                         org.jfrog.build.api.Build dependenciesBuild = promotion.dependenciesBuild();
                         try {
                             logger.info(
@@ -399,9 +398,9 @@ public class Driver {
                                 PromotionType.DEPENDENCIES,
                                 dependenciesBuild.getModules().get(0).getDependencies().size(),
                                 false);
-                    } else if (!promoteDependencies) {
+                    } else {
                         logger.info(
-                                "Skipping dependencies build upload and promotion for build category {}: promote-dependencies=false",
+                                "Skipping dependencies build upload and promotion for build category {}: no dependencies build created",
                                 buildCategory);
                     }
 
