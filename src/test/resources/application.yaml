@@ -36,20 +36,6 @@ repository-driver:
         temp-group: []
         hosted:
           - central
-
-    # Service category
-    service:
-      build-promotion-target: service-builds
-      temp-build-promotion-target: temporary-service-builds
-      build-group-constituents:
-        temp-hosted:
-          - central
-        temp-group:
-          - "{project}-maven-central"
-        hosted:
-          - central
-        group:
-          - "{project}-maven-central"
   ignored-path-patterns:
     archive:
       maven: [ ".*/maven-metadata\\.xml(\\..+)?$" ]

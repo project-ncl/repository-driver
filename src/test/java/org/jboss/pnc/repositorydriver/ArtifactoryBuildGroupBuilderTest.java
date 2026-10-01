@@ -316,36 +316,4 @@ public class ArtifactoryBuildGroupBuilderTest {
                 "Should contain " + configuration.getArtifactoryProject()
                         + "-gradle-plugins repository for Gradle temp builds");
     }
-
-    @Test
-    public void shouldAddGlobalConstituentsWithPlaceholdersForServiceCategory() {
-        // Setup mocks
-        Artifactory artifactory = Mockito.mock(Artifactory.class);
-        RepositoryBuilders repositoryBuilders = Mockito.mock(RepositoryBuilders.class);
-        Repositories repositories = Mockito.mock(Repositories.class);
-        Mockito.when(artifactory.repositories()).thenReturn(repositories);
-        Mockito.when(repositories.builders()).thenReturn(repositoryBuilders);
-        Mockito.when(repositoryBuilders.virtualRepositoryBuilder()).thenReturn(new VirtualRepositoryBuilderImpl() {
-        });
-
-        MavenRepositorySettingsImpl settings = new MavenRepositorySettingsImpl();
-
-        // Build with non-temp SERVICE category constituents
-        // service.hosted: [central] -> standard formatting: pnc-stage-mvn-central
-        // service.group: [{project}-maven-central] -> template formatting: pnc-stage-maven-central
-        var result = ArtifactoryBuildGroupBuilder.builder(configuration, artifactory, settings, "test-virtual")
-                .addGlobalConstituents(BuildType.MVN, BuildCategory.SERVICE, false)
-                .build();
-
-        var repos = result.getRepositories();
-        assertEquals(2, repos.size(), "Should have 2 constituents for SERVICE build");
-        assertTrue(
-                repos.contains(configuration.getArtifactoryProject() + "-mvn-central"),
-                "Should contain standard formatted hosted repo: " + configuration.getArtifactoryProject()
-                        + "-mvn-central");
-        assertTrue(
-                repos.contains(configuration.getArtifactoryProject() + "-maven-central"),
-                "Should contain template formatted group repo without type: " + configuration.getArtifactoryProject()
-                        + "-maven-central");
-    }
 }

@@ -44,10 +44,6 @@ public class ConfigurationTest {
         // standard doesn't define the temp build, should fall back to default from main config
         assertEquals("ibm-temp-builds", configuration.getTempBuildPromotionTarget(BuildCategory.STANDARD));
         assertEquals("ibm-builds", configuration.getBuildPromotionTarget(BuildCategory.STANDARD));
-
-        // service does define the promotion values, should use them
-        assertEquals("temporary-service-builds", configuration.getTempBuildPromotionTarget(BuildCategory.SERVICE));
-        assertEquals("service-builds", configuration.getBuildPromotionTarget(BuildCategory.SERVICE));
     }
 
     @Test
