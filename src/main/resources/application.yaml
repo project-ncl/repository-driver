@@ -2,13 +2,13 @@ quarkus:
   application:
     name: pnc-repository-driver
   index-dependency:
-    tracking-service:
+    tracker:
       group-id: org.jboss.pnc
       artifact-id: pnc-api
       classifier: jakarta
   rest-client:
-    tracking-service:
-      url: ${repository-driver.tracking-service.api-url:http://localhost:8080}
+    tracker:
+      url: ${repository-driver.tracker.api-url:http://localhost:8080}
       scope: jakarta.inject.Singleton
       read-timeout: 300000
   otel:
@@ -147,5 +147,5 @@ repository-driver:
     running-retry-max-delay-msec: 5000
   heartbeat:
     interval: 30
-  tracking-service:
+  tracker:
     api-url: http://localhost:8080

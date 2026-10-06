@@ -23,13 +23,13 @@ import org.jboss.pnc.api.tracker.rest.ReportEndpoint;
 import io.quarkus.arc.Unremovable;
 
 /**
- * REST client for the PNC Tracking Service.
+ * REST client for the PNC Tracker.
  * Extends ReportEndpoint from pnc-api to inherit all tracking report operations.
  * The @Path annotation is inherited from ReportEndpoint.
  */
-@RegisterRestClient(configKey = "tracking-service")
+@RegisterRestClient(configKey = "tracker")
 @Unremovable
-public interface TrackingServiceClient extends ReportEndpoint {
+public interface TrackerClient extends ReportEndpoint {
     // All methods are inherited from ReportEndpoint
     // This interface just provides the REST client registration
 }

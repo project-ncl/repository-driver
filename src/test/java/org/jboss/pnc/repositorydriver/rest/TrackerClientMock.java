@@ -26,9 +26,9 @@ import io.quarkus.test.Mock;
 @Priority(1)
 @ApplicationScoped
 @RestClient
-public class TrackingServiceClientMock implements TrackingServiceClient {
+public class TrackerClientMock implements TrackerClient {
 
-    private static final Logger logger = LoggerFactory.getLogger(TrackingServiceClientMock.class);
+    private static final Logger logger = LoggerFactory.getLogger(TrackerClientMock.class);
 
     @Override
     public void initReport(String id) {
