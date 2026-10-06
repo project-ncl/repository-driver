@@ -81,7 +81,7 @@ import org.jboss.pnc.repositorydriver.exception.PromotionValidationException;
 import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
 import org.jboss.pnc.repositorydriver.exception.StoppingException;
 import org.jboss.pnc.repositorydriver.group.ArtifactoryBuildGroupBuilder;
-import org.jboss.pnc.repositorydriver.rest.TrackingServiceClient;
+import org.jboss.pnc.repositorydriver.rest.TrackerClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
@@ -164,7 +164,7 @@ public class Driver {
 
     @Inject
     @RestClient
-    TrackingServiceClient trackingServiceClient;
+    TrackerClient trackerClient;
 
     @WithSpan()
     public RepositoryCreateResponse create(
@@ -202,8 +202,8 @@ public class Driver {
             String downloadsUrl;
             String deployUrl;
 
-            trackingServiceClient.clearReport(buildId);
-            trackingServiceClient.initReport(buildId);
+            trackerClient.clearReport(buildId);
+            trackerClient.initReport(buildId);
 
             // Ensure artifactoryUrl ends with '/' for proper URL construction
             String aUrl = configuration.artifactoryUrl;
@@ -1092,7 +1092,7 @@ public class Driver {
     public void sealTrackingReport(@SpanAttribute(value = "buildContentId") String buildContentId) {
         try {
             userLog.info("Sealing tracking record");
-            trackingServiceClient.sealReport(buildContentId);
+            trackerClient.sealReport(buildContentId);
             uploadLogs("", "seal");
         } catch (Exception ex) {
             userLog.error(ex.getMessage());
@@ -1105,7 +1105,7 @@ public class Driver {
         TrackingReport report;
         try {
             userLog.info("Getting tracking report for build: {}", LogSanitizer.clean(buildContentId));
-            report = trackingServiceClient.getReport(buildContentId);
+            report = trackerClient.getReport(buildContentId);
         } catch (Exception e) {
             throw new RepositoryDriverException("Failed to retrieve tracking report for: %s.", e, buildContentId);
         }
