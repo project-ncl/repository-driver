@@ -79,7 +79,7 @@ mp:
     scan:
       exclude:
         classes: >-
-          org.jboss.pnc.repositorydriver.rest.TrackingServiceClient,org.jboss.pnc.api.tracker.rest.ReportEndpoint
+          org.jboss.pnc.repositorydriver.rest.TrackerClient,org.jboss.pnc.api.tracker.rest.ReportEndpoint
 
 pnc_client_auth:
   type: OIDC # or LDAP
