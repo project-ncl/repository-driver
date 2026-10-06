@@ -1,6 +1,6 @@
 quarkus:
   index-dependency:
-    tracking-service:
+    tracker:
       group-id: org.jboss.pnc
       artifact-id: pnc-api
       classifier: jakarta
@@ -86,7 +86,7 @@ repository-driver:
     api-url: "http://bifrost-host/"
   heartbeat:
     interval: 1
-  tracking-service:
+  tracker:
     api-url: http://localhost:8080
 
 "%dev":

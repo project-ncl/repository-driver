@@ -17,6 +17,7 @@
  */
 package org.jboss.pnc.repositorydriver.rest;
 
+import org.eclipse.microprofile.rest.client.annotation.RegisterProvider;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.pnc.api.tracker.rest.ReportEndpoint;
 
@@ -28,6 +29,7 @@ import io.quarkus.arc.Unremovable;
  * The @Path annotation is inherited from ReportEndpoint.
  */
 @RegisterRestClient(configKey = "tracker")
+@RegisterProvider(PNCAuthClientRequestFilter.class)
 @Unremovable
 public interface TrackerClient extends ReportEndpoint {
     // All methods are inherited from ReportEndpoint
