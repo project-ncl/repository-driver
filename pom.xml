@@ -365,9 +365,6 @@
         <version>3.10.3</version>
         <configuration>
           <pom>
-            <includes>
-              <include>pom.xml</include>
-            </includes>
             <sortPom>
               <expandEmptyElements>false</expandEmptyElements>
             </sortPom>
