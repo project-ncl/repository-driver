@@ -177,6 +177,8 @@ All endpoints require authentication with roles:
 - `pnc-app-repository-driver-user`
 - `pnc-users-admin`
 
+`DELETE /rollback` additionally accepts the dedicated role `pnc-app-repository-driver-rollback`.
+
 ### Endpoints
 
 #### `POST /create`
@@ -195,6 +197,12 @@ Promote build artifacts (async operation). Uploads BuildInfo to Artifactory and 
 
 **Request**: `RepositoryPromoteRequest`
 **Note**: Result is sent via callback to the orchestrator.
+
+#### `DELETE /rollback`
+Roll back the promotion of a build (synchronous operation). Finds the BuildInfos by `buildContentId` and rolls back the primary and generic builds from the repositories they were promoted to. Dependencies are not rolled back and BuildInfos are not deleted. The operation is repeatable, already rolled back artifacts are skipped.
+
+**Request**: `RepositoryRollbackRequest`
+**Response**: `RepositoryRollbackResult` with `ResultStatus` (`SUCCESS`, `FAILED` for a failed rollback, `SYSTEM_ERROR` for a failed search)
 
 #### `POST /archive`
 Archive downloaded artifacts.
