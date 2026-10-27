@@ -19,9 +19,12 @@ package org.jboss.pnc.repositorydriver;
 
 import static java.net.http.HttpClient.Version.HTTP_1_1;
 import static java.net.http.HttpClient.Version.HTTP_2;
+import static java.util.Comparator.comparing;
 import static org.jboss.pnc.api.constants.HttpHeaders.AUTHORIZATION_STRING;
 import static org.jboss.pnc.api.constants.HttpHeaders.CONTENT_TYPE_STRING;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.ARTIFACTORY_ENVIRONMENTS;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.DEPENDENCIES_BUILD_SUFFIX;
+import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.GENERIC_BUILD_SUFFIX;
 import static org.jboss.pnc.repositorydriver.constants.RepositoryConstants.REPO_UI_POSITION;
 
 import java.io.IOException;
@@ -36,6 +39,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,6 +65,8 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryRollbackRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryRollbackResult;
 import org.jboss.pnc.api.tracker.dto.PackageType;
 import org.jboss.pnc.api.tracker.dto.TrackingReport;
 import org.jboss.pnc.bifrost.upload.BifrostLogUploader;
@@ -79,16 +85,21 @@ import org.jboss.pnc.repositorydriver.cdi.PackagePromotion;
 import org.jboss.pnc.repositorydriver.exception.FailedResponseException;
 import org.jboss.pnc.repositorydriver.exception.PromotionValidationException;
 import org.jboss.pnc.repositorydriver.exception.RepositoryDriverException;
+import org.jboss.pnc.repositorydriver.exception.RollbackException;
 import org.jboss.pnc.repositorydriver.exception.StoppingException;
 import org.jboss.pnc.repositorydriver.group.ArtifactoryBuildGroupBuilder;
 import org.jboss.pnc.repositorydriver.rest.TrackerClient;
 import org.jboss.pnc.repositorydriver.runtime.ApplicationLifecycle;
 import org.jfrog.artifactory.client.Artifactory;
 import org.jfrog.artifactory.client.RepositoryHandle;
+import org.jfrog.artifactory.client.model.AqlBuild;
+import org.jfrog.artifactory.client.model.AqlPromotion;
 import org.jfrog.artifactory.client.model.LocalRepository;
 import org.jfrog.artifactory.client.model.PncPromotionResponse;
+import org.jfrog.artifactory.client.model.PncRollbackResponse;
 import org.jfrog.artifactory.client.model.Repository;
 import org.jfrog.artifactory.client.model.impl.PncPromotionRequestImpl;
+import org.jfrog.artifactory.client.model.impl.PncRollbackRequestImpl;
 import org.jfrog.artifactory.client.model.impl.RepositoryBuildersImpl;
 import org.jfrog.artifactory.client.model.repository.PomCleanupPolicy;
 import org.jfrog.artifactory.client.model.repository.settings.RepositorySettings;
@@ -122,6 +133,11 @@ public class Driver {
 
     private static final Logger logger = LoggerFactory.getLogger(Driver.class);
     private static final Logger userLog = LoggerFactory.getLogger("org.jboss.pnc._userlog_.repository-driver");
+
+    /** Status set on a BuildInfo by promotion. */
+    private static final String PROMOTED_STATUS = "promoted";
+    /** Status set on a BuildInfo by rollback. */
+    private static final String ROLLED_BACK_STATUS = "rolledback";
 
     @Inject
     ArtifactFilterDatabase artifactFilterDatabase;
@@ -543,6 +559,66 @@ public class Driver {
             completePromotion(throwable, buildConfigurationId, buildContentId);
             return null;
         }));
+    }
+
+    /**
+     * Rolls back the promotion of the primary and generic BuildInfos of the build. The BuildInfos are found by
+     * {@code buildContentId} and each is rolled back from the repository it was promoted to. Dependencies are not
+     * rolled back. Stops on the first failure.
+     */
+    @WithSpan()
+    public RepositoryRollbackResult rollback(
+            @SpanAttribute(value = "rollbackRequest") RepositoryRollbackRequest rollbackRequest) {
+        if (lifecycle.isShuttingDown()) {
+            throw new StoppingException();
+        }
+        String buildContentId = rollbackRequest.getBuildContentId();
+        lifecycle.addActivePromotion();
+        try {
+            List<AqlBuild> builds = artifactoryAdmin.searches()
+                    .builds()
+                    .project(configuration.getArtifactoryProject())
+                    .number(buildContentId)
+                    .doSearch();
+            for (AqlBuild build : builds) {
+                if (build.getName().endsWith(":" + DEPENDENCIES_BUILD_SUFFIX)) {
+                    // DO NOT ROLLBACK shared dependencies
+                    continue;
+                }
+                PromotionType promotionType = build.getName().endsWith(":" + GENERIC_BUILD_SUFFIX)
+                        ? PromotionType.GENERIC_DOWNLOADS
+                        : PromotionType.ARTIFACTS;
+                Optional<String> targetRepo = latestPromotionTarget(build);
+                if (targetRepo.isEmpty()) {
+                    logger.info("BuildInfo {} #{} has no promotion to rollback.", build.getName(), build.getNumber());
+                    continue;
+                }
+                rollbackToRepository(build.getName(), build.getNumber(), targetRepo.get(), promotionType);
+            }
+            return new RepositoryRollbackResult(buildContentId, ResultStatus.SUCCESS);
+        } catch (RollbackException e) {
+            logger.error("Failed rolling back {}: {}", buildContentId, e.getMessage(), e);
+            return new RepositoryRollbackResult(buildContentId, ResultStatus.FAILED);
+        } catch (Exception e) {
+            logger.error("Failed rolling back {}", buildContentId, e);
+            return new RepositoryRollbackResult(buildContentId, ResultStatus.SYSTEM_ERROR);
+        } finally {
+            lifecycle.removeActivePromotion();
+        }
+    }
+
+    /**
+     * Target repository of the most recent {@code promoted} promotion of the BuildInfo.
+     */
+    private Optional<String> latestPromotionTarget(AqlBuild build) {
+        if (build.getPromotions() == null) {
+            return Optional.empty();
+        }
+        return build.getPromotions()
+                .stream()
+                .filter(p -> PROMOTED_STATUS.equals(p.getStatus()) && p.getCreated() != null)
+                .max(comparing(AqlPromotion::getCreated))
+                .map(AqlPromotion::getRepo);
     }
 
     private void completePromotion(
@@ -995,7 +1071,7 @@ public class Driver {
 
             promotionRequest.setTargetRepository(targetRepoName);
             promotionRequest.setBuildInfoRepo(configuration.getArtifactoryProject() + "-build-info");
-            promotionRequest.setStatus("promoted");
+            promotionRequest.setStatus(PROMOTED_STATUS);
             promotionRequest.setComment("Promoted by PNC Repository Driver - " + promotionType.label());
             // Generic downloads are already present in the target repository (pre-promotion repo);
             // use move semantics (copy=false). All other promotion types copy artifacts to the target.
@@ -1046,6 +1122,64 @@ public class Driver {
                     targetRepoName);
             logger.error(message, e);
             throw new PromotionValidationException(message, e);
+        }
+    }
+
+    /**
+     * Rolls back the promotion of a BuildInfo from the repository it was promoted to. Rolling back an already
+     * rolled-back BuildInfo is a no-op in the plugin.
+     *
+     * @param buildName name of the promoted BuildInfo
+     * @param buildNumber number of the promoted BuildInfo
+     * @param targetRepoName repository the BuildInfo was promoted to
+     * @param promotionType type of the promoted content, determines whether the promotion was a copy or a move
+     * @throws RollbackException if the rollback fails
+     */
+    private void rollbackToRepository(
+            String buildName,
+            String buildNumber,
+            String targetRepoName,
+            PromotionType promotionType) throws RollbackException {
+
+        Instant rollbackStart = Instant.now();
+        try {
+            PncRollbackRequestImpl rollbackRequest = new PncRollbackRequestImpl();
+            rollbackRequest.setTargetRepository(targetRepoName);
+            rollbackRequest.setBuildInfoRepo(configuration.getArtifactoryProject() + "-build-info");
+            rollbackRequest.setStatus(ROLLED_BACK_STATUS);
+            rollbackRequest.setComment("Rolled back by PNC Repository Driver - " + promotionType.label());
+            // Must match the copy flag used by the promotion.
+            rollbackRequest.setCopy(promotionType != PromotionType.GENERIC_DOWNLOADS);
+            rollbackRequest.setArtifacts(true);
+            rollbackRequest.setDependencies(false);
+
+            PncRollbackResponse response = artifactoryAdmin.builds()
+                    .rollbackPNCBuild(
+                            buildName,
+                            buildNumber,
+                            rollbackRequest,
+                            configuration.getArtifactoryProject());
+
+            logger.info(
+                    "Rolled back {} for BuildInfo {} #{} from repository {} in {} ms."
+                            + " Plugin response: {} (rolled back: {}, skipped: {})",
+                    promotionType.label(),
+                    buildName,
+                    buildNumber,
+                    targetRepoName,
+                    Duration.between(rollbackStart, Instant.now()).toMillis(),
+                    response.getMessage(),
+                    response.getRolledBackArts(),
+                    response.getSkippedArts());
+        } catch (IOException e) {
+            throw new RollbackException(
+                    String.format(
+                            "Failed to roll back %s for BuildInfo %s #%s from repository %s",
+                            promotionType.label(),
+                            buildName,
+                            buildNumber,
+                            targetRepoName),
+                    e);
         }
     }
 

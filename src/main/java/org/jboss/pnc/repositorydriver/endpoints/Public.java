@@ -23,6 +23,7 @@ import java.time.ZonedDateTime;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -39,6 +40,8 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryCreateResponse;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryRollbackRequest;
+import org.jboss.pnc.api.repositorydriver.dto.RepositoryRollbackResult;
 import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Driver;
 import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
@@ -100,6 +103,18 @@ public class Public {
     public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
         logger.info("Requested promotion: {}", LogSanitizer.clean(promoteRequest.getBuildContentId()));
         driver.promote(promoteRequest);
+    }
+
+    /**
+     * Rolls back the artifacts promoted by {@link #promote(RepositoryPromoteRequest)}. The operation is synchronous,
+     * the outcome is returned in {@link RepositoryRollbackResult#getStatus()}.
+     */
+    @RolesAllowed({ "pnc-app-repository-driver-rollback", "pnc-app-repository-driver-user", "pnc-users-admin" })
+    @DELETE
+    @Path("/rollback")
+    public RepositoryRollbackResult rollback(RepositoryRollbackRequest rollbackRequest) {
+        logger.info("Requested rollback: {}", LogSanitizer.clean(rollbackRequest.getBuildContentId()));
+        return driver.rollback(rollbackRequest);
     }
 
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
