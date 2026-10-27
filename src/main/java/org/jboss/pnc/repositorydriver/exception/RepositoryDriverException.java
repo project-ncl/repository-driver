@@ -20,7 +20,7 @@ package org.jboss.pnc.repositorydriver.exception;
 import java.text.MessageFormat;
 import java.util.IllegalFormatException;
 
-public class RepositoryDriverException extends Exception {
+public class RepositoryDriverException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
