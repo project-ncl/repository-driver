@@ -22,15 +22,7 @@ import java.time.ZonedDateTime;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.pnc.api.dto.ComponentVersion;
@@ -42,6 +34,7 @@ import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryPromoteResult;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryRollbackRequest;
 import org.jboss.pnc.api.repositorydriver.dto.RepositoryRollbackResult;
+import org.jboss.pnc.api.repositorydriver.rest.DriverEndpoint;
 import org.jboss.pnc.common.log.LogSanitizer;
 import org.jboss.pnc.repositorydriver.Driver;
 import org.jboss.pnc.repositorydriver.constants.BuildInformationConstants;
@@ -53,10 +46,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author <a href="mailto:matejonnet@gmail.com">Matej Lazar</a>
  */
-@Path("/")
-@Consumes(MediaType.APPLICATION_JSON)
-@Produces(MediaType.APPLICATION_JSON)
-public class Public {
+public class Public implements DriverEndpoint {
 
     @ConfigProperty(name = "quarkus.application.name")
     String name;
@@ -66,71 +56,44 @@ public class Public {
     @Inject
     Driver driver;
 
-    /**
-     * Create a new repository for the build. If Indy responds with an error an error response is returned to the
-     * invoker.
-     */
+    @Override
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
-    @POST
-    @Path("/create")
     public RepositoryCreateResponse create(RepositoryCreateRequest repositoryCreateRequest)
             throws RepositoryDriverException {
         logger.info("Requested new repository: {}", LogSanitizer.clean(repositoryCreateRequest.getBuildContentId()));
         return driver.create(repositoryCreateRequest);
     }
 
-    /**
-     * Seals the tracking report.
-     *
-     * @param buildContentId
-     */
+    @Override
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
-    @PUT
-    @Path("/seal")
     public void seal(String buildContentId) {
         logger.info("Sealing: {}", LogSanitizer.clean(buildContentId));
         driver.sealTrackingReport(buildContentId);
     }
 
-    /**
-     * Retrieves the tracking report from Indy and promotes the repository. The endpoint returns after tracking report
-     * retrieval, if the retrieval fails and error response is returned. The promotion is an async operation, the result
-     * is sent via callback defined in the {@link RepositoryPromoteRequest}
-     */
+    @Override
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
-    @PUT
-    @Path("/promote")
     public void promote(RepositoryPromoteRequest promoteRequest) throws RepositoryDriverException {
         logger.info("Requested promotion: {}", LogSanitizer.clean(promoteRequest.getBuildContentId()));
         driver.promote(promoteRequest);
     }
 
-    /**
-     * Rolls back the artifacts promoted by {@link #promote(RepositoryPromoteRequest)}. The operation is synchronous,
-     * the outcome is returned in {@link RepositoryRollbackResult#getStatus()}.
-     */
+    @Override
     @RolesAllowed({ "pnc-app-repository-driver-rollback", "pnc-app-repository-driver-user", "pnc-users-admin" })
-    @DELETE
-    @Path("/rollback")
     public RepositoryRollbackResult rollback(RepositoryRollbackRequest rollbackRequest) {
         logger.info("Requested rollback: {}", LogSanitizer.clean(rollbackRequest.getBuildContentId()));
         return driver.rollback(rollbackRequest);
     }
 
+    @Override
     @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
-    @POST
-    @Path("/archive")
     public void archive(ArchiveRequest archiveRequest) throws RepositoryDriverException {
         logger.info("Requested archival: {}", LogSanitizer.clean(archiveRequest.getBuildContentId()));
         driver.archive(archiveRequest);
     }
 
-    /**
-     * Gets repository manager result for a specific buildContentId. It generates a successful result from tracking
-     * report even for builds that failed because of a system error with a sealed tracking record.
-     */
-    @GET
-    @Path("/{id}/repository-manager-result")
+    @Override
+    @RolesAllowed({ "pnc-app-repository-driver-user", "pnc-users-admin" })
     public RepositoryPromoteResult collectRepoManagerResult(
             @PathParam("id") String buildContentId,
             RepositoryCollectRequest collectRequest) throws RepositoryDriverException {
@@ -141,8 +104,7 @@ public class Public {
                 collectRequest.getBuildCategory());
     }
 
-    @GET
-    @Path("/version")
+    @Override
     public ComponentVersion getVersion() {
         return ComponentVersion.builder()
                 .name(name)
