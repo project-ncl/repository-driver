@@ -96,28 +96,9 @@ public class BeanFactory {
      * background idle-connection-eviction thread ("jhttpc-connection-manager-cache"). The matching {@link #closeIndy}
      * disposer is invoked by CDI when the injecting bean is destroyed (end of request), which closes the client and
      * shuts that thread down. Without the disposer these threads would accumulate one per request and leak.
-     *
-     * <p>
-     * Note: this request-scoped client must not be used by work that outlives the request (e.g. the asynchronous
-     * promotion pipeline in {@code Driver#promote}), because the disposer closes its connection pool as soon as the
-     * request returns. Such work must obtain a dedicated client via {@link #newIndyServiceAccountClient()} and close
-     * it itself.
      */
     @Produces
     Indy createIndyServiceAccountClient() {
-        return newIndyServiceAccountClient();
-    }
-
-    /**
-     * Creates a new, unmanaged Indy client that is <b>not</b> tracked by CDI and therefore not closed by
-     * {@link #closeIndy}. The caller owns its lifecycle and must call {@link Indy#close()} when done. Use this for
-     * work that outlives the request scope so its connection pool stays open until the work completes.
-     *
-     * <p>
-     * MDC-derived headers are captured at construction time, so this must be called on the request thread (before
-     * the work is handed off to another thread) to capture the correct per-request context.
-     */
-    public Indy newIndyServiceAccountClient() {
         try {
             return new Indy(
                     indySiteConfig,
