@@ -257,9 +257,7 @@ public class Driver {
         // per-request MDC context, and close it in the terminal stage of the pipeline below.
         final Indy promotionIndy = beanFactory.newIndyServiceAccountClient();
 
-        // The matching removeActivePromotion() is called exactly once, in the pipeline's terminal stage
-        // (Driver#completePromotion), which always runs when the promotion settles. It is intentionally not
-        // decremented in notifyInvoker, which is fire-and-forget and not reached on every path.
+        // removeActivePromotion is called as the last step of Driver#notifyInvoker
         lifecycle.addActivePromotion();
         // schedule promotion
         executor.runAsync(Context.current().wrap(() -> {
@@ -620,15 +618,16 @@ public class Driver {
                 .onRetry(ctx -> onRetry(ctx, "Callback"))
                 .onFailure(ctx -> logger.error("Unable to send callback."))
                 .onAbort(e -> logger.warn("Callback aborted: {}.", e.getFailure().getMessage()));
-        // The active-promotion counter is intentionally NOT decremented here: this callback is fire-and-forget and
-        // is not reached on every path, so decrementing here in addition to the pipeline's terminal stage would
-        // double-count. The single decrement happens in Driver#completePromotion.
         Failsafe.with(retryPolicy)
                 .with(executor)
                 .getStageAsync(
                         () -> httpClient
                                 .sendAsync(getNotifyHttpRequest(callback, body), HttpResponse.BodyHandlers.ofString())
-                                .thenApply(validateResponse()));
+                                .thenApply(validateResponse()))
+                .handle(Context.current().wrapFunction((r, t) -> {
+                    lifecycle.removeActivePromotion();
+                    return null;
+                }));
     }
 
     private HttpRequest getNotifyHttpRequest(Request callback, String body) {
