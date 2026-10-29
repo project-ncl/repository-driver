@@ -199,7 +199,7 @@
     <dependency>
       <groupId>org.jboss.pnc</groupId>
       <artifactId>pnc-api</artifactId>
-      <version>3.99.1-SNAPSHOT</version>
+      <version>4.0.0</version>
       <classifier>jakarta</classifier>
     </dependency>
     <dependency>
