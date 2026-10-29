@@ -8,8 +8,8 @@ import java.util.Optional;
 import javax.net.ssl.SSLContext;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Disposes;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 
@@ -45,6 +45,7 @@ public class BeanFactory {
 
     protected SiteConfig indySiteConfig;
     protected IndyClientModule[] indyModules;
+    protected Indy indy;
 
     @Inject
     ManagedExecutor executor;
@@ -91,30 +92,19 @@ public class BeanFactory {
                 new IndyPromoteClientModule() };
     }
 
-    /**
-     * Produces a per-request (@Dependent) Indy client. Each instance owns a jhttpc connection manager which starts a
-     * background idle-connection-eviction thread ("jhttpc-connection-manager-cache"). The matching {@link #closeIndy}
-     * disposer is invoked by CDI when the injecting bean is destroyed (end of request), which closes the client and
-     * shuts that thread down. Without the disposer these threads would accumulate one per request and leak.
-     */
     @Produces
-    Indy createIndyServiceAccountClient() {
+    synchronized Indy createIndyServiceAccountClient() {
         try {
-            return new Indy(
+            indy = new Indy(
                     indySiteConfig,
                     indyPNCOAuthBearerAuthenticator,
                     new IndyObjectMapper(true),
                     MdcUtils.mdcToMapWithHeaderKeys(),
                     indyModules);
+            return indy;
         } catch (RepositoryDriverException | IndyClientException e) {
             logger.error("Failed to create Indy client: " + e.getMessage(), e);
             return null;
-        }
-    }
-
-    void closeIndy(@Disposes Indy indy) {
-        if (indy != null) {
-            indy.close();
         }
     }
 
@@ -156,5 +146,10 @@ public class BeanFactory {
     // }
 
     // <<< Indy client required beans - end
+
+    @PreDestroy
+    void destroy() {
+        indy.close();
+    }
 
 }
