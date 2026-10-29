@@ -30,12 +30,13 @@ public class BeanFactoryMock extends BeanFactory {
 
         IndyClientAuthenticator authenticator = new OAuth20BearerTokenAuthenticator("hello");
         try {
-            return new IndyMock(
+            indy = new IndyMock(
                     indySiteConfig,
                     authenticator,
                     new IndyObjectMapper(true),
                     MdcUtils.mdcToMapWithHeaderKeys(),
                     indyModules);
+            return indy;
         } catch (RepositoryDriverException | IndyClientException e) {
             logger.error("Failed to create Indy client: " + e.getMessage(), e);
             return null;
