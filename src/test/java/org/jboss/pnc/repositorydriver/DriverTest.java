@@ -246,10 +246,23 @@ public class DriverTest {
                 .put("/promote")
                 .then()
                 .statusCode(204);
-        Thread.sleep(1500);
 
         // then
-        verify(postRequestedFor(urlEqualTo("/heartbeat")));
+        // The heartbeat is dispatched asynchronously through a shared ManagedExecutor, so the first POST
+        // may take noticeably longer to arrive on a slow/loaded machine. Poll instead of sleeping a fixed
+        // amount to avoid environment-dependent flakiness.
+        long deadline = System.currentTimeMillis() + 15_000;
+        while (true) {
+            try {
+                verify(postRequestedFor(urlEqualTo("/heartbeat")));
+                break;
+            } catch (com.github.tomakehurst.wiremock.client.VerificationException e) {
+                if (System.currentTimeMillis() >= deadline) {
+                    throw e;
+                }
+                Thread.sleep(200);
+            }
+        }
     }
 
     @Test
